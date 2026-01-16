@@ -9,6 +9,7 @@ This is a personal knowledge management system that blends the simplicity and co
 1. **Capture friction** — Most systems force you to decide *where* something goes before you can write it down. This one doesn't.
 2. **Review collapse** — Scheduled reviews fail when life gets chaotic. This system weaves reflection into the natural workflow.
 3. **Retrieval failure** — Analog BuJo is great for thinking but terrible for finding things later. Digital search fixes this.
+4. **Infinite inbox** — Digital systems encourage infinite accumulation. This system requires deliberate migration decisions, preventing the endless growth that makes task lists unusable.
 
 The result: a system that works on disciplined days *and* chaotic ones.
 
@@ -111,17 +112,17 @@ A quick skim of the daily note:
 
 Tasks that matter get migrated to tomorrow, next week, or next month. **Dropping tasks is intentional, not failure** — it's a pressure-release valve that keeps the system light.
 
-If migration doesn't happen for a few days, nothing breaks. The log still provides enough context to continue.
+If migration doesn't happen for a few days, nothing breaks. The log still provides enough context to continue. The Calendar plugin helps surface which notes have unhandled tasks, making it easy to identify days that need migration decisions without requiring a rigid schedule.
 
 ### Weekly, Monthly, Yearly Notes
 
-These provide temporal scaffolding without turning planning into a second job:
+These notes serve as flexible containers for distributing tasks across different time horizons. Rather than being reflective spaces, they're practical tools for task allocation:
 
-- **Weekly notes** — Short-term navigation; tasks and intentions for the coming days
-- **Monthly notes** — Thematic reflection; medium-range direction
-- **Yearly notes** — Long-term themes, values, big arcs
+- **Weekly notes** — Hold tasks scheduled for specific days in the coming week
+- **Monthly notes** — Collect tasks planned for later in the month
+- **Yearly notes** — Store longer-term tasks and commitments
 
-None are rigid. They give shape to the broader picture while staying lightweight.
+The structure is flexible. A task might live in a weekly note until it becomes relevant, then get migrated to a specific daily note when the day arrives. This keeps daily notes focused on today's reality while providing a lightweight way to schedule future work.
 
 ### Extraction: From Chaos to Structure
 
@@ -187,45 +188,6 @@ The center of gravity. Everything starts here. One timeline, one bulleted list, 
 
 ### Temporal Notes (Weekly/Monthly/Yearly)
 Provide structure at different timescales without becoming burdensome. Used only as much as needed.
-
-## Tools & Plugins
-
-The system relies on a minimal set of Obsidian plugins:
-
-- **Periodic Notes** — Auto-generates daily, weekly, monthly, yearly notes
-- **Minimal Theme** — Provides semantic bullets and visual markers
-- **Calendar Plugin** — Surfaces Google Calendar events
-- **Dynamic Embed** — Displays MITs at the top of daily notes
-- **Dataview** — Powers the MIT query and occasional summaries
-- **Custom Extraction Logic** — Lightweight script that moves bullets into Projects/Areas
-
-Each tool serves a specific purpose. No bloat, no over-engineering.
-
-## Key Concepts
-
-### MITs (Most Important Tasks)
-1–3 focus tasks per day, tagged in the log and displayed automatically. Based on research showing that identifying meaningful tasks improves follow-through.
-
-### Rapid Log
-The bulleted daily timeline containing everything captured. Messy by design, transformed through reflection.
-
-### Semantic Bullets
-Visual markers (from Minimal Theme) that provide structure without effort:
-- `[ ]` Task
-- `[x]` Completed
-- `[-]` Cancelled
-- `[>]` Migrated
-- `[<]` Scheduled
-- `?` Question
-- `!` Decision
-- `○` Idea
-- `◆` Meeting (custom)
-
-### Migration
-BuJo-style practice of moving tasks forward or explicitly dropping them. Keeps the system light and prevents guilt-driven backlogs.
-
-### Extraction
-Moving bullet subtrees from daily notes into Projects/Areas. The mechanism that transforms ephemeral logs into durable knowledge.
 
 ## Why This Works
 
