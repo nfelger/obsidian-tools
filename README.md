@@ -14,10 +14,8 @@ The workflow itself blends bullet journaling simplicity with digital searchabili
 
 ## Repository Contents
 
-Currently under development. Planned components:
-
-- **Scripts** — Extraction, migration, and automation utilities
-- **CSS Snippets** — Custom semantic bullets and visual markers
+- **`scripts/`** — Templater user scripts
+- **`snippets/`** — CSS customizations
 
 ## Workflow Overview
 
@@ -30,6 +28,15 @@ Key concepts:
 - **Extraction** — Moving content from daily logs into Projects/Areas when it has lasting value
 - **Migration** — BuJo-style practice of moving tasks forward or explicitly dropping them
 - **PARA-lite** — Simplified organization around Projects (time-bound) and Areas (ongoing)
+
+## Vault Structure
+
+The vault uses a minimal folder organization:
+- **`+Diary/`** — Daily, weekly, monthly, yearly notes
+- **`1 Projekte/`** — Time-bound initiatives
+- **`2 Areas/`** — Ongoing responsibilities
+- **`3 Ressourcen/`** — Timeless resources
+- **`4 Archive/`** — Completed projects and old notes
 
 ## Tech Stack
 
