@@ -146,48 +146,41 @@ Extraction happens during reflection passes. It's the bridge between BuJo's "thi
 The vault is organized around **PARA-lite** — a simplified version of PARA that doesn't enforce rigid rules:
 
 ```
-Daily Notes/
++Diary/
 ├── 2025-01-14 Tue.md
 ├── 2025-01-15 Wed.md
-└── ...
-
-Weekly Notes/
 ├── 2025-W02.md
-└── ...
-
-Monthly Notes/
 ├── 2025-01.md
+├── 2025.md
 └── ...
 
-Yearly Notes/
-└── 2025.md
-
-Projects/
+1 Projekte/
 ├── Migration Initiative.md
 ├── Engineering Update.md
 └── ...
 
-Areas/
+2 Areas/
 ├── Engineering Leadership.md
 ├── Product Strategy.md
 ├── Team Development.md
 └── ...
 
-Resources/ (optional, evolving)
-Archives/ (optional, evolving)
+3 Ressourcen/ (optional, evolving)
+
+4 Archive/ (optional, evolving)
 ```
 
-### Projects
+### Projects (1 Projekte/)
 Time-bound efforts with clear outcomes. They collect extracted material from daily notes. A project note grows only when the work produces content worth keeping.
 
-### Areas
+### Areas (2 Areas/)
 Ongoing responsibilities that don't end. They accumulate higher-level reflections, recurring insights, and decisions that define how you operate in that domain.
 
-### Daily Notes
+### Daily Notes (+Diary/)
 The center of gravity. Everything starts here. One timeline, one bulleted list, everything flows into it.
 
-### Temporal Notes (Weekly/Monthly/Yearly)
-Provide structure at different timescales without becoming burdensome. Used only as much as needed.
+### Temporal Notes (+Diary/)
+Weekly, monthly, and yearly notes provide structure at different timescales without becoming burdensome. Used only as much as needed.
 
 ## Why This Works
 
