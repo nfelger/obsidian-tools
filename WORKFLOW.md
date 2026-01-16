@@ -200,20 +200,3 @@ This system works not because it's perfect, but because it stays usable when lif
 5. **Findability without maintenance** — Search, backlinks, and extracted notes
 
 The system evolves with changing needs without becoming heavier. It's a practical companion, not a rigid method — a way to stay oriented, think clearly, and move through complicated days with a little more ease.
-
-## Open Questions
-
-The system continues to evolve. Current areas of exploration:
-
-- How much PARA structure is actually useful (especially Resources/Archives)
-- Sustainable rhythm for weekly/monthly reviews in practice
-- Whether long-term archiving needs dedicated space
-- How far extraction should go — what counts as "worth preserving"
-- Best practices for balancing work and personal notes in Areas
-- Whether extraction logic should stay minimal or grow in capability
-
-These questions don't need immediate answers. They keep the system honest and evolving at its own pace.
-
----
-
-*This system is a practice, not a dogma. It changes as needs change.*
