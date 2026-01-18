@@ -505,3 +505,6 @@ module.exports = async function extractLog(tp) {
     console.log("extractLog ERROR", e);
   }
 };
+
+// Export helper functions for testing
+module.exports.countIndent = countIndent;
