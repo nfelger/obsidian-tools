@@ -16,34 +16,31 @@ This document describes the testing strategy and constraints for Obsidian Templa
 - `require()` for importing other user scripts is **broken** in Templater v1.10.0+
 - All helper functions must live in the same file as the main function
 
-### Export Patterns
+### Export Pattern
 
-**Option 1: Main function with exported helpers (Recommended)**
+Export an object containing the main function and all testable helpers:
+
 ```javascript
 function helperA() { /* ... */ }
 function helperB() { /* ... */ }
 
-function mainFunction(tp) {
+async function mainFunction(tp) {
   // Use helpers
 }
 
-module.exports = mainFunction;
-module.exports.helperA = helperA;
-module.exports.helperB = helperB;
-```
-
-Usage in template: `<% tp.user.scriptName(tp) %>`
-
-**Option 2: Object of functions**
-```javascript
 module.exports = {
-  mainFunction: function(tp) { /* ... */ },
-  helperA: function() { /* ... */ },
-  helperB: function() { /* ... */ }
+  mainFunction,
+  helperA,
+  helperB
 };
 ```
 
-Usage in template: `<% tp.user.scriptName.mainFunction(tp) %>`
+**Usage in template:** `<% tp.user.scriptName.mainFunction(tp) %>`
+
+**In tests:** Import with destructuring for clean syntax:
+```javascript
+const { helperA, helperB } = require('../../scripts/scriptName.js');
+```
 
 ### Global Variables
 
@@ -106,19 +103,19 @@ tests/
 // tests/unit/extractLog.test.js
 import { describe, it, expect } from 'vitest';
 
-const extractLog = require('../../scripts/extractLog.js');
+const { countIndent } = require('../../scripts/extractLog.js');
 
 describe('countIndent', () => {
   it('counts spaces correctly', () => {
-    expect(extractLog.countIndent('    hello')).toBe(4);
+    expect(countIndent('    hello')).toBe(4);
   });
 
   it('counts tabs correctly', () => {
-    expect(extractLog.countIndent('\t\thello')).toBe(2);
+    expect(countIndent('\t\thello')).toBe(2);
   });
 
   it('returns 0 for no indent', () => {
-    expect(extractLog.countIndent('hello')).toBe(0);
+    expect(countIndent('hello')).toBe(0);
   });
 });
 ```

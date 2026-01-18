@@ -279,7 +279,7 @@ async function copyToClipboard(text) {
 
 // --- main ---
 
-module.exports = async function extractLog(tp) {
+async function extractLog(tp) {
   try {
     debug("start");
 
@@ -504,7 +504,10 @@ module.exports = async function extractLog(tp) {
     );
     console.log("extractLog ERROR", e);
   }
-};
+}
 
-// Export helper functions for testing
-module.exports.countIndent = countIndent;
+// Export main function and helpers
+module.exports = {
+  extractLog,
+  countIndent
+};
