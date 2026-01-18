@@ -1,0 +1,24 @@
+{
+  "name": "obsidian-tools",
+  "version": "1.0.0",
+  "description": "Tools, scripts, and plugins for Obsidian vault and BuJo-inspired workflow",
+  "type": "commonjs",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
+  },
+  "keywords": [
+    "obsidian",
+    "templater",
+    "bullet-journal"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@vitest/coverage-v8": "^1.2.0",
+    "@vitest/ui": "^1.2.0",
+    "vitest": "^1.2.0"
+  }
+}
