@@ -509,5 +509,6 @@ async function extractLog(tp) {
 // Export main function and helpers
 module.exports = {
   extractLog,
-  countIndent
+  countIndent,
+  dedentLines
 };
