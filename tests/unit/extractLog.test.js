@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-const { countIndent, dedentLines, stripListPrefix, stripWikiLinksToDisplayText, buildLineToItemMap, isPureLinkBullet, getListItemAtLine } = require('../../scripts/extractLog.js');
+const { countIndent, dedentLines, stripListPrefix, stripWikiLinksToDisplayText, buildLineToItemMap, isPureLinkBullet, getListItemAtLine, isDescendantOf } = require('../../scripts/extractLog.js');
 
 describe('countIndent', () => {
   it('counts spaces correctly', () => {
@@ -380,5 +380,91 @@ describe('getListItemAtLine', () => {
 
     const result = getListItemAtLine(listItems, 0);
     expect(result.id).toBe('first');
+  });
+});
+
+describe('isDescendantOf', () => {
+  it('returns true for direct child', () => {
+    const item = { parent: 0 };
+    const lineToItem = new Map();
+
+    expect(isDescendantOf(item, 0, lineToItem)).toBe(true);
+  });
+
+  it('returns true for indirect descendant (grandchild)', () => {
+    const grandchild = { parent: 2 };
+    const child = { parent: 0 };
+    const lineToItem = new Map([
+      [2, child]
+    ]);
+
+    expect(isDescendantOf(grandchild, 0, lineToItem)).toBe(true);
+  });
+
+  it('returns true for deep nesting', () => {
+    const item = { parent: 4 };
+    const lineToItem = new Map([
+      [4, { parent: 3 }],
+      [3, { parent: 2 }],
+      [2, { parent: 1 }],
+      [1, { parent: 0 }]
+    ]);
+
+    expect(isDescendantOf(item, 0, lineToItem)).toBe(true);
+  });
+
+  it('returns false when not a descendant', () => {
+    const item = { parent: 5 };
+    const lineToItem = new Map([
+      [5, { parent: 4 }],
+      [4, { parent: -1 }]
+    ]);
+
+    expect(isDescendantOf(item, 0, lineToItem)).toBe(false);
+  });
+
+  it('returns false when item has no parent', () => {
+    const item = { parent: -1 };
+    const lineToItem = new Map();
+
+    expect(isDescendantOf(item, 0, lineToItem)).toBe(false);
+  });
+
+  it('returns false when item parent is non-number', () => {
+    const item = { parent: null };
+    const lineToItem = new Map();
+
+    expect(isDescendantOf(item, 0, lineToItem)).toBe(false);
+  });
+
+  it('returns false when item parent is undefined', () => {
+    const item = {};
+    const lineToItem = new Map();
+
+    expect(isDescendantOf(item, 0, lineToItem)).toBe(false);
+  });
+
+  it('stops when parent not found in lineToItem map', () => {
+    const item = { parent: 2 };
+    const lineToItem = new Map(); // empty map
+
+    expect(isDescendantOf(item, 0, lineToItem)).toBe(false);
+  });
+
+  it('handles partial parent chain', () => {
+    const item = { parent: 3 };
+    const lineToItem = new Map([
+      [3, { parent: 2 }]
+      // parent 2 is not in the map
+    ]);
+
+    expect(isDescendantOf(item, 0, lineToItem)).toBe(false);
+  });
+
+  it('returns false when checking if ancestor is descendant of itself', () => {
+    const item = { parent: -1 };
+    const lineToItem = new Map();
+
+    expect(isDescendantOf(item, 0, lineToItem)).toBe(false);
   });
 });
