@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-const { countIndent, dedentLines, stripListPrefix, stripWikiLinksToDisplayText, buildLineToItemMap } = require('../../scripts/extractLog.js');
+const { countIndent, dedentLines, stripListPrefix, stripWikiLinksToDisplayText, buildLineToItemMap, isPureLinkBullet } = require('../../scripts/extractLog.js');
 
 describe('countIndent', () => {
   it('counts spaces correctly', () => {
@@ -253,5 +253,63 @@ describe('buildLineToItemMap', () => {
     expect(map.size).toBe(2);
     expect(map.get(0)).toBeDefined();
     expect(map.get(3)).toBeDefined();
+  });
+});
+
+describe('isPureLinkBullet', () => {
+  it('returns true for pure link bullet', () => {
+    const firstLink = { matchText: '[[Note]]' };
+    expect(isPureLinkBullet('- [[Note]]', firstLink)).toBe(true);
+  });
+
+  it('returns true for pure link bullet with checkbox', () => {
+    const firstLink = { matchText: '[[Note]]' };
+    expect(isPureLinkBullet('- [ ] [[Note]]', firstLink)).toBe(true);
+    expect(isPureLinkBullet('- [x] [[Note]]', firstLink)).toBe(true);
+  });
+
+  it('returns true for pure link with different bullets', () => {
+    const firstLink = { matchText: '[[Note]]' };
+    expect(isPureLinkBullet('* [[Note]]', firstLink)).toBe(true);
+    expect(isPureLinkBullet('+ [[Note]]', firstLink)).toBe(true);
+  });
+
+  it('returns true for pure link with extra whitespace', () => {
+    const firstLink = { matchText: '[[Note]]' };
+    expect(isPureLinkBullet('-   [[Note]]  ', firstLink)).toBe(true);
+  });
+
+  it('returns false when firstLink is null', () => {
+    expect(isPureLinkBullet('- [[Note]]', null)).toBe(false);
+  });
+
+  it('returns false when firstLink is undefined', () => {
+    expect(isPureLinkBullet('- [[Note]]', undefined)).toBe(false);
+  });
+
+  it('returns false for link with text after', () => {
+    const firstLink = { matchText: '[[Note]]' };
+    expect(isPureLinkBullet('- [[Note]] extra text', firstLink)).toBe(false);
+  });
+
+  it('returns false for link with text before', () => {
+    const firstLink = { matchText: '[[Note]]' };
+    expect(isPureLinkBullet('- prefix [[Note]]', firstLink)).toBe(false);
+  });
+
+  it('returns false for multiple links', () => {
+    const firstLink = { matchText: '[[Note1]]' };
+    expect(isPureLinkBullet('- [[Note1]] [[Note2]]', firstLink)).toBe(false);
+  });
+
+  it('returns false for embedded image link', () => {
+    const firstLink = { matchText: '[[Note]]' };
+    // Has both an image and a link
+    expect(isPureLinkBullet('- ![[Image]] [[Note]]', firstLink)).toBe(false);
+  });
+
+  it('returns false when stripped text does not match', () => {
+    const firstLink = { matchText: '[[Different]]' };
+    expect(isPureLinkBullet('- [[Note]]', firstLink)).toBe(false);
   });
 });
