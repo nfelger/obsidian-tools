@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-const { countIndent, dedentLines, stripListPrefix } = require('../../scripts/extractLog.js');
+const { countIndent, dedentLines, stripListPrefix, stripWikiLinksToDisplayText } = require('../../scripts/extractLog.js');
 
 describe('countIndent', () => {
   it('counts spaces correctly', () => {
@@ -129,5 +129,55 @@ describe('stripListPrefix', () => {
   it('handles multiple spaces after bullet', () => {
     expect(stripListPrefix('-  Multiple spaces')).toBe('Multiple spaces');
     expect(stripListPrefix('- [ ]  Multiple spaces')).toBe('Multiple spaces');
+  });
+});
+
+describe('stripWikiLinksToDisplayText', () => {
+  it('extracts page name from simple link', () => {
+    expect(stripWikiLinksToDisplayText('[[Note]]')).toBe('Note');
+    expect(stripWikiLinksToDisplayText('text [[Note]] more')).toBe('text Note more');
+  });
+
+  it('extracts section name from link with section', () => {
+    expect(stripWikiLinksToDisplayText('[[Note#Section]]')).toBe('Section');
+    expect(stripWikiLinksToDisplayText('[[Note#My Section]]')).toBe('My Section');
+  });
+
+  it('extracts alias from link with alias', () => {
+    expect(stripWikiLinksToDisplayText('[[Note|Alias]]')).toBe('Alias');
+    expect(stripWikiLinksToDisplayText('[[Note|My Alias]]')).toBe('My Alias');
+  });
+
+  it('extracts alias from link with section and alias', () => {
+    expect(stripWikiLinksToDisplayText('[[Note#Section|Alias]]')).toBe('Alias');
+  });
+
+  it('handles multiple links in text', () => {
+    expect(stripWikiLinksToDisplayText('[[Note1]] and [[Note2]]')).toBe('Note1 and Note2');
+    expect(stripWikiLinksToDisplayText('[[A|Alias1]] to [[B#Sec]]')).toBe('Alias1 to Sec');
+  });
+
+  it('preserves text without links', () => {
+    expect(stripWikiLinksToDisplayText('Just text')).toBe('Just text');
+    expect(stripWikiLinksToDisplayText('No links here')).toBe('No links here');
+  });
+
+  it('handles empty string', () => {
+    expect(stripWikiLinksToDisplayText('')).toBe('');
+  });
+
+  it('handles link with only section marker (no section text)', () => {
+    expect(stripWikiLinksToDisplayText('[[Note#]]')).toBe('Note');
+  });
+
+  it('trims whitespace from extracted text', () => {
+    expect(stripWikiLinksToDisplayText('[[ Note ]]')).toBe('Note');
+    expect(stripWikiLinksToDisplayText('[[Note#Section ]]')).toBe('Section');
+    expect(stripWikiLinksToDisplayText('[[Note| Alias ]]')).toBe('Alias');
+  });
+
+  it('handles complex nested pipes in alias', () => {
+    // Multiple pipes - everything after first pipe is the alias
+    expect(stripWikiLinksToDisplayText('[[Note|Alias|Extra]]')).toBe('Alias|Extra');
   });
 });

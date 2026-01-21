@@ -511,5 +511,6 @@ module.exports = {
   extractLog,
   countIndent,
   dedentLines,
-  stripListPrefix
+  stripListPrefix,
+  stripWikiLinksToDisplayText
 };
