@@ -512,5 +512,6 @@ module.exports = {
   countIndent,
   dedentLines,
   stripListPrefix,
-  stripWikiLinksToDisplayText
+  stripWikiLinksToDisplayText,
+  buildLineToItemMap
 };

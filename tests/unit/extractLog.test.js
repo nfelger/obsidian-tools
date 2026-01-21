@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-const { countIndent, dedentLines, stripListPrefix, stripWikiLinksToDisplayText } = require('../../scripts/extractLog.js');
+const { countIndent, dedentLines, stripListPrefix, stripWikiLinksToDisplayText, buildLineToItemMap } = require('../../scripts/extractLog.js');
 
 describe('countIndent', () => {
   it('counts spaces correctly', () => {
@@ -179,5 +179,79 @@ describe('stripWikiLinksToDisplayText', () => {
   it('handles complex nested pipes in alias', () => {
     // Multiple pipes - everything after first pipe is the alias
     expect(stripWikiLinksToDisplayText('[[Note|Alias|Extra]]')).toBe('Alias|Extra');
+  });
+});
+
+describe('buildLineToItemMap', () => {
+  it('builds map from valid list items', () => {
+    const listItems = [
+      { position: { start: { line: 0 } }, parent: -1 },
+      { position: { start: { line: 1 } }, parent: 0 },
+      { position: { start: { line: 3 } }, parent: 0 }
+    ];
+
+    const map = buildLineToItemMap(listItems);
+
+    expect(map.size).toBe(3);
+    expect(map.get(0)).toEqual(listItems[0]);
+    expect(map.get(1)).toEqual(listItems[1]);
+    expect(map.get(3)).toEqual(listItems[2]);
+    expect(map.get(2)).toBeUndefined();
+  });
+
+  it('returns empty map for null input', () => {
+    const map = buildLineToItemMap(null);
+    expect(map).toBeInstanceOf(Map);
+    expect(map.size).toBe(0);
+  });
+
+  it('returns empty map for undefined input', () => {
+    const map = buildLineToItemMap(undefined);
+    expect(map).toBeInstanceOf(Map);
+    expect(map.size).toBe(0);
+  });
+
+  it('returns empty map for empty array', () => {
+    const map = buildLineToItemMap([]);
+    expect(map).toBeInstanceOf(Map);
+    expect(map.size).toBe(0);
+  });
+
+  it('skips items without position', () => {
+    const listItems = [
+      { position: { start: { line: 0 } } },
+      { parent: 0 }, // no position
+      { position: { start: { line: 2 } } }
+    ];
+
+    const map = buildLineToItemMap(listItems);
+    expect(map.size).toBe(2);
+    expect(map.get(0)).toBeDefined();
+    expect(map.get(2)).toBeDefined();
+  });
+
+  it('skips items without position.start', () => {
+    const listItems = [
+      { position: { start: { line: 0 } } },
+      { position: { end: { line: 1 } } }, // no start
+      { position: { start: { line: 2 } } }
+    ];
+
+    const map = buildLineToItemMap(listItems);
+    expect(map.size).toBe(2);
+  });
+
+  it('skips items with non-number line values', () => {
+    const listItems = [
+      { position: { start: { line: 0 } } },
+      { position: { start: { line: '1' } } }, // string instead of number
+      { position: { start: { line: null } } },
+      { position: { start: { line: 3 } } }
+    ];
+
+    const map = buildLineToItemMap(listItems);
+    expect(map.size).toBe(2);
+    expect(map.get(0)).toBeDefined();
+    expect(map.get(3)).toBeDefined();
   });
 });
