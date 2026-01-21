@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-const { countIndent, dedentLines } = require('../../scripts/extractLog.js');
+const { countIndent, dedentLines, stripListPrefix } = require('../../scripts/extractLog.js');
 
 describe('countIndent', () => {
   it('counts spaces correctly', () => {
@@ -78,5 +78,56 @@ describe('dedentLines', () => {
     const input = ['    line 1', '', '  line 2'];
     const expected = ['  line 1', '', 'line 2'];
     expect(dedentLines(input)).toEqual(expected);
+  });
+});
+
+describe('stripListPrefix', () => {
+  it('removes simple bullet', () => {
+    expect(stripListPrefix('- Foo')).toBe('Foo');
+  });
+
+  it('removes bullet with leading whitespace', () => {
+    expect(stripListPrefix('  - Foo')).toBe('Foo');
+    expect(stripListPrefix('\t- Foo')).toBe('Foo');
+  });
+
+  it('removes bullet with unchecked checkbox', () => {
+    expect(stripListPrefix('- [ ] Task')).toBe('Task');
+    expect(stripListPrefix('  - [ ] Task')).toBe('Task');
+  });
+
+  it('removes bullet with checked checkbox', () => {
+    expect(stripListPrefix('- [x] Done')).toBe('Done');
+    expect(stripListPrefix('- [X] Done')).toBe('Done');
+  });
+
+  it('removes bullet with custom checkbox markers', () => {
+    expect(stripListPrefix('- [o] Custom')).toBe('Custom');
+    expect(stripListPrefix('- [-] Cancelled')).toBe('Cancelled');
+    expect(stripListPrefix('- [>] Forwarded')).toBe('Forwarded');
+  });
+
+  it('handles different bullet types', () => {
+    expect(stripListPrefix('* Item')).toBe('Item');
+    expect(stripListPrefix('+ Item')).toBe('Item');
+    expect(stripListPrefix('- Item')).toBe('Item');
+  });
+
+  it('preserves content without bullets', () => {
+    expect(stripListPrefix('Just text')).toBe('Just text');
+    expect(stripListPrefix('No bullet here')).toBe('No bullet here');
+  });
+
+  it('handles empty string', () => {
+    expect(stripListPrefix('')).toBe('');
+  });
+
+  it('preserves content after list prefix', () => {
+    expect(stripListPrefix('- Item with - dash')).toBe('Item with - dash');
+  });
+
+  it('handles multiple spaces after bullet', () => {
+    expect(stripListPrefix('-  Multiple spaces')).toBe('Multiple spaces');
+    expect(stripListPrefix('- [ ]  Multiple spaces')).toBe('Multiple spaces');
   });
 });

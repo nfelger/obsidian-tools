@@ -510,5 +510,6 @@ async function extractLog(tp) {
 module.exports = {
   extractLog,
   countIndent,
-  dedentLines
+  dedentLines,
+  stripListPrefix
 };
