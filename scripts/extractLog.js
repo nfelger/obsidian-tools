@@ -514,5 +514,6 @@ module.exports = {
   stripListPrefix,
   stripWikiLinksToDisplayText,
   buildLineToItemMap,
+  getListItemAtLine,
   isPureLinkBullet
 };

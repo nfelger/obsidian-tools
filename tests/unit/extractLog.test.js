@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-const { countIndent, dedentLines, stripListPrefix, stripWikiLinksToDisplayText, buildLineToItemMap, isPureLinkBullet } = require('../../scripts/extractLog.js');
+const { countIndent, dedentLines, stripListPrefix, stripWikiLinksToDisplayText, buildLineToItemMap, isPureLinkBullet, getListItemAtLine } = require('../../scripts/extractLog.js');
 
 describe('countIndent', () => {
   it('counts spaces correctly', () => {
@@ -311,5 +311,74 @@ describe('isPureLinkBullet', () => {
   it('returns false when stripped text does not match', () => {
     const firstLink = { matchText: '[[Different]]' };
     expect(isPureLinkBullet('- [[Note]]', firstLink)).toBe(false);
+  });
+});
+
+describe('getListItemAtLine', () => {
+  it('finds item at specific line', () => {
+    const listItems = [
+      { position: { start: { line: 0 } }, id: 'item0' },
+      { position: { start: { line: 2 } }, id: 'item2' },
+      { position: { start: { line: 5 } }, id: 'item5' }
+    ];
+
+    const result = getListItemAtLine(listItems, 2);
+    expect(result).toEqual({ position: { start: { line: 2 } }, id: 'item2' });
+  });
+
+  it('returns null for line not found', () => {
+    const listItems = [
+      { position: { start: { line: 0 } } },
+      { position: { start: { line: 2 } } }
+    ];
+
+    expect(getListItemAtLine(listItems, 1)).toBeNull();
+    expect(getListItemAtLine(listItems, 10)).toBeNull();
+  });
+
+  it('returns null for null listItems', () => {
+    expect(getListItemAtLine(null, 0)).toBeNull();
+  });
+
+  it('returns null for undefined listItems', () => {
+    expect(getListItemAtLine(undefined, 0)).toBeNull();
+  });
+
+  it('returns null for empty array', () => {
+    expect(getListItemAtLine([], 0)).toBeNull();
+  });
+
+  it('skips items without position', () => {
+    const listItems = [
+      { id: 'no-position' },
+      { position: { start: { line: 1 } }, id: 'item1' }
+    ];
+
+    expect(getListItemAtLine(listItems, 1)).toEqual({
+      position: { start: { line: 1 } },
+      id: 'item1'
+    });
+  });
+
+  it('skips items without position.start', () => {
+    const listItems = [
+      { position: { end: { line: 0 } } },
+      { position: { start: { line: 1 } }, id: 'item1' }
+    ];
+
+    expect(getListItemAtLine(listItems, 1)).toEqual({
+      position: { start: { line: 1 } },
+      id: 'item1'
+    });
+  });
+
+  it('returns first item if multiple items at same line', () => {
+    const listItems = [
+      { position: { start: { line: 0 } }, id: 'first' },
+      { position: { start: { line: 0 } }, id: 'second' }
+    ];
+
+    const result = getListItemAtLine(listItems, 0);
+    expect(result.id).toBe('first');
   });
 });
