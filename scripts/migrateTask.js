@@ -234,7 +234,286 @@ function isIncompleteTask(line) {
  * @param {object} tp - Templater object
  */
 async function migrateTask(tp) {
-  // TODO: Implement
+  try {
+    // Get Obsidian app
+    const obsidianApp = getObsidianApp(tp);
+    const vault = obsidianApp.vault;
+    const metadataCache = obsidianApp.metadataCache;
+
+    // Get active editor and file
+    const leaf = obsidianApp.workspace.activeLeaf;
+    const view = leaf && leaf.view;
+    if (!view || view.getViewType() !== 'markdown') {
+      showNotice('migrateTask: No active markdown view.');
+      return;
+    }
+
+    const editor = view.editor;
+    const file = view.file;
+    if (!file) {
+      showNotice('migrateTask: No active file.');
+      return;
+    }
+
+    // Get current line
+    const cursor = editor.getCursor();
+    const currentLine = cursor.line;
+    const lineText = editor.getLine(currentLine);
+
+    // Check if cursor is on an incomplete task
+    if (!isIncompleteTask(lineText)) {
+      showNotice('migrateTask: Cursor is not on an incomplete task.');
+      return;
+    }
+
+    // Parse note type
+    const noteInfo = parseNoteType(file.basename);
+    if (!noteInfo) {
+      showNotice('migrateTask: This is not a periodic note.');
+      return;
+    }
+
+    // Calculate target note path
+    const targetPath = getNextNotePath(noteInfo, DIARY_FOLDER) + '.md';
+
+    // Check if target note exists
+    const targetFile = vault.getAbstractFileByPath(targetPath);
+    if (!targetFile) {
+      showNotice(`migrateTask: Target note does not exist: ${targetPath}`);
+      return;
+    }
+
+    // Get list items metadata for finding children
+    const fileCache = metadataCache.getFileCache(file);
+    const listItems = fileCache && fileCache.listItems;
+
+    // Find children of current line
+    const children = findChildrenLines(editor, listItems, currentLine);
+
+    // Build content to migrate (parent line + children)
+    // Strip parent's leading indentation for clean migration
+    const parentIndent = countIndent(lineText);
+    const parentLineStripped = lineText.slice(parentIndent);
+    let contentToMigrate = parentLineStripped;
+    if (children && children.lines.length > 0) {
+      // Dedent children by parent's indent level to preserve relative structure
+      const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
+      contentToMigrate += '\n' + dedentedChildren.join('\n');
+    }
+
+    // Add to target note under ## Migrated
+    await vault.process(targetFile, (data) => {
+      return insertUnderMigratedHeading(data, contentToMigrate);
+    });
+
+    // Mark source line as migrated
+    const migratedLine = lineText.replace(/^(\s*- )\[ \]/, '$1[>]');
+    editor.setLine(currentLine, migratedLine);
+
+    // Remove children from source
+    if (children && children.lines.length > 0) {
+      editor.replaceRange(
+        '',
+        { line: children.startLine, ch: 0 },
+        { line: children.endLine, ch: 0 }
+      );
+    }
+
+    showNotice('migrateTask: Task migrated successfully.');
+  } catch (e) {
+    showNotice(`migrateTask ERROR: ${e && e.message ? e.message : String(e)}`);
+    console.log('migrateTask ERROR', e);
+  }
+}
+
+// --- Helper functions ---
+
+function showNotice(msg, timeout = 3000) {
+  try {
+    if (typeof Notice !== 'undefined') {
+      new Notice(msg, timeout);
+    } else {
+      console.log('migrateTask notice:', msg);
+    }
+  } catch (e) {
+    console.log('migrateTask notice error:', e, msg);
+  }
+}
+
+function getObsidianApp(tp) {
+  if (typeof app !== 'undefined') {
+    return app;
+  }
+  if (tp && tp.app) {
+    return tp.app;
+  }
+  throw new Error('Obsidian app object not available');
+}
+
+/**
+ * Count leading whitespace characters
+ */
+function countIndent(line) {
+  let i = 0;
+  while (i < line.length && (line[i] === ' ' || line[i] === '\t')) {
+    i++;
+  }
+  return i;
+}
+
+/**
+ * Remove minimal common indent from all lines
+ */
+function dedentLines(lines) {
+  if (!lines || lines.length === 0) return [];
+
+  let minIndent = null;
+  for (const line of lines) {
+    if (line.trim() === '') continue;
+    const indent = countIndent(line);
+    if (minIndent === null || indent < minIndent) {
+      minIndent = indent;
+    }
+  }
+
+  if (minIndent === null || minIndent === 0) {
+    return lines.slice();
+  }
+
+  return lines.map(line => {
+    if (line.trim() === '') return '';
+    return line.slice(minIndent);
+  });
+}
+
+/**
+ * Remove a specific amount of indent from all lines
+ */
+function dedentLinesByAmount(lines, amount) {
+  if (!lines || lines.length === 0 || amount <= 0) return lines.slice();
+
+  return lines.map(line => {
+    if (line.trim() === '') return '';
+    const indent = countIndent(line);
+    const toRemove = Math.min(indent, amount);
+    return line.slice(toRemove);
+  });
+}
+
+/**
+ * Build a map from line number to list item
+ */
+function buildLineToItemMap(listItems) {
+  const map = new Map();
+  if (!listItems) return map;
+  for (const li of listItems) {
+    if (li.position && li.position.start && typeof li.position.start.line === 'number') {
+      map.set(li.position.start.line, li);
+    }
+  }
+  return map;
+}
+
+/**
+ * Check if an item is a descendant of a given ancestor line
+ */
+function isDescendantOf(item, ancestorLine, lineToItem) {
+  let parentLine = item.parent;
+  while (typeof parentLine === 'number' && parentLine >= 0) {
+    if (parentLine === ancestorLine) return true;
+    const parentItem = lineToItem.get(parentLine);
+    if (!parentItem) break;
+    parentLine = parentItem.parent;
+  }
+  return false;
+}
+
+/**
+ * Find all children lines of a parent line
+ */
+function findChildrenLines(editor, listItems, parentLine) {
+  if (!listItems || listItems.length === 0) return null;
+
+  const lineToItem = buildLineToItemMap(listItems);
+  const parentItem = lineToItem.get(parentLine);
+  if (!parentItem) return null;
+
+  const childItems = [];
+  for (const li of listItems) {
+    if (!li.position || !li.position.start) continue;
+    const startLine = li.position.start.line;
+    if (startLine <= parentLine) continue;
+    if (isDescendantOf(li, parentLine, lineToItem)) {
+      childItems.push(li);
+    }
+  }
+
+  if (childItems.length === 0) return null;
+
+  // Find the range of child lines
+  let minStart = Infinity;
+  let maxEnd = -1;
+  for (const ci of childItems) {
+    const s = ci.position.start.line;
+    const e = ci.position.end.line;
+    if (s < minStart) minStart = s;
+    if (e > maxEnd) maxEnd = e;
+  }
+
+  if (!isFinite(minStart) || maxEnd < minStart) return null;
+
+  const endExclusive = Math.min(maxEnd + 1, editor.lineCount());
+  const lines = [];
+  for (let i = minStart; i < endExclusive; i++) {
+    lines.push(editor.getLine(i));
+  }
+
+  return {
+    startLine: minStart,
+    endLine: endExclusive,
+    lines
+  };
+}
+
+/**
+ * Insert content under ## Migrated heading, creating it if necessary
+ */
+function insertUnderMigratedHeading(content, taskContent) {
+  const lines = content.split('\n');
+
+  // Find ## Migrated heading
+  let migratedLineIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].match(/^## Migrated\s*$/)) {
+      migratedLineIdx = i;
+      break;
+    }
+  }
+
+  if (migratedLineIdx >= 0) {
+    // Insert after the heading
+    lines.splice(migratedLineIdx + 1, 0, taskContent);
+    return lines.join('\n');
+  }
+
+  // Need to create ## Migrated heading
+  // Find where to insert (after frontmatter if present)
+  let insertIdx = 0;
+
+  // Check for frontmatter
+  if (lines[0] === '---') {
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i] === '---') {
+        insertIdx = i + 1;
+        break;
+      }
+    }
+  }
+
+  // Insert ## Migrated heading and task
+  const newContent = ['## Migrated', taskContent];
+  lines.splice(insertIdx, 0, ...newContent);
+  return lines.join('\n');
 }
 
 module.exports = {
@@ -249,5 +528,12 @@ module.exports = {
   formatDailyPath,
   getWeekdayAbbrev,
   getMonthAbbrev,
+  countIndent,
+  dedentLines,
+  dedentLinesByAmount,
+  buildLineToItemMap,
+  isDescendantOf,
+  findChildrenLines,
+  insertUnderMigratedHeading,
   DIARY_FOLDER
 };
