@@ -73,17 +73,18 @@ TypeScript is **supported** but requires compilation:
 
 ```
 tests/
-├── unit/                      # Pure function tests
-│   ├── extractLog.test.js
-│   └── handleNewNote.test.js
-├── integration/               # Full flow tests with mocks
-│   └── extractLog.integration.test.js
-├── helpers/                   # Test utilities
-│   ├── markdownParser.js      # Parse markdown → Obsidian metadata
-│   └── extractLogTestHelper.js # Markdown-first test builder
-├── mocks/                     # Mock factories
-│   └── obsidian.js            # Mock app, vault, editor, tp
-└── vitest.setup.js            # Global test setup
+├── unit/                               # Pure function tests
+│   └── extractLog.test.js
+├── integration/                        # Full flow tests with mocks
+│   ├── extractLog.integration.test.js
+│   └── handleNewNote.integration.test.js
+├── helpers/                            # Test utilities
+│   ├── markdownParser.js               # Parse markdown → Obsidian metadata
+│   ├── extractLogTestHelper.js         # Markdown-first test builder
+│   └── handleNewNoteTestHelper.js      # UI workflow test builder
+├── mocks/                              # Mock factories
+│   └── obsidian.js                     # Mock app, vault, editor, tp
+└── vitest.setup.js                     # Global test setup
 ```
 
 ### Testing Approach
@@ -170,6 +171,35 @@ it('extracts children to target note with wikilink', async () => {
 2. `extractLogTestHelper.js` sets up mocks with state tracking
 3. Script executes against realistic mock environment
 4. Helper returns final markdown state for assertions
+
+### Example: Integration Testing UI Workflows
+
+Not all scripts transform markdown. Some orchestrate UI interactions and file operations. For these **UI workflow scripts**, use a different helper pattern:
+
+```javascript
+// tests/integration/handleNewNote.integration.test.js
+import { testHandleNewNote } from '../helpers/handleNewNoteTestHelper.js';
+
+it('filters out hidden folders', async () => {
+  const result = await testHandleNewNote({
+    folders: ['visible', '.hidden', 'parent/.hidden/child'],
+    fileName: 'Test',
+    userChoice: 'visible'
+  });
+
+  expect(result.displayedFolders).toEqual(['/ (root)', 'visible']);
+  expect(result.createdPath).toBe('visible/Test.md');
+});
+```
+
+**Key differences from markdown-first:**
+- **Input:** Configuration objects (folders, choices) instead of markdown strings
+- **Output:** Structured results (displayedFolders, createdPath, openedFile)
+- **Focus:** User interactions and file operations, not markdown transformations
+
+**When to use each pattern:**
+- **Markdown-first** - Scripts that transform markdown content (`extractLog.js`)
+- **UI workflow pattern** - Scripts that orchestrate file operations and UI dialogs (`handleNewNote.js`)
 
 ### When to Use Which Test Type
 
