@@ -85,15 +85,7 @@ npm run test:ui
 ```
 obsidian-tools/
 ├── scripts/           # Templater user scripts
-│   ├── extractLog.js
-│   └── handleNewNote.js
 ├── snippets/          # CSS customizations
 ├── tests/             # Test suite
-│   ├── unit/
-│   ├── integration/
-│   ├── helpers/
-│   └── mocks/
 └── docs/              # Documentation
-    ├── WORKFLOW.md
-    └── TESTING.md
 ```
