@@ -73,15 +73,17 @@ TypeScript is **supported** but requires compilation:
 
 ```
 tests/
-├── unit/              # Pure function tests
+├── unit/                      # Pure function tests
 │   ├── extractLog.test.js
 │   └── handleNewNote.test.js
-├── integration/       # Full flow tests with mocks
+├── integration/               # Full flow tests with mocks
 │   └── extractLog.integration.test.js
-├── mocks/             # Mock factories
-│   ├── obsidian.js    # Mock app, vault, editor
-│   └── templater.js   # Mock tp object
-└── vitest.setup.js    # Global test setup
+├── helpers/                   # Test utilities
+│   ├── markdownParser.js      # Parse markdown → Obsidian metadata
+│   └── extractLogTestHelper.js # Markdown-first test builder
+├── mocks/                     # Mock factories
+│   └── obsidian.js            # Mock app, vault, editor, tp
+└── vitest.setup.js            # Global test setup
 ```
 
 ### Testing Approach
@@ -92,6 +94,8 @@ tests/
 - Aim for 95%+ coverage on helpers
 
 **Integration Tests: Test Main Functions**
+- Use markdown-first approach for readable tests
+- Test user-visible transformations, not implementation details
 - Mock Obsidian APIs (`app`, `vault`, `editor`)
 - Mock Templater `tp` object
 - Test full workflows with realistic scenarios
@@ -119,6 +123,91 @@ describe('countIndent', () => {
   });
 });
 ```
+
+### Example: Integration Testing with Markdown-First Approach
+
+Integration tests use a **markdown-first** approach that makes tests readable and focused on user-visible transformations:
+
+```javascript
+// tests/integration/extractLog.integration.test.js
+import { testExtractLog } from '../helpers/extractLogTestHelper.js';
+
+it('extracts children to target note with wikilink', async () => {
+  const result = await testExtractLog({
+    source: `
+- [[Target Note]]
+  - Child 1
+  - Child 2
+    `,
+    targetNotes: {
+      'Target Note': `
+## Log
+      `
+    }
+  });
+
+  expect(result.source).toBe('- [[Target Note#daily|Target Note]]');
+
+  expect(result.target('Target Note')).toBe(`
+## Log
+
+### [[daily]]
+
+- Child 1
+- Child 2
+  `.trim());
+});
+```
+
+**Key features of this approach:**
+- **Input as markdown strings** - Easy to read and write test cases
+- **Automatic metadata generation** - Parser converts markdown to Obsidian's internal structures
+- **State tracking** - Helper tracks modifications to source and target notes
+- **Clean assertions** - Test the markdown output, not the mock API calls
+
+**Behind the scenes:**
+1. `markdownParser.js` converts markdown → Obsidian listItems metadata
+2. `extractLogTestHelper.js` sets up mocks with state tracking
+3. Script executes against realistic mock environment
+4. Helper returns final markdown state for assertions
+
+### When to Use Which Test Type
+
+**Use Unit Tests when:**
+- Testing pure functions (no side effects)
+- Function logic is complex and needs edge case coverage
+- Fast feedback is important (unit tests run instantly)
+- Examples: `countIndent()`, `dedentLines()`, `isDescendantOf()`
+
+**Use Integration Tests when:**
+- Testing the main workflow end-to-end
+- Validating markdown transformations
+- Ensuring multiple components work together
+- Examples: Full `extractLog()` flow, note creation workflows
+
+**Don't test:**
+- Obsidian internals (trust the framework)
+- Third-party libraries (trust their tests)
+- Simple getters/setters with no logic
+
+### Coverage Goals
+
+Current test coverage achievements:
+
+```
+File                  | % Stmts | % Branch | % Funcs | % Lines
+----------------------|---------|----------|---------|--------
+All files             |   92.54 |    92.48 |     100 |   92.54
+ extractLog.js        |   91.66 |    91.30 |     100 |   91.66
+ handleNewNote.js     |     100 |      100 |     100 |     100
+```
+
+**Target coverage:**
+- **Functions:** 100% (all functions should be tested)
+- **Branches:** 90%+ (most code paths covered)
+- **Statements:** 85%+ (reasonable coverage without over-testing)
+
+**Philosophy:** Focus on testing behavior that matters to users, not achieving 100% coverage for its own sake.
 
 ### Running Tests
 

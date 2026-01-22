@@ -40,9 +40,60 @@ The vault uses a minimal folder organization:
 
 ## Tech Stack
 
-- **Obsidian** — Core workspace
+**Obsidian Plugins:**
 - **Periodic Notes** — Auto-generates daily/weekly/monthly/yearly notes
 - **Minimal Theme** — Semantic bullets and visual markers
 - **Calendar Plugin** — Provides navigation for period notes; highlights notes with unhandled tasks
-- **Templater** — Note templates
+- **Templater** — Note templates and user scripts
 - **Dataview** — Queries and summaries
+
+**Development:**
+- **Vitest** — Testing framework for user scripts
+- **Node.js** — Development environment
+
+## Development
+
+### Testing
+
+This repository includes comprehensive tests for all Templater user scripts.
+
+```bash
+# Install dependencies
+npm install
+
+# Run all tests
+npm test
+
+# Watch mode (re-run on file changes)
+npm run test:watch
+
+# Coverage report
+npm run test:coverage
+
+# Interactive UI
+npm run test:ui
+```
+
+**Testing approach:**
+- Unit tests for pure helper functions (95%+ coverage)
+- Integration tests with markdown-first approach for main workflows
+- Mock factories for Obsidian APIs
+- See [TESTING.md](TESTING.md) for full documentation
+
+### Project Structure
+
+```
+obsidian-tools/
+├── scripts/           # Templater user scripts
+│   ├── extractLog.js
+│   └── handleNewNote.js
+├── snippets/          # CSS customizations
+├── tests/             # Test suite
+│   ├── unit/
+│   ├── integration/
+│   ├── helpers/
+│   └── mocks/
+└── docs/              # Documentation
+    ├── WORKFLOW.md
+    └── TESTING.md
+```
