@@ -516,24 +516,25 @@ function insertUnderMigratedHeading(content, taskContent) {
   return lines.join('\n');
 }
 
-module.exports = {
-  migrateTask,
-  parseNoteType,
-  isLastDayOfWeek,
-  isDecember,
-  getNextNotePath,
-  isIncompleteTask,
-  getISOWeekNumber,
-  getMondayOfISOWeek,
-  formatDailyPath,
-  getWeekdayAbbrev,
-  getMonthAbbrev,
-  countIndent,
-  dedentLines,
-  dedentLinesByAmount,
-  buildLineToItemMap,
-  isDescendantOf,
-  findChildrenLines,
-  insertUnderMigratedHeading,
-  DIARY_FOLDER
-};
+// Export main function directly for Templater compatibility
+// Attach helpers as properties for testing
+module.exports = migrateTask;
+module.exports.migrateTask = migrateTask;
+module.exports.parseNoteType = parseNoteType;
+module.exports.isLastDayOfWeek = isLastDayOfWeek;
+module.exports.isDecember = isDecember;
+module.exports.getNextNotePath = getNextNotePath;
+module.exports.isIncompleteTask = isIncompleteTask;
+module.exports.getISOWeekNumber = getISOWeekNumber;
+module.exports.getMondayOfISOWeek = getMondayOfISOWeek;
+module.exports.formatDailyPath = formatDailyPath;
+module.exports.getWeekdayAbbrev = getWeekdayAbbrev;
+module.exports.getMonthAbbrev = getMonthAbbrev;
+module.exports.countIndent = countIndent;
+module.exports.dedentLines = dedentLines;
+module.exports.dedentLinesByAmount = dedentLinesByAmount;
+module.exports.buildLineToItemMap = buildLineToItemMap;
+module.exports.isDescendantOf = isDescendantOf;
+module.exports.findChildrenLines = findChildrenLines;
+module.exports.insertUnderMigratedHeading = insertUnderMigratedHeading;
+module.exports.DIARY_FOLDER = DIARY_FOLDER;
