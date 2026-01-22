@@ -137,7 +137,7 @@ Traditional productivity systems (GTD, PARA, task apps) struggle with:
 ### Tech Stack
 
 **Production:**
-- JavaScript (ES5-compatible, CommonJS modules only)
+- JavaScript (ES6+, CommonJS modules only)
 - Obsidian API (vault, workspace, metadataCache)
 - Templater API (tp.system.suggester, tp.file, tp.config)
 
@@ -163,7 +163,7 @@ export function mainFunction() { }
 import { helper } from './other.js';
 ```
 
-**Why:** Scripts are executed via `window.eval()`, which doesn't support ES6 module syntax.
+**Why:** Scripts are executed via `window.eval()`, which doesn't support ES6 module syntax (import/export). However, `eval()` fully supports all other ES6+ features since it runs in the same JavaScript engine context.
 
 ---
 
@@ -214,20 +214,33 @@ module.exports = {
 const { helperA, helperB } = require('../../scripts/scriptName.js');
 ```
 
-### 3. ES5 Compatibility
+### 3. Modern JavaScript Support
 
-Production code in `scripts/` should be ES5-compatible:
+**ES6+ Features ARE Supported:**
+
+Obsidian runs on Electron 34+ (Chromium), which **fully supports modern JavaScript**:
 ```javascript
-// ✅ CORRECT
-var items = array.filter(function(item) {
-  return item.value > 0;
-});
-
-// ⚠️ AVOID in production (though may work)
+// ✅ ALL of these work perfectly fine
 const items = array.filter(item => item.value > 0);
+let count = 0;
+const message = `Found ${count} items`;
+const { prop1, prop2 } = object;
+async function myFunction() { await somePromise(); }
 ```
 
-**Test code can use modern JavaScript** - tests run in Node.js, not Obsidian's eval context.
+**The ONLY limitation is ES6 module syntax:**
+```javascript
+// ❌ WRONG - Import/export statements don't work
+import { helper } from './other.js';
+export function mainFunction() { }
+
+// ✅ CORRECT - Use CommonJS instead
+const { helper } = require('./other.js');
+module.exports = { mainFunction };
+```
+
+**Why the scripts use ES5 style:**
+The scripts in this repository (`extractLog.js`, `handleNewNote.js`) are written in ES5 style (`var`, `function` declarations) as an **author preference**, not a technical requirement. Feel free to use modern JavaScript features when working on this codebase.
 
 ### 4. Global Variables
 
@@ -248,6 +261,30 @@ function mainFunction(tp) {
 import { app } from 'obsidian';  // Doesn't work
 ```
 
+### 5. JavaScript Runtime Capabilities
+
+**Important Clarification:** The `window.eval()` execution context does NOT limit ES6+ features.
+
+Obsidian runs on **Electron 34+ (Chromium)**, which provides a modern JavaScript engine. All ES6+ features work perfectly:
+
+✅ **Fully Supported:**
+- `const`, `let` variable declarations
+- Arrow functions: `() => {}`
+- Template literals: `` `Hello ${name}` ``
+- Destructuring: `const { a, b } = obj`
+- Spread operator: `[...arr]`, `{...obj}`
+- Default parameters: `function fn(x = 5) {}`
+- async/await: `async function() { await promise; }`
+- Classes: `class MyClass {}`
+- Array methods: `.map()`, `.filter()`, `.find()`, etc.
+- Object methods: `Object.entries()`, `Object.values()`, etc.
+
+❌ **Only Limitation:**
+- ES6 module syntax: `import`/`export` statements (use CommonJS instead)
+
+**Why the existing scripts use ES5 style:**
+This is purely author preference for explicit clarity. There is no technical reason to avoid modern JavaScript features. When working on this codebase, you are free to use modern JavaScript syntax.
+
 ---
 
 ## Development Conventions
@@ -255,14 +292,15 @@ import { app } from 'obsidian';  // Doesn't work
 ### Code Style
 
 **Production Scripts:**
-- ES5-compatible JavaScript
-- Use `var` and `function` declarations
-- Avoid arrow functions in production code
+- Modern JavaScript (ES6+) is fully supported
+- CommonJS modules only (no ES6 import/export)
+- Existing scripts use ES5 style (`var`, `function`) by author preference
+- **You can use modern features** (const, let, arrow functions, template literals, etc.)
 - Comprehensive inline comments explaining complex logic
 - Single-file constraint: all helpers in same file
 
 **Test Code:**
-- Modern JavaScript (ES6+) is fine
+- Modern JavaScript (ES6+)
 - Clear, descriptive test names
 - Arrange-Act-Assert pattern
 - Extensive comments explaining test scenarios
@@ -696,8 +734,7 @@ Each commit was focused on a single helper or concept, making the history easy t
 
 **Limitations accepted:**
 - Single-file constraint
-- CommonJS only
-- No ES6 imports
+- CommonJS only (no ES6 import/export syntax)
 - Manual execution via templates (not automatic hooks)
 
 These limitations are manageable and documented. The benefits of simplicity outweigh the constraints.
@@ -714,10 +751,11 @@ These limitations are manageable and documented. The benefits of simplicity outw
 
 ### External Resources
 
-- [Templater User Scripts Documentation](https://silentvoid13.github.io/Templater/user-functions/script-user-functions.html)
+- [Templater User Scripts Documentation](https://silentvoid13.github.io/Templater/user-functions/script-user-functions.html) - Shows ES6+ examples in official docs
 - [Templater Issue #539 - Import limitations](https://github.com/SilentVoid13/Templater/issues/539)
 - [Templater TypeScript Discussion #765](https://github.com/SilentVoid13/Templater/discussions/765)
 - [Obsidian API Documentation](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
+- [Obsidian Electron Changelog](https://fevol.github.io/obsidian-typings/resources/electron-changelog/) - Tracks Electron version (34+)
 
 ### Code Examples
 
@@ -732,7 +770,7 @@ These limitations are manageable and documented. The benefits of simplicity outw
 When working on this codebase, remember:
 
 ✅ **Always:**
-- Use CommonJS (`module.exports`)
+- Use CommonJS (`module.exports`, `require()`)
 - Keep scripts in single files
 - Export helpers for testing
 - Write tests first (TDD)
@@ -740,9 +778,10 @@ When working on this codebase, remember:
 - Use appropriate test pattern (markdown-first or UI workflow)
 - Mock Obsidian global APIs in tests
 - Target 75%+ coverage
+- Feel free to use modern JavaScript (ES6+)
 
 ❌ **Never:**
-- Use ES6 imports/exports
+- Use ES6 import/export syntax
 - Split scripts into multiple files in `scripts/`
 - Try to `require()` other user scripts
 - Suggest complex build processes
