@@ -506,15 +506,15 @@ async function extractLog(tp) {
   }
 }
 
-// Export main function and helpers
-module.exports = {
-  extractLog,
-  countIndent,
-  dedentLines,
-  stripListPrefix,
-  stripWikiLinksToDisplayText,
-  buildLineToItemMap,
-  getListItemAtLine,
-  isDescendantOf,
-  isPureLinkBullet
-};
+// Export main function directly for Templater compatibility
+// Attach helpers as properties for testing
+module.exports = extractLog;
+module.exports.extractLog = extractLog;
+module.exports.countIndent = countIndent;
+module.exports.dedentLines = dedentLines;
+module.exports.stripListPrefix = stripListPrefix;
+module.exports.stripWikiLinksToDisplayText = stripWikiLinksToDisplayText;
+module.exports.buildLineToItemMap = buildLineToItemMap;
+module.exports.getListItemAtLine = getListItemAtLine;
+module.exports.isDescendantOf = isDescendantOf;
+module.exports.isPureLinkBullet = isPureLinkBullet;

@@ -151,19 +151,21 @@ Traditional productivity systems (GTD, PARA, task apps) struggle with:
 
 **Critical: CommonJS Only**
 ```javascript
-// ✅ CORRECT - Use this pattern
-module.exports = {
-  mainFunction,
-  helperA,
-  helperB
-};
+// ✅ CORRECT - Export function directly, attach helpers as properties
+module.exports = mainFunction;
+module.exports.mainFunction = mainFunction;
+module.exports.helperA = helperA;
+module.exports.helperB = helperB;
+
+// ❌ WRONG - Object export breaks Templater loading
+module.exports = { mainFunction, helperA };
 
 // ❌ WRONG - ES6 imports/exports don't work
 export function mainFunction() { }
 import { helper } from './other.js';
 ```
 
-**Why:** Scripts are executed via `window.eval()`, which doesn't support ES6 module syntax (import/export). However, `eval()` fully supports all other ES6+ features since it runs in the same JavaScript engine context.
+**Why:** Templater validates that user script exports are callable functions. Exporting an object causes "Default export is not a function" errors. By exporting the main function directly and attaching helpers as properties, both Templater and tests work correctly.
 
 ---
 
@@ -191,7 +193,7 @@ function mainFunction(tp) {
 ### 2. CommonJS Export Pattern
 
 ```javascript
-// Required structure for testability
+// Required structure for Templater + testability
 function helperA() { /* ... */ }
 function helperB() { /* ... */ }
 
@@ -199,19 +201,18 @@ async function mainFunction(tp) {
   // Use helpers
 }
 
-// Export everything - main function AND helpers
-module.exports = {
-  mainFunction,
-  helperA,
-  helperB
-};
+// Export main function directly, attach helpers as properties
+module.exports = mainFunction;
+module.exports.mainFunction = mainFunction;
+module.exports.helperA = helperA;
+module.exports.helperB = helperB;
 ```
 
-**Usage in Templater:** `<% tp.user.scriptName.mainFunction(tp) %>`
+**Usage in Templater:** `<% tp.user.scriptName(tp) %>` or `<% tp.user.scriptName.mainFunction(tp) %>`
 
 **Usage in tests:**
 ```javascript
-const { helperA, helperB } = require('../../scripts/scriptName.js');
+const { mainFunction, helperA, helperB } = require('../../scripts/scriptName.js');
 ```
 
 ### 3. Modern JavaScript Support
@@ -507,10 +508,10 @@ async function mainFunction(tp) {
   // Use helper
 }
 
-module.exports = {
-  mainFunction,
-  helper
-};
+// Export main function directly, attach helpers as properties
+module.exports = mainFunction;
+module.exports.mainFunction = mainFunction;
+module.exports.helper = helper;
 ```
 
 ### Adding Tests to Existing Script
