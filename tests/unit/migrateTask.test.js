@@ -175,9 +175,17 @@ describe('migrateTask', () => {
       expect(isIncompleteTask('- [ ] Do something')).toBe(true);
     });
 
+    it('should return true for started tasks [/]', () => {
+      expect(isIncompleteTask('- [/] Started task')).toBe(true);
+    });
+
     it('should return true for indented incomplete tasks', () => {
       expect(isIncompleteTask('  - [ ] Nested task')).toBe(true);
       expect(isIncompleteTask('    - [ ] Deeply nested')).toBe(true);
+    });
+
+    it('should return true for indented started tasks', () => {
+      expect(isIncompleteTask('  - [/] Nested started')).toBe(true);
     });
 
     it('should return false for completed tasks', () => {

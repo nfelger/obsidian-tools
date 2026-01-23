@@ -120,6 +120,23 @@ describe('migrateTask integration', () => {
       expect(result.source).toContain('- [>] December task');
       expect(result.target).toContain('- [ ] December task');
     });
+
+    it('should migrate started task [/] as incomplete', async () => {
+      const result = await testMigrateTask({
+        source: `
+- [/] Started task
+- [ ] Regular task
+`,
+        sourceFileName: '2026-01-22 Thu',
+        targetContent: '',
+        cursorLine: 0
+      });
+
+      // Source should have migrated marker
+      expect(result.source).toContain('- [>] Started task');
+      // Target should have open task (reset to unchecked)
+      expect(result.target).toContain('- [ ] Started task');
+    });
   });
 
   describe('migration with children', () => {

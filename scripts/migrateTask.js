@@ -220,7 +220,8 @@ function getMondayOfISOWeek(year, week) {
  * @returns {boolean}
  */
 function isIncompleteTask(line) {
-  return /^\s*- \[ \]/.test(line);
+  // Match both open tasks [ ] and started tasks [/]
+  return /^\s*- \[[ /]\]/.test(line);
 }
 
 // --- Main function ---
@@ -322,7 +323,9 @@ async function migrateTask(tp) {
       // Build content to migrate (parent line + children)
       const parentIndent = countIndent(lineText);
       const parentLineStripped = lineText.slice(parentIndent);
-      let taskContent = parentLineStripped;
+      // Convert started [/] to open [ ] in target
+      const parentLineForTarget = parentLineStripped.replace(/^(- )\[\/\]/, '$1[ ]');
+      let taskContent = parentLineForTarget;
       if (children && children.lines.length > 0) {
         const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
         taskContent += '\n' + dedentedChildren.join('\n');
@@ -330,7 +333,7 @@ async function migrateTask(tp) {
       allContentToMigrate.push(taskContent);
 
       // Mark source line as migrated
-      const migratedLine = lineText.replace(/^(\s*- )\[ \]/, '$1[>]');
+      const migratedLine = lineText.replace(/^(\s*- )\[[ /]\]/, '$1[>]');
       editor.setLine(taskLine, migratedLine);
 
       // Remove children from source
