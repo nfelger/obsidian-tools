@@ -8,6 +8,7 @@ This document provides comprehensive guidance for AI assistants working on the o
 
 **Key Scripts:**
 - `scripts/extractLog.js` (~520 LOC) - Extracts nested content from daily notes to project/area notes
+- `scripts/migrateTask.js` (~370 LOC) - BuJo-style task migration between periodic notes
 - `scripts/handleNewNote.js` (~58 LOC) - Prompts for folder selection when creating new notes
 
 **Essential Reading:**
@@ -33,20 +34,24 @@ This document provides comprehensive guidance for AI assistants working on the o
 ```
 obsidian-tools/
 ├── scripts/                   # Templater user scripts (production code)
-│   ├── extractLog.js         # Main script: log extraction workflow
-│   └── handleNewNote.js      # UI script: folder picker for new notes
+│   ├── extractLog.js         # Log extraction workflow
+│   ├── migrateTask.js        # BuJo-style task migration
+│   └── handleNewNote.js      # Folder picker for new notes
 │
 ├── snippets/                  # CSS customizations
 │   └── custom-checkboxes.css # Visual checkbox markers
 │
 ├── tests/                     # Comprehensive test suite
 │   ├── unit/                 # Pure function tests (95%+ coverage goal)
-│   │   └── extractLog.test.js
+│   │   ├── extractLog.test.js
+│   │   └── migrateTask.test.js
 │   ├── integration/          # Full workflow tests (60-80% coverage)
 │   │   ├── extractLog.integration.test.js
+│   │   ├── migrateTask.integration.test.js
 │   │   └── handleNewNote.integration.test.js
 │   ├── helpers/              # Test utilities
 │   │   ├── extractLogTestHelper.js      # Markdown-first pattern
+│   │   ├── migrateTaskTestHelper.js     # Markdown-first pattern
 │   │   ├── handleNewNoteTestHelper.js   # UI workflow pattern
 │   │   └── markdownParser.js            # Parse markdown → listItems
 │   └── mocks/                # Obsidian API mocks
@@ -62,9 +67,9 @@ obsidian-tools/
 
 ### File Size Context
 
-- **Total scripts:** ~17KB (2 files)
-- **Total tests:** ~1,892 LOC
+- **Total scripts:** ~25KB (3 files)
 - **extractLog.js:** ~520 lines (complex markdown manipulation)
+- **migrateTask.js:** ~370 lines (periodic note migration)
 - **handleNewNote.js:** ~58 lines (simple UI workflow)
 
 ---
@@ -240,8 +245,8 @@ const { helper } = require('./other.js');
 module.exports = { mainFunction };
 ```
 
-**Why the scripts use ES5 style:**
-The scripts in this repository (`extractLog.js`, `handleNewNote.js`) are written in ES5 style (`var`, `function` declarations) as an **author preference**, not a technical requirement. Feel free to use modern JavaScript features when working on this codebase.
+**Code style:**
+All scripts use modern JavaScript (ES6+) with `const`, `let`, arrow functions, and template literals.
 
 ### 4. Global Variables
 
@@ -283,8 +288,8 @@ Obsidian runs on **Electron 34+ (Chromium)**, which provides a modern JavaScript
 ❌ **Only Limitation:**
 - ES6 module syntax: `import`/`export` statements (use CommonJS instead)
 
-**Why the existing scripts use ES5 style:**
-This is purely author preference for explicit clarity. There is no technical reason to avoid modern JavaScript features. When working on this codebase, you are free to use modern JavaScript syntax.
+**Code style:**
+All scripts use modern JavaScript (ES6+) syntax for consistency and readability.
 
 ---
 
@@ -293,10 +298,8 @@ This is purely author preference for explicit clarity. There is no technical rea
 ### Code Style
 
 **Production Scripts:**
-- Modern JavaScript (ES6+) is fully supported
+- Modern JavaScript (ES6+): `const`, `let`, arrow functions, template literals, etc.
 - CommonJS modules only (no ES6 import/export)
-- Existing scripts use ES5 style (`var`, `function`) by author preference
-- **You can use modern features** (const, let, arrow functions, template literals, etc.)
 - Comprehensive inline comments explaining complex logic
 - Single-file constraint: all helpers in same file
 
@@ -344,14 +347,17 @@ This is purely author preference for explicit clarity. There is no technical rea
 ```
 tests/
 ├── unit/                           # Pure function tests
-│   └── extractLog.test.js         # 470 lines, thorough edge cases
+│   ├── extractLog.test.js         # ~470 lines
+│   └── migrateTask.test.js        # ~390 lines
 │
 ├── integration/                    # Full workflow tests
-│   ├── extractLog.integration.test.js      # 235 lines
-│   └── handleNewNote.integration.test.js   # 122 lines
+│   ├── extractLog.integration.test.js      # ~235 lines
+│   ├── migrateTask.integration.test.js     # ~280 lines
+│   └── handleNewNote.integration.test.js   # ~122 lines
 │
 ├── helpers/                        # Test utilities
 │   ├── extractLogTestHelper.js            # Markdown-first pattern
+│   ├── migrateTaskTestHelper.js           # Markdown-first pattern
 │   ├── handleNewNoteTestHelper.js         # UI workflow pattern
 │   └── markdownParser.js                  # Parse markdown → listItems
 │
@@ -620,8 +626,45 @@ module.exports.helper = helper;
 ```
 
 **Testing:**
-- Unit tests: `tests/unit/extractLog.test.js` (470 lines)
-- Integration tests: `tests/integration/extractLog.integration.test.js` (235 lines)
+- Unit tests: `tests/unit/extractLog.test.js` (~470 lines)
+- Integration tests: `tests/integration/extractLog.integration.test.js` (~235 lines)
+- Uses markdown-first testing pattern
+
+### migrateTask.js (~370 lines)
+
+**Purpose:** BuJo-style task migration between periodic notes.
+
+**Key Features:**
+- Migrates incomplete tasks (`- [ ]`) and started tasks (`- [/]`) to next note
+- Determines target based on note type and boundaries:
+  - Daily (Mon-Sat) → next daily
+  - Daily (Sunday) → next weekly
+  - Weekly → next weekly
+  - Monthly (Jan-Nov) → next monthly
+  - Monthly (December) → next yearly
+  - Yearly → next yearly
+- Multi-select support: migrate all top-level tasks in selection
+- Marks source as `- [>]`, target gets `- [ ]`
+- Preserves task children with proper indentation
+
+**Main Function:** `migrateTask(tp)` - Entry point called from template
+
+**Helper Functions (exported for testing):**
+- `parseNoteType(basename)` - Parse periodic note filename
+- `getNextNotePath(noteInfo)` - Calculate target note path
+- `isIncompleteTask(line)` - Check if line is incomplete task
+- `findTopLevelTasksInRange(editor, listItems, start, end)` - Find tasks in selection
+- `findChildrenLines(editor, listItems, line)` - Find children of a task
+- `insertUnderLogHeading(content, extraction)` - Insert under ## Log heading
+
+**Usage in Templater:**
+```
+<% tp.user.migrateTask.migrateTask(tp) %>
+```
+
+**Testing:**
+- Unit tests: `tests/unit/migrateTask.test.js` (~390 lines)
+- Integration tests: `tests/integration/migrateTask.integration.test.js` (~280 lines)
 - Uses markdown-first testing pattern
 
 ### handleNewNote.js (~58 lines)
@@ -772,6 +815,7 @@ When working on this codebase, remember:
 
 ✅ **Always:**
 - Use CommonJS (`module.exports`, `require()`)
+- Use modern JavaScript (ES6+): `const`, `let`, arrow functions, template literals
 - Keep scripts in single files
 - Export helpers for testing
 - Write tests first (TDD)
@@ -779,7 +823,6 @@ When working on this codebase, remember:
 - Use appropriate test pattern (markdown-first or UI workflow)
 - Mock Obsidian global APIs in tests
 - Target 75%+ coverage
-- Feel free to use modern JavaScript (ES6+)
 
 ❌ **Never:**
 - Use ES6 import/export syntax
@@ -797,8 +840,6 @@ When working on this codebase, remember:
 
 ---
 
-**Last Updated:** 2026-01-22
+**Last Updated:** 2026-01-23
 
 **Repository:** [nfelger/obsidian-tools](https://github.com/nfelger/obsidian-tools)
-
-**Branch:** `claude/claude-md-mkpnp3kmauzr6vhn-6v1tY`
