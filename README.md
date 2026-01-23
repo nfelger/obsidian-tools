@@ -40,7 +40,7 @@ Migrates incomplete tasks to the next periodic note (BuJo-style migration).
 **Behavior:**
 - Place cursor on an incomplete task (`- [ ]`)
 - Marks the task as migrated (`- [>]`)
-- Copies task and children to the next note under `## Migrated`
+- Copies task and children to the next note under `## Log`
 - Automatically determines target based on note type:
   - Daily (Mon-Sat) → next daily
   - Daily (Sunday) → next weekly

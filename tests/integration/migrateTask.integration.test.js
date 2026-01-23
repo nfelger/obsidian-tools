@@ -85,7 +85,7 @@ describe('migrateTask integration', () => {
       // Source should have migrated marker
       expect(result.source).toContain('- [>] Task to migrate');
       // Target should have the task
-      expect(result.target).toContain('## Migrated');
+      expect(result.target).toContain('## Log');
       expect(result.target).toContain('- [ ] Task to migrate');
     });
 
@@ -166,8 +166,8 @@ describe('migrateTask integration', () => {
     });
   });
 
-  describe('Migrated heading management', () => {
-    it('should create ## Migrated heading if not present', async () => {
+  describe('Log heading management', () => {
+    it('should create ## Log heading if not present', async () => {
       const result = await testMigrateTask({
         source: `
 - [ ] Task
@@ -181,29 +181,29 @@ Some content
         cursorLine: 0
       });
 
-      expect(result.target).toContain('## Migrated');
+      expect(result.target).toContain('## Log');
       expect(result.target).toContain('- [ ] Task');
     });
 
-    it('should add task under existing ## Migrated heading', async () => {
+    it('should add task under existing ## Log heading', async () => {
       const result = await testMigrateTask({
         source: `
 - [ ] New task
 `,
         sourceFileName: '2026-01-22 Thu',
         targetContent: `
-## Migrated
+## Log
 - [ ] Existing task
 `,
         cursorLine: 0
       });
 
-      expect(result.target).toContain('## Migrated');
+      expect(result.target).toContain('## Log');
       expect(result.target).toContain('- [ ] Existing task');
       expect(result.target).toContain('- [ ] New task');
     });
 
-    it('should place ## Migrated after frontmatter', async () => {
+    it('should place ## Log after frontmatter', async () => {
       const result = await testMigrateTask({
         source: `
 - [ ] Task
@@ -218,10 +218,10 @@ title: Note
         cursorLine: 0
       });
 
-      // Migrated should come after frontmatter
+      // Log heading should come after frontmatter
       const frontmatterEnd = result.target.indexOf('---', 3);
-      const migratedPos = result.target.indexOf('## Migrated');
-      expect(migratedPos).toBeGreaterThan(frontmatterEnd);
+      const logPos = result.target.indexOf('## Log');
+      expect(logPos).toBeGreaterThan(frontmatterEnd);
     });
   });
 });

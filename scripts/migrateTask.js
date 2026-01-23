@@ -228,7 +228,7 @@ function isIncompleteTask(line) {
  * 1. Check cursor is on incomplete task line
  * 2. Determine note type and target note
  * 3. Check target note exists
- * 4. Copy task (and children) to target under "## Migrated"
+ * 4. Copy task (and children) to target under "## Log"
  * 5. Mark source task as migrated [>] and remove children
  *
  * @param {object} tp - Templater object
@@ -301,9 +301,9 @@ async function migrateTask(tp) {
       contentToMigrate += '\n' + dedentedChildren.join('\n');
     }
 
-    // Add to target note under ## Migrated
+    // Add to target note under ## Log
     await vault.process(targetFile, (data) => {
-      return insertUnderMigratedHeading(data, contentToMigrate);
+      return insertUnderLogHeading(data, contentToMigrate);
     });
 
     // Mark source line as migrated
@@ -476,27 +476,27 @@ function findChildrenLines(editor, listItems, parentLine) {
 }
 
 /**
- * Insert content under ## Migrated heading, creating it if necessary
+ * Insert content under ## Log heading, creating it if necessary
  */
-function insertUnderMigratedHeading(content, taskContent) {
+function insertUnderLogHeading(content, taskContent) {
   const lines = content.split('\n');
 
-  // Find ## Migrated heading
-  let migratedLineIdx = -1;
+  // Find ## Log heading
+  let logLineIdx = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].match(/^## Migrated\s*$/)) {
-      migratedLineIdx = i;
+    if (lines[i].match(/^## Log\s*$/)) {
+      logLineIdx = i;
       break;
     }
   }
 
-  if (migratedLineIdx >= 0) {
+  if (logLineIdx >= 0) {
     // Insert after the heading
-    lines.splice(migratedLineIdx + 1, 0, taskContent);
+    lines.splice(logLineIdx + 1, 0, taskContent);
     return lines.join('\n');
   }
 
-  // Need to create ## Migrated heading
+  // Need to create ## Log heading
   // Find where to insert (after frontmatter if present)
   let insertIdx = 0;
 
@@ -510,8 +510,8 @@ function insertUnderMigratedHeading(content, taskContent) {
     }
   }
 
-  // Insert ## Migrated heading and task
-  const newContent = ['## Migrated', taskContent];
+  // Insert ## Log heading and task
+  const newContent = ['## Log', taskContent];
   lines.splice(insertIdx, 0, ...newContent);
   return lines.join('\n');
 }
@@ -536,5 +536,5 @@ module.exports.dedentLinesByAmount = dedentLinesByAmount;
 module.exports.buildLineToItemMap = buildLineToItemMap;
 module.exports.isDescendantOf = isDescendantOf;
 module.exports.findChildrenLines = findChildrenLines;
-module.exports.insertUnderMigratedHeading = insertUnderMigratedHeading;
+module.exports.insertUnderLogHeading = insertUnderLogHeading;
 module.exports.DIARY_FOLDER = DIARY_FOLDER;
