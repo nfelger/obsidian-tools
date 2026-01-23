@@ -255,18 +255,7 @@ async function migrateTask(tp) {
       return;
     }
 
-    // Get current line
-    const cursor = editor.getCursor();
-    const currentLine = cursor.line;
-    const lineText = editor.getLine(currentLine);
-
-    // Check if cursor is on an incomplete task
-    if (!isIncompleteTask(lineText)) {
-      showNotice('migrateTask: Cursor is not on an incomplete task.');
-      return;
-    }
-
-    // Parse note type
+    // Parse note type first (needed for all paths)
     const noteInfo = parseNoteType(file.basename);
     if (!noteInfo) {
       showNotice('migrateTask: This is not a periodic note.');
@@ -283,43 +272,90 @@ async function migrateTask(tp) {
       return;
     }
 
-    // Get list items metadata for finding children
+    // Get list items metadata
     const fileCache = metadataCache.getFileCache(file);
     const listItems = fileCache && fileCache.listItems;
 
-    // Find children of current line
-    const children = findChildrenLines(editor, listItems, currentLine);
+    // Check for selection vs single cursor
+    const from = editor.getCursor('from');
+    const to = editor.getCursor('to');
+    const hasSelection = from.line !== to.line || from.ch !== to.ch;
 
-    // Build content to migrate (parent line + children)
-    // Strip parent's leading indentation for clean migration
-    const parentIndent = countIndent(lineText);
-    const parentLineStripped = lineText.slice(parentIndent);
-    let contentToMigrate = parentLineStripped;
-    if (children && children.lines.length > 0) {
-      // Dedent children by parent's indent level to preserve relative structure
-      const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
-      contentToMigrate += '\n' + dedentedChildren.join('\n');
+    let taskLines;
+    if (hasSelection) {
+      // Multi-select: find all top-level tasks in range
+      const startLine = Math.min(from.line, to.line);
+      const endLine = Math.max(from.line, to.line);
+      taskLines = findTopLevelTasksInRange(editor, listItems, startLine, endLine);
+
+      if (taskLines.length === 0) {
+        showNotice('migrateTask: No incomplete tasks in selection.');
+        return;
+      }
+    } else {
+      // Single cursor: use current line
+      const currentLine = editor.getCursor().line;
+      const lineText = editor.getLine(currentLine);
+
+      if (!isIncompleteTask(lineText)) {
+        showNotice('migrateTask: Cursor is not on an incomplete task.');
+        return;
+      }
+
+      taskLines = [currentLine];
     }
 
-    // Add to target note under ## Log
+    // Process tasks from bottom to top to preserve line numbers
+    taskLines.sort((a, b) => b - a);
+
+    // Collect all content to migrate
+    const allContentToMigrate = [];
+
+    for (const taskLine of taskLines) {
+      const lineText = editor.getLine(taskLine);
+      const children = findChildrenLines(editor, listItems, taskLine);
+
+      // Build content to migrate (parent line + children)
+      const parentIndent = countIndent(lineText);
+      const parentLineStripped = lineText.slice(parentIndent);
+      let taskContent = parentLineStripped;
+      if (children && children.lines.length > 0) {
+        const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
+        taskContent += '\n' + dedentedChildren.join('\n');
+      }
+      allContentToMigrate.push(taskContent);
+
+      // Mark source line as migrated
+      const migratedLine = lineText.replace(/^(\s*- )\[ \]/, '$1[>]');
+      editor.setLine(taskLine, migratedLine);
+
+      // Remove children from source
+      if (children && children.lines.length > 0) {
+        editor.replaceRange(
+          '',
+          { line: children.startLine, ch: 0 },
+          { line: children.endLine, ch: 0 }
+        );
+      }
+    }
+
+    // Reverse to restore original order (we processed bottom-to-top)
+    allContentToMigrate.reverse();
+
+    // Add all content to target note under ## Log
     await vault.process(targetFile, (data) => {
-      return insertUnderLogHeading(data, contentToMigrate);
+      let result = data;
+      for (const content of allContentToMigrate) {
+        result = insertUnderLogHeading(result, content);
+      }
+      return result;
     });
 
-    // Mark source line as migrated
-    const migratedLine = lineText.replace(/^(\s*- )\[ \]/, '$1[>]');
-    editor.setLine(currentLine, migratedLine);
-
-    // Remove children from source
-    if (children && children.lines.length > 0) {
-      editor.replaceRange(
-        '',
-        { line: children.startLine, ch: 0 },
-        { line: children.endLine, ch: 0 }
-      );
-    }
-
-    showNotice('migrateTask: Task migrated successfully.');
+    const taskCount = taskLines.length;
+    const message = taskCount === 1
+      ? 'migrateTask: Task migrated successfully.'
+      : `migrateTask: ${taskCount} tasks migrated successfully.`;
+    showNotice(message);
   } catch (e) {
     showNotice(`migrateTask ERROR: ${e && e.message ? e.message : String(e)}`);
     console.log('migrateTask ERROR', e);

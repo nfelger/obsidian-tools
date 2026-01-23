@@ -38,9 +38,9 @@ Migrates incomplete tasks to the next periodic note (BuJo-style migration).
 **Usage:** `<% tp.user.migrateTask.migrateTask(tp) %>`
 
 **Behavior:**
-- Place cursor on an incomplete task (`- [ ]`)
-- Marks the task as migrated (`- [>]`)
-- Copies task and children to the next note under `## Log`
+- Place cursor on an incomplete task (`- [ ]`), or select multiple lines
+- Marks the task(s) as migrated (`- [>]`)
+- Copies task(s) and children to the next note under `## Log`
 - Automatically determines target based on note type:
   - Daily (Mon-Sat) → next daily
   - Daily (Sunday) → next weekly
@@ -48,6 +48,8 @@ Migrates incomplete tasks to the next periodic note (BuJo-style migration).
   - Monthly (Jan-Nov) → next monthly
   - Monthly (December) → next yearly
   - Yearly → next yearly
+
+**Multi-select:** When text is selected, migrates all top-level incomplete tasks within the selection. Nested child tasks are included with their parents but are not treated as separate migrations.
 
 ### handleNewNote.js
 
