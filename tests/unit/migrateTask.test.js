@@ -5,6 +5,7 @@ import {
   isDecember,
   getNextNotePath,
   isIncompleteTask,
+  findTopLevelTasksInRange,
   DIARY_FOLDER
 } from '../../scripts/migrateTask.js';
 
@@ -283,6 +284,168 @@ describe('migrateTask', () => {
         const result = getNextNotePath(noteInfo, 'Journal');
         expect(result).toBe('Journal/2027/2027');
       });
+    });
+  });
+
+  describe('findTopLevelTasksInRange', () => {
+    // Helper to create mock listItems from line descriptions
+    function createListItems(items) {
+      return items.map(({ line, parent }) => ({
+        position: { start: { line }, end: { line } },
+        parent: parent !== undefined ? parent : -1
+      }));
+    }
+
+    // Helper to create mock editor
+    function createMockEditorForLines(lines) {
+      return {
+        getLine: (n) => lines[n] || '',
+        lineCount: () => lines.length
+      };
+    }
+
+    it('should find all incomplete tasks in range', () => {
+      const lines = [
+        '- [ ] Task A',
+        '- [ ] Task B',
+        '- [ ] Task C'
+      ];
+      const listItems = createListItems([
+        { line: 0 },
+        { line: 1 },
+        { line: 2 }
+      ]);
+      const editor = createMockEditorForLines(lines);
+
+      const result = findTopLevelTasksInRange(editor, listItems, 0, 2);
+      expect(result).toEqual([0, 1, 2]);
+    });
+
+    it('should exclude tasks outside range', () => {
+      const lines = [
+        '- [ ] Task A',
+        '- [ ] Task B',
+        '- [ ] Task C',
+        '- [ ] Task D'
+      ];
+      const listItems = createListItems([
+        { line: 0 },
+        { line: 1 },
+        { line: 2 },
+        { line: 3 }
+      ]);
+      const editor = createMockEditorForLines(lines);
+
+      const result = findTopLevelTasksInRange(editor, listItems, 1, 2);
+      expect(result).toEqual([1, 2]);
+    });
+
+    it('should exclude children of tasks in range', () => {
+      const lines = [
+        '- [ ] Task A',
+        '  - [ ] Child of A',
+        '- [ ] Task B'
+      ];
+      const listItems = createListItems([
+        { line: 0, parent: -1 },
+        { line: 1, parent: 0 },
+        { line: 2, parent: -1 }
+      ]);
+      const editor = createMockEditorForLines(lines);
+
+      const result = findTopLevelTasksInRange(editor, listItems, 0, 2);
+      // Should only include Task A and Task B, not Child of A
+      expect(result).toEqual([0, 2]);
+    });
+
+    it('should exclude completed tasks', () => {
+      const lines = [
+        '- [ ] Task A',
+        '- [x] Completed',
+        '- [ ] Task B'
+      ];
+      const listItems = createListItems([
+        { line: 0 },
+        { line: 1 },
+        { line: 2 }
+      ]);
+      const editor = createMockEditorForLines(lines);
+
+      const result = findTopLevelTasksInRange(editor, listItems, 0, 2);
+      expect(result).toEqual([0, 2]);
+    });
+
+    it('should exclude plain bullets', () => {
+      const lines = [
+        '- [ ] Task A',
+        '- Just a note',
+        '- [ ] Task B'
+      ];
+      const listItems = createListItems([
+        { line: 0 },
+        { line: 1 },
+        { line: 2 }
+      ]);
+      const editor = createMockEditorForLines(lines);
+
+      const result = findTopLevelTasksInRange(editor, listItems, 0, 2);
+      expect(result).toEqual([0, 2]);
+    });
+
+    it('should return empty array if no incomplete tasks in range', () => {
+      const lines = [
+        '- [x] Completed',
+        '- Just a note'
+      ];
+      const listItems = createListItems([
+        { line: 0 },
+        { line: 1 }
+      ]);
+      const editor = createMockEditorForLines(lines);
+
+      const result = findTopLevelTasksInRange(editor, listItems, 0, 1);
+      expect(result).toEqual([]);
+    });
+
+    it('should handle deeply nested children', () => {
+      const lines = [
+        '- [ ] Task A',
+        '  - [ ] Child',
+        '    - [ ] Grandchild',
+        '- [ ] Task B'
+      ];
+      const listItems = createListItems([
+        { line: 0, parent: -1 },
+        { line: 1, parent: 0 },
+        { line: 2, parent: 1 },
+        { line: 3, parent: -1 }
+      ]);
+      const editor = createMockEditorForLines(lines);
+
+      const result = findTopLevelTasksInRange(editor, listItems, 0, 3);
+      // Only top-level tasks
+      expect(result).toEqual([0, 3]);
+    });
+
+    it('should handle child task whose parent is outside selection', () => {
+      const lines = [
+        '- [ ] Task A',
+        '  - [ ] Child of A',
+        '- [ ] Task B'
+      ];
+      const listItems = createListItems([
+        { line: 0, parent: -1 },
+        { line: 1, parent: 0 },
+        { line: 2, parent: -1 }
+      ]);
+      const editor = createMockEditorForLines(lines);
+
+      // Select only Child of A and Task B (lines 1-2)
+      const result = findTopLevelTasksInRange(editor, listItems, 1, 2);
+      // Child of A has parent at line 0 which is outside selection,
+      // but it's still a child so should NOT be included as top-level
+      // Only Task B should be included
+      expect(result).toEqual([2]);
     });
   });
 });
