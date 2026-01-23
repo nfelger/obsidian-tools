@@ -476,6 +476,65 @@ function findChildrenLines(editor, listItems, parentLine) {
 }
 
 /**
+ * Find all top-level incomplete tasks within a line range.
+ * "Top-level" means tasks that are not children of other tasks.
+ *
+ * @param {Object} editor - Editor object with getLine method
+ * @param {Array} listItems - List items from metadataCache
+ * @param {number} startLine - Start of selection range (inclusive)
+ * @param {number} endLine - End of selection range (inclusive)
+ * @returns {number[]} - Array of line numbers for top-level incomplete tasks
+ */
+function findTopLevelTasksInRange(editor, listItems, startLine, endLine) {
+  if (!listItems || listItems.length === 0) return [];
+
+  const lineToItem = buildLineToItemMap(listItems);
+
+  // Find all incomplete tasks in the range
+  const tasksInRange = [];
+  for (const li of listItems) {
+    if (!li.position || !li.position.start) continue;
+    const line = li.position.start.line;
+
+    // Check if in range
+    if (line < startLine || line > endLine) continue;
+
+    // Check if it's an incomplete task
+    const lineText = editor.getLine(line);
+    if (!isIncompleteTask(lineText)) continue;
+
+    tasksInRange.push({ line, item: li });
+  }
+
+  // Filter to only top-level tasks (not children of other tasks)
+  const topLevelTasks = [];
+  for (const { line, item } of tasksInRange) {
+    // A task is top-level if it has no parent, or its parent is not an incomplete task
+    // We check if this task is a descendant of any other incomplete task
+    let isChild = false;
+
+    // Check if any ancestor is an incomplete task (regardless of whether in selection)
+    let parentLine = item.parent;
+    while (typeof parentLine === 'number' && parentLine >= 0) {
+      const parentText = editor.getLine(parentLine);
+      if (isIncompleteTask(parentText)) {
+        isChild = true;
+        break;
+      }
+      const parentItem = lineToItem.get(parentLine);
+      if (!parentItem) break;
+      parentLine = parentItem.parent;
+    }
+
+    if (!isChild) {
+      topLevelTasks.push(line);
+    }
+  }
+
+  return topLevelTasks;
+}
+
+/**
  * Insert content under ## Log heading, creating it if necessary
  */
 function insertUnderLogHeading(content, taskContent) {
@@ -536,5 +595,6 @@ module.exports.dedentLinesByAmount = dedentLinesByAmount;
 module.exports.buildLineToItemMap = buildLineToItemMap;
 module.exports.isDescendantOf = isDescendantOf;
 module.exports.findChildrenLines = findChildrenLines;
+module.exports.findTopLevelTasksInRange = findTopLevelTasksInRange;
 module.exports.insertUnderLogHeading = insertUnderLogHeading;
 module.exports.DIARY_FOLDER = DIARY_FOLDER;
