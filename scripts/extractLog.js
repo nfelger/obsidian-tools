@@ -1,7 +1,6 @@
-var DEBUG = false;
+const DEBUG = false;
 
-function showNotice(msg, timeout) {
-  timeout = timeout || 3000;
+function showNotice(msg, timeout = 3000) {
   try {
     if (typeof Notice !== "undefined") {
       new Notice(msg, timeout);
@@ -17,7 +16,7 @@ function showNotice(msg, timeout) {
 
 function debug(msg) {
   if (DEBUG) {
-    showNotice("extractLog: " + msg, 4000);
+    showNotice(`extractLog: ${msg}`, 4000);
   }
 }
 
@@ -35,9 +34,9 @@ function getObsidianApp(tp) {
 // --- indentation helpers ---
 
 function countIndent(line) {
-  var i = 0;
+  let i = 0;
   while (i < line.length) {
-    var c = line.charAt(i);
+    const c = line.charAt(i);
     if (c === " " || c === "\t") {
       i++;
     } else {
@@ -50,11 +49,10 @@ function countIndent(line) {
 // Remove the minimal common leading indent from all non-blank lines,
 // preserving relative indentation.
 function dedentLines(lines) {
-  var minIndent = null;
-  for (var i = 0; i < lines.length; i++) {
-    var line = lines[i];
+  let minIndent = null;
+  for (const line of lines) {
     if (line.trim() === "") continue;
-    var ind = countIndent(line);
+    const ind = countIndent(line);
     if (minIndent === null || ind < minIndent) {
       minIndent = ind;
     }
@@ -64,16 +62,15 @@ function dedentLines(lines) {
     return lines.slice();
   }
 
-  var out = [];
-  for (var j = 0; j < lines.length; j++) {
-    var l = lines[j];
+  const out = [];
+  for (const l of lines) {
     if (l.trim() === "") {
       out.push("");
     } else {
-      var remove = minIndent;
-      var k = 0;
+      let remove = minIndent;
+      let k = 0;
       while (k < l.length && remove > 0) {
-        var ch = l.charAt(k);
+        const ch = l.charAt(k);
         if (ch === " " || ch === "\t") {
           k++;
           remove--;
@@ -95,7 +92,7 @@ function dedentLines(lines) {
 // - at least one space
 // - optional checkbox: [x] where x is any non-[, non-] char
 // - trailing spaces after checkbox if present
-var LIST_PREFIX_RE = /^(\s*[-*+]\s+(\[[^\[\]]\]\s+)?)?/;
+const LIST_PREFIX_RE = /^(\s*[-*+]\s+(\[[^\[\]]\]\s+)?)?/;
 
 // Strip leading bullet / task markers from a list line, keep the content.
 // Examples:
@@ -111,8 +108,7 @@ function stripListPrefix(line) {
 
 function getListItemAtLine(listItems, line) {
   if (!listItems) return null;
-  for (var i = 0; i < listItems.length; i++) {
-    var li = listItems[i];
+  for (const li of listItems) {
     if (!li.position || !li.position.start) continue;
     if (li.position.start.line === line) return li;
   }
@@ -120,22 +116,21 @@ function getListItemAtLine(listItems, line) {
 }
 
 function buildLineToItemMap(listItems) {
-  var map = new Map();
+  const map = new Map();
   if (!listItems) return map;
-  for (var i = 0; i < listItems.length; i++) {
-    var li = listItems[i];
+  for (const li of listItems) {
     if (!li.position || !li.position.start) continue;
-    var line = li.position.start.line;
+    const line = li.position.start.line;
     if (typeof line === "number") map.set(line, li);
   }
   return map;
 }
 
 function isDescendantOf(item, ancestorLine, lineToItem) {
-  var parentLine = item.parent;
+  let parentLine = item.parent;
   while (typeof parentLine === "number" && parentLine >= 0) {
     if (parentLine === ancestorLine) return true;
-    var parentItem = lineToItem.get(parentLine);
+    const parentItem = lineToItem.get(parentLine);
     if (!parentItem) break;
     parentLine = parentItem.parent;
   }
@@ -145,16 +140,15 @@ function isDescendantOf(item, ancestorLine, lineToItem) {
 function findChildrenBlockFromListItems(editor, listItems, parentLine) {
   if (!listItems || listItems.length === 0) return null;
 
-  var parentItem = getListItemAtLine(listItems, parentLine);
+  const parentItem = getListItemAtLine(listItems, parentLine);
   if (!parentItem) return null;
 
-  var lineToItem = buildLineToItemMap(listItems);
-  var childItems = [];
+  const lineToItem = buildLineToItemMap(listItems);
+  const childItems = [];
 
-  for (var i = 0; i < listItems.length; i++) {
-    var li = listItems[i];
+  for (const li of listItems) {
     if (!li.position || !li.position.start || !li.position.end) continue;
-    var startLine = li.position.start.line;
+    const startLine = li.position.start.line;
     if (typeof startLine !== "number") continue;
     if (startLine <= parentLine) continue;
     if (isDescendantOf(li, parentLine, lineToItem)) childItems.push(li);
@@ -162,20 +156,19 @@ function findChildrenBlockFromListItems(editor, listItems, parentLine) {
 
   if (childItems.length === 0) return null;
 
-  var minStart = Infinity;
-  var maxEnd = -1;
-  for (var j = 0; j < childItems.length; j++) {
-    var ci = childItems[j];
-    var s = ci.position.start.line;
-    var e = ci.position.end.line;
+  let minStart = Infinity;
+  let maxEnd = -1;
+  for (const ci of childItems) {
+    const s = ci.position.start.line;
+    const e = ci.position.end.line;
     if (s < minStart) minStart = s;
     if (e > maxEnd) maxEnd = e;
   }
 
   if (!isFinite(minStart) || maxEnd < minStart) return null;
 
-  var endExclusive = Math.min(maxEnd + 1, editor.lineCount());
-  var text = editor.getRange(
+  const endExclusive = Math.min(maxEnd + 1, editor.lineCount());
+  const text = editor.getRange(
     { line: minStart, ch: 0 },
     { line: endExclusive, ch: 0 }
   );
@@ -190,26 +183,26 @@ function findChildrenBlockFromListItems(editor, listItems, parentLine) {
 // --- link + clipboard helpers ---
 
 function findFirstWikiLink(lineText, sourcePath, metadataCache) {
-  var wikiRegex = /\[\[([^\]]+)\]\]/g;
-  var match;
+  const wikiRegex = /\[\[([^\]]+)\]\]/g;
+  let match;
 
   while ((match = wikiRegex.exec(lineText)) !== null) {
-    var index = match.index;
+    const index = match.index;
     if (index > 0 && lineText.charAt(index - 1) === "!") continue; // ignore ![[ ]]
 
-    var inner = match[1];
-    var parts = inner.split("|");
-    var left = parts[0];                  // Note[#Section]
-    var linkParts = left.split("#");
-    var linkPath = linkParts[0];
+    const inner = match[1];
+    const parts = inner.split("|");
+    const left = parts[0];                  // Note[#Section]
+    const linkParts = left.split("#");
+    const linkPath = linkParts[0];
 
     if (!linkPath) continue;
 
-    var tfile = metadataCache.getFirstLinkpathDest(linkPath, sourcePath);
+    const tfile = metadataCache.getFirstLinkpathDest(linkPath, sourcePath);
     if (tfile && tfile.extension === "md") {
       return {
-        tfile: tfile,
-        index: index,
+        tfile,
+        index,
         matchText: match[0],
         wikiInner: inner
       };
@@ -224,16 +217,15 @@ function isPureLinkBullet(parentText, firstLink) {
   if (!firstLink) return false;
 
   // Remove a single list prefix (bullet + optional checkbox) using shared regex
-  var stripped = stripListPrefix(parentText).trim();
+  const stripped = stripListPrefix(parentText).trim();
 
   // Must be exactly the first wikilink text and nothing else
   if (stripped !== firstLink.matchText) return false;
 
   // Ensure there is only one wikilink on the line
-  var wikiRegex = /\[\[/g;
-  var count = 0;
-  var m;
-  while ((m = wikiRegex.exec(parentText)) !== null) {
+  const wikiRegex = /\[\[/g;
+  let count = 0;
+  while (wikiRegex.exec(parentText) !== null) {
     count++;
   }
   return count === 1;
@@ -242,18 +234,18 @@ function isPureLinkBullet(parentText, firstLink) {
 // Replace wikilinks in text with their display text so we can safely use it
 // inside a #section reference without nested [[ ]].
 function stripWikiLinksToDisplayText(text) {
-  var wikiRegex = /\[\[([^\]]+)\]\]/g;
-  return text.replace(wikiRegex, function (_match, inner) {
-    var parts = inner.split("|");
-    var left = parts[0];
-    var aliasPart = parts.length > 1 ? parts.slice(1).join("|") : null;
+  const wikiRegex = /\[\[([^\]]+)\]\]/g;
+  return text.replace(wikiRegex, (_match, inner) => {
+    const parts = inner.split("|");
+    const left = parts[0];
+    const aliasPart = parts.length > 1 ? parts.slice(1).join("|") : null;
 
     if (aliasPart) {
       return aliasPart.trim();
     }
 
     // No alias: for [[Note#Section]] display is "Section"; for [[Note]] it's "Note"
-    var linkParts = left.split("#");
+    const linkParts = left.split("#");
     if (linkParts.length > 1 && linkParts[1].trim() !== "") {
       return linkParts[1].trim(); // the section name
     } else {
@@ -273,7 +265,7 @@ async function copyToClipboard(text) {
       debug("clipboard API not available; skipping copy");
     }
   } catch (e) {
-    debug("clipboard copy failed: " + (e && e.message ? e.message : String(e)));
+    debug(`clipboard copy failed: ${e && e.message ? e.message : String(e)}`);
   }
 }
 
@@ -283,64 +275,64 @@ async function extractLog(tp) {
   try {
     debug("start");
 
-    var app = getObsidianApp(tp);
-    var metadataCache = app.metadataCache;
-    var vault = app.vault;
+    const obsidianApp = getObsidianApp(tp);
+    const metadataCache = obsidianApp.metadataCache;
+    const vault = obsidianApp.vault;
 
-    var leaf = app.workspace.activeLeaf;
-    var view = leaf && leaf.view;
+    const leaf = obsidianApp.workspace.activeLeaf;
+    const view = leaf && leaf.view;
     if (!view || view.getViewType() !== "markdown") {
       showNotice("extractLog ERROR: No active markdown view.");
       return;
     }
 
-    var editor = view.editor;
-    var file = view.file;
+    const editor = view.editor;
+    const file = view.file;
     if (!file) {
       showNotice("extractLog ERROR: No active file.");
       return;
     }
 
-    var sourcePath = file.path;
-    var dailyNoteName = file.basename;
+    const sourcePath = file.path;
+    const dailyNoteName = file.basename;
 
-    var cursor = editor.getCursor();
-    var parentLine = cursor.line;
-    var parentText = editor.getLine(parentLine);
+    const cursor = editor.getCursor();
+    const parentLine = cursor.line;
+    const parentText = editor.getLine(parentLine);
 
-    debug("current line " + parentLine + ": " + parentText);
+    debug(`current line ${parentLine}: ${parentText}`);
 
-    var fileCache = metadataCache.getFileCache(file);
-    var listItems = fileCache && fileCache.listItems;
+    const fileCache = metadataCache.getFileCache(file);
+    const listItems = fileCache && fileCache.listItems;
 
     if (!listItems || listItems.length === 0) {
       showNotice("extractLog ERROR: No listItems metadata in this file.");
       return;
     }
 
-    var children = findChildrenBlockFromListItems(editor, listItems, parentLine);
+    const children = findChildrenBlockFromListItems(editor, listItems, parentLine);
     if (!children) {
       showNotice("extractLog: No children under current bullet (no-op).");
       return;
     }
 
-    debug("found children lines: " + children.lines.length);
+    debug(`found children lines: ${children.lines.length}`);
 
-    var childrenLines = children.lines.slice();
-    var dedentedChildrenLines = dedentLines(childrenLines);
+    const childrenLines = children.lines.slice();
+    const dedentedChildrenLines = dedentLines(childrenLines);
 
     // Copy the dedented block (just the bullets, not the heading) to clipboard
-    var clipboardText = dedentedChildrenLines.join("\n");
+    const clipboardText = dedentedChildrenLines.join("\n");
     if (clipboardText.trim() !== "") {
       await copyToClipboard(clipboardText);
     }
 
     // Target note & heading suffix logic
-    var firstLink = findFirstWikiLink(parentText, sourcePath, metadataCache);
-    var targetFile = null;
+    const firstLink = findFirstWikiLink(parentText, sourcePath, metadataCache);
+    let targetFile = null;
 
     // what we append after the [[DailyNote]] in the heading
-    var headingSuffix = "";
+    let headingSuffix = "";
 
     if (firstLink) {
       targetFile = firstLink.tfile;
@@ -348,49 +340,41 @@ async function extractLog(tp) {
       // CASE 1: current bullet is a pure-link list item
       if (isPureLinkBullet(parentText, firstLink)) {
         // Try to get this list item's parent and use THAT line's content (sans bullet/checkbox) as suffix
-        var currentItem = getListItemAtLine(listItems, parentLine);
+        const currentItem = getListItemAtLine(listItems, parentLine);
         if (
           currentItem &&
           typeof currentItem.parent === "number" &&
           currentItem.parent >= 0
         ) {
-          var parentListLine = currentItem.parent;
-          var parentListText = editor.getLine(parentListLine);
+          const parentListLine = currentItem.parent;
+          const parentListText = editor.getLine(parentListLine);
           // Remove "- ", "- [ ] ", "- [o] ", etc. from the parent line
           headingSuffix = stripListPrefix(parentListText).trim();
-          debug(
-            "target from pure-link bullet, suffix(parent list text): " +
-              headingSuffix
-          );
+          debug(`target from pure-link bullet, suffix(parent list text): ${headingSuffix}`);
         }
       } else {
         // CASE 2: non-pure link → suffix = text after the link (previous behavior)
-        var afterLinkRaw = parentText.slice(
+        const afterLinkRaw = parentText.slice(
           firstLink.index + firstLink.matchText.length
         );
         headingSuffix = afterLinkRaw.trim();
-        debug(
-          "target from link, suffix(after-link): " +
-            (headingSuffix || "(none)")
-        );
+        debug(`target from link, suffix(after-link): ${headingSuffix || "(none)"}`);
       }
     } else {
       // CASE 3: no link in current bullet → prompt for target, no suffix
-      var allMdFiles = vault.getMarkdownFiles();
+      const allMdFiles = vault.getMarkdownFiles();
       if (!allMdFiles || allMdFiles.length === 0) {
         showNotice("extractLog ERROR: No markdown files in vault.");
         return;
       }
-      var display = allMdFiles.map(function (f) {
-        return f.path;
-      });
+      const display = allMdFiles.map(f => f.path);
       targetFile = await tp.system.suggester(display, allMdFiles);
       if (!targetFile) {
         showNotice("extractLog: No target note selected (cancelled).");
         return;
       }
       headingSuffix = "";
-      debug("target from picker: " + targetFile.path);
+      debug(`target from picker: ${targetFile.path}`);
     }
 
     // Cut children from source note
@@ -402,39 +386,39 @@ async function extractLog(tp) {
     debug("removed children block in source note");
 
     // Build the heading line (can contain wikilinks etc.)
-    var rawHeadingLineSuffix = headingSuffix ? " " + headingSuffix : "";
-    var headingLine = "### [[" + dailyNoteName + "]]" + rawHeadingLineSuffix;
+    const rawHeadingLineSuffix = headingSuffix ? ` ${headingSuffix}` : "";
+    const headingLine = `### [[${dailyNoteName}]]${rawHeadingLineSuffix}`;
 
     // For the section anchor (#...), we must NOT keep [[...]] in place,
     // otherwise we get nested brackets. Convert wikilinks to display text.
-    var rawHeadingTextForLink = dailyNoteName + rawHeadingLineSuffix;
-    var headingTextForLink = stripWikiLinksToDisplayText(rawHeadingTextForLink).trim();
+    const rawHeadingTextForLink = dailyNoteName + rawHeadingLineSuffix;
+    const headingTextForLink = stripWikiLinksToDisplayText(rawHeadingTextForLink).trim();
 
 
     // Update wikilink in parent bullet to point to this heading,
     // but keep the visible text exactly as before by using an alias.
     if (firstLink) {
-      var inner = firstLink.wikiInner;
-      var p = inner.split("|");
-      var left = p[0];                                 // original link target (page[#section])
-      var aliasPart = p.length > 1 ? p.slice(1).join("|") : null;
+      const inner = firstLink.wikiInner;
+      const p = inner.split("|");
+      const left = p[0];                                 // original link target (page[#section])
+      const aliasPart = p.length > 1 ? p.slice(1).join("|") : null;
 
       // Base page name (drop any old section)
-      var lp = left.split("#");
-      var page = lp[0];
+      const lp = left.split("#");
+      const page = lp[0];
 
       // New target with updated section
-      var newLeft = page + "#" + headingTextForLink;
+      const newLeft = `${page}#${headingTextForLink}`;
 
       // Visible text should stay exactly the same as before:
       // - if there was an alias, use that
       // - otherwise use the original left part as-is
-      var displayTextOriginal = aliasPart ? aliasPart : left;
+      const displayTextOriginal = aliasPart ? aliasPart : left;
 
-      var newInner = newLeft + "|" + displayTextOriginal;
-      var newLink = "[[" + newInner + "]]";
+      const newInner = `${newLeft}|${displayTextOriginal}`;
+      const newLink = `[[${newInner}]]`;
 
-      var updatedParentText =
+      const updatedParentText =
         parentText.slice(0, firstLink.index) +
         newLink +
         parentText.slice(firstLink.index + firstLink.matchText.length);
@@ -446,12 +430,11 @@ async function extractLog(tp) {
     }
 
     // Find ## Log in target via metadataCache
-    var targetCache = metadataCache.getFileCache(targetFile);
-    var logHeadingLine = null;
+    const targetCache = metadataCache.getFileCache(targetFile);
+    let logHeadingLine = null;
 
     if (targetCache && targetCache.headings) {
-      for (var h = 0; h < targetCache.headings.length; h++) {
-        var heading = targetCache.headings[h];
+      for (const heading of targetCache.headings) {
         if (heading.level === 2 && heading.heading === "Log") {
           logHeadingLine = heading.position.start.line;
           break;
@@ -460,23 +443,23 @@ async function extractLog(tp) {
     }
 
     if (logHeadingLine !== null) {
-      debug("found ## Log at line " + logHeadingLine + " in target");
+      debug(`found ## Log at line ${logHeadingLine} in target`);
     } else {
       debug("no ## Log found in target; will create one");
     }
 
     // Build block that goes into ## Log
-    var blockLines = ["", headingLine, ""].concat(dedentedChildrenLines);
+    const blockLines = ["", headingLine, ""].concat(dedentedChildrenLines);
 
-    await vault.process(targetFile, function (data) {
-      var lines = data.split("\n");
+    await vault.process(targetFile, (data) => {
+      const lines = data.split("\n");
 
       if (logHeadingLine !== null && logHeadingLine < lines.length) {
-        var insertAt = logHeadingLine + 1;
-        lines.splice.apply(lines, [insertAt, 0].concat(blockLines));
+        const insertAt = logHeadingLine + 1;
+        lines.splice(insertAt, 0, ...blockLines);
         return lines.join("\n");
       } else {
-        var newLines = lines.slice();
+        const newLines = lines.slice();
         if (
           newLines.length > 0 &&
           newLines[newLines.length - 1].trim() !== ""
@@ -484,37 +467,34 @@ async function extractLog(tp) {
           newLines.push("");
         }
         newLines.push("## Log");
-        Array.prototype.push.apply(newLines, blockLines);
+        newLines.push(...blockLines);
         return newLines.join("\n");
       }
     });
 
     showNotice(
-      'extractLog: moved child block to "' +
-        targetFile.basename +
-        '" > Log',
+      `extractLog: moved child block to "${targetFile.basename}" > Log`,
       4000
     );
     debug("finished OK");
   } catch (e) {
     showNotice(
-      "extractLog ERROR: " +
-        (e && e.message ? e.message : String(e)),
+      `extractLog ERROR: ${e && e.message ? e.message : String(e)}`,
       8000
     );
     console.log("extractLog ERROR", e);
   }
 }
 
-// Export main function and helpers
-module.exports = {
-  extractLog,
-  countIndent,
-  dedentLines,
-  stripListPrefix,
-  stripWikiLinksToDisplayText,
-  buildLineToItemMap,
-  getListItemAtLine,
-  isDescendantOf,
-  isPureLinkBullet
-};
+// Export main function directly for Templater compatibility
+// Attach helpers as properties for testing
+module.exports = extractLog;
+module.exports.extractLog = extractLog;
+module.exports.countIndent = countIndent;
+module.exports.dedentLines = dedentLines;
+module.exports.stripListPrefix = stripListPrefix;
+module.exports.stripWikiLinksToDisplayText = stripWikiLinksToDisplayText;
+module.exports.buildLineToItemMap = buildLineToItemMap;
+module.exports.getListItemAtLine = getListItemAtLine;
+module.exports.isDescendantOf = isDescendantOf;
+module.exports.isPureLinkBullet = isPureLinkBullet;

@@ -147,11 +147,13 @@ The vault is organized around **PARA-lite** — a simplified version of PARA tha
 
 ```
 +Diary/
-├── 2025-01-14 Tue.md
-├── 2025-01-15 Wed.md
-├── 2025-W02.md
-├── 2025-01.md
-├── 2025.md
+├── 2026/
+│   ├── 01/
+│   │   ├── 2026-01-14 Wed.md      # Daily note
+│   │   ├── 2026-01-15 Thu.md      # Daily note
+│   │   └── 2026-01-W03.md         # Weekly note
+│   ├── 2026-01 Jan.md             # Monthly note
+│   └── 2026.md                    # Yearly note
 └── ...
 
 1 Projekte/
@@ -169,6 +171,17 @@ The vault is organized around **PARA-lite** — a simplified version of PARA tha
 
 4 Archive/ (optional, evolving)
 ```
+
+### Periodic Note Filename Formats
+
+All periodic notes live under `+Diary/` with a nested folder structure:
+
+| Type | Path Format | Example |
+|------|-------------|---------|
+| Daily | `YYYY/MM/YYYY-MM-DD ddd.md` | `2026/01/2026-01-22 Thu.md` |
+| Weekly | `YYYY/MM/YYYY-MM-Www.md` | `2026/01/2026-01-W04.md` |
+| Monthly | `YYYY/YYYY-MM mmm.md` | `2026/2026-01 Jan.md` |
+| Yearly | `YYYY/YYYY.md` | `2026/2026.md` |
 
 ### Projects (1 Projekte/)
 Time-bound efforts with clear outcomes. They collect extracted material from daily notes. A project note grows only when the work produces content worth keeping.

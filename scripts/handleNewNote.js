@@ -54,4 +54,7 @@ async function handleNewNote(tp) {
     return '';
 }
 
+// Export main function directly for Templater compatibility
+// Attach as property for consistent access pattern
 module.exports = handleNewNote;
+module.exports.handleNewNote = handleNewNote;

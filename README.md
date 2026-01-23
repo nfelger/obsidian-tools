@@ -17,6 +17,50 @@ The workflow itself blends bullet journaling simplicity with digital searchabili
 - **`scripts/`** — Templater user scripts
 - **`snippets/`** — CSS customizations
 
+## Scripts
+
+### extractLog.js
+
+Extracts nested content from daily notes to project/area notes.
+
+**Usage:** `<% tp.user.extractLog.extractLog(tp) %>`
+
+**Behavior:**
+- Place cursor on a bullet containing a `[[wikilink]]`
+- Extracts all children to the linked note under a `## Log` heading
+- Creates a back-link to the daily note
+- Copies extracted content to clipboard
+
+### migrateTask.js
+
+Migrates incomplete tasks to the next periodic note (BuJo-style migration).
+
+**Usage:** `<% tp.user.migrateTask.migrateTask(tp) %>`
+
+**Behavior:**
+- Place cursor on an incomplete task (`- [ ]` or `- [/]`), or select multiple lines
+- Marks the task(s) as migrated (`- [>]`)
+- Copies task(s) and children to the next note under `## Log` (started tasks reset to `- [ ]`)
+- Automatically determines target based on note type:
+  - Daily (Mon-Sat) → next daily
+  - Daily (Sunday) → next weekly
+  - Weekly → next weekly
+  - Monthly (Jan-Nov) → next monthly
+  - Monthly (December) → next yearly
+  - Yearly → next yearly
+
+**Multi-select:** When text is selected, migrates all top-level incomplete tasks within the selection. Nested child tasks are included with their parents but are not treated as separate migrations.
+
+### handleNewNote.js
+
+Prompts for folder selection when creating new notes.
+
+**Usage:** `<% tp.user.handleNewNote.handleNewNote(tp) %>`
+
+**Behavior:**
+- Displays folder picker with vault folders
+- Moves the new note to the selected folder
+
 ## Workflow Overview
 
 The system is built on these principles: frictionless capture, continuous reflection, resilience under stress, and findability without maintenance. Everything starts in the daily note as a rapid log; reflection passes transform messy logs into durable knowledge through extraction and migration.
@@ -37,6 +81,17 @@ The vault uses a minimal folder organization:
 - **`2 Areas/`** — Ongoing responsibilities
 - **`3 Ressourcen/`** — Timeless resources
 - **`4 Archive/`** — Completed projects and old notes
+
+### Periodic Note Formats
+
+All periodic notes live under `+Diary/` with a nested folder structure:
+
+| Type | Path Format | Example |
+|------|-------------|---------|
+| Daily | `YYYY/MM/YYYY-MM-DD ddd.md` | `2026/01/2026-01-22 Thu.md` |
+| Weekly | `YYYY/MM/YYYY-MM-Www.md` | `2026/01/2026-01-W04.md` |
+| Monthly | `YYYY/YYYY-MM mmm.md` | `2026/2026-01 Jan.md` |
+| Yearly | `YYYY/YYYY.md` | `2026/2026.md` |
 
 ## Tech Stack
 

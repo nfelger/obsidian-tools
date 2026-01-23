@@ -13,26 +13,44 @@ export function createMockFile({ path = 'test.md', basename = 'test', extension 
 
 /**
  * Create a mock editor
+ *
+ * @param {Object} options
+ * @param {string} options.content - Editor content
+ * @param {Object} options.cursor - Cursor position { line, ch }
+ * @param {Object} options.selectionStart - Selection start { line, ch } (defaults to cursor)
+ * @param {Object} options.selectionEnd - Selection end { line, ch } (defaults to cursor)
+ * @param {number} options.lineCount - Override line count
  */
 export function createMockEditor({
   content = '',
   cursor = { line: 0, ch: 0 },
+  selectionStart = null,
+  selectionEnd = null,
   lineCount = null
 } = {}) {
   const lines = content.split('\n');
   const actualLineCount = lineCount !== null ? lineCount : lines.length;
 
+  // Default selection to cursor position (no selection)
+  const from = selectionStart || cursor;
+  const to = selectionEnd || cursor;
+
   return {
     getValue: vi.fn(() => content),
     getLine: vi.fn((n) => lines[n] || ''),
     lineCount: vi.fn(() => actualLineCount),
-    getCursor: vi.fn(() => cursor),
+    getCursor: vi.fn((type) => {
+      if (type === 'from') return from;
+      if (type === 'to') return to;
+      return cursor;
+    }),
+    somethingSelected: vi.fn(() => from.line !== to.line || from.ch !== to.ch),
     setLine: vi.fn(),
     replaceRange: vi.fn(),
     replaceSelection: vi.fn(),
-    getRange: vi.fn((from, to) => {
-      const startLine = from.line;
-      const endLine = to.line;
+    getRange: vi.fn((rangeFrom, rangeTo) => {
+      const startLine = rangeFrom.line;
+      const endLine = rangeTo.line;
       const rangeLines = [];
       for (let i = startLine; i < endLine && i < lines.length; i++) {
         rangeLines.push(lines[i]);

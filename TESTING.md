@@ -18,7 +18,7 @@ This document describes the testing strategy and constraints for Obsidian Templa
 
 ### Export Pattern
 
-Export an object containing the main function and all testable helpers:
+Export the main function directly, with helpers attached as properties:
 
 ```javascript
 function helperA() { /* ... */ }
@@ -28,18 +28,21 @@ async function mainFunction(tp) {
   // Use helpers
 }
 
-module.exports = {
-  mainFunction,
-  helperA,
-  helperB
-};
+// Export main function directly for Templater compatibility
+// Attach helpers as properties for testing
+module.exports = mainFunction;
+module.exports.mainFunction = mainFunction;
+module.exports.helperA = helperA;
+module.exports.helperB = helperB;
 ```
 
-**Usage in template:** `<% tp.user.scriptName.mainFunction(tp) %>`
+**Why this pattern:** Templater validates that user script exports are callable functions. Exporting an object causes "Default export is not a function" errors.
+
+**Usage in template:** `<% tp.user.scriptName(tp) %>` or `<% tp.user.scriptName.mainFunction(tp) %>`
 
 **In tests:** Import with destructuring for clean syntax:
 ```javascript
-const { helperA, helperB } = require('../../scripts/scriptName.js');
+const { mainFunction, helperA, helperB } = require('../../scripts/scriptName.js');
 ```
 
 ### Global Variables
