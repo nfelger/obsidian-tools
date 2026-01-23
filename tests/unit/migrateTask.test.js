@@ -246,6 +246,14 @@ describe('migrateTask', () => {
         const result = getNextNotePath(noteInfo);
         expect(result).toBe('+Diary/2026/02/2026-02-W06');
       });
+
+      it('should handle week rollover to next year', () => {
+        // 2026 has 53 weeks (Jan 1, 2026 is Thursday)
+        // Week 53 of 2026 → Week 1 of 2027
+        const noteInfo = { type: 'weekly', year: 2026, month: 12, week: 53 };
+        const result = getNextNotePath(noteInfo);
+        expect(result).toBe('+Diary/2027/01/2027-01-W01');
+      });
     });
 
     describe('monthly notes - normal case', () => {
