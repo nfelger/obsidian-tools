@@ -224,4 +224,126 @@ title: Note
       expect(logPos).toBeGreaterThan(frontmatterEnd);
     });
   });
+
+  describe('multi-select migration', () => {
+    it('should migrate multiple top-level tasks when selected', async () => {
+      const result = await testMigrateTask({
+        source: `
+- [ ] Task A
+- [ ] Task B
+- [ ] Task C
+`,
+        sourceFileName: '2026-01-22 Thu',
+        targetContent: '',
+        selectionStartLine: 0,
+        selectionEndLine: 2
+      });
+
+      // Source should have all selected tasks marked as migrated
+      expect(result.source).toContain('- [>] Task A');
+      expect(result.source).toContain('- [>] Task B');
+      expect(result.source).toContain('- [>] Task C');
+
+      // Target should have all tasks
+      expect(result.target).toContain('- [ ] Task A');
+      expect(result.target).toContain('- [ ] Task B');
+      expect(result.target).toContain('- [ ] Task C');
+    });
+
+    it('should only migrate top-level tasks, not children', async () => {
+      const result = await testMigrateTask({
+        source: `
+- [ ] Task A
+  - [ ] Child of A
+- [ ] Task B
+`,
+        sourceFileName: '2026-01-22 Thu',
+        targetContent: '',
+        selectionStartLine: 0,
+        selectionEndLine: 2
+      });
+
+      // Source: Task A and B migrated, child removed with parent
+      expect(result.source).toContain('- [>] Task A');
+      expect(result.source).toContain('- [>] Task B');
+      expect(result.source).not.toContain('Child of A');
+
+      // Target: Both tasks with their children
+      expect(result.target).toContain('- [ ] Task A');
+      expect(result.target).toContain('Child of A');
+      expect(result.target).toContain('- [ ] Task B');
+    });
+
+    it('should skip non-task lines in selection', async () => {
+      const result = await testMigrateTask({
+        source: `
+- [ ] Task A
+- Just a note
+- [x] Completed task
+- [ ] Task B
+`,
+        sourceFileName: '2026-01-22 Thu',
+        targetContent: '',
+        selectionStartLine: 0,
+        selectionEndLine: 3
+      });
+
+      // Only incomplete tasks should be migrated
+      expect(result.source).toContain('- [>] Task A');
+      expect(result.source).toContain('- Just a note'); // unchanged
+      expect(result.source).toContain('- [x] Completed task'); // unchanged
+      expect(result.source).toContain('- [>] Task B');
+
+      // Target should only have incomplete tasks
+      expect(result.target).toContain('- [ ] Task A');
+      expect(result.target).toContain('- [ ] Task B');
+      expect(result.target).not.toContain('Just a note');
+      expect(result.target).not.toContain('Completed task');
+    });
+
+    it('should handle partial line selection', async () => {
+      // Even if selection starts/ends mid-line, include those lines
+      const result = await testMigrateTask({
+        source: `
+- [ ] Task A
+- [ ] Task B
+- [ ] Task C
+`,
+        sourceFileName: '2026-01-22 Thu',
+        targetContent: '',
+        selectionStartLine: 0,
+        selectionEndLine: 1 // Only lines 0 and 1
+      });
+
+      // Tasks A and B should be migrated
+      expect(result.source).toContain('- [>] Task A');
+      expect(result.source).toContain('- [>] Task B');
+      expect(result.source).toContain('- [ ] Task C'); // not selected
+
+      expect(result.target).toContain('- [ ] Task A');
+      expect(result.target).toContain('- [ ] Task B');
+      expect(result.target).not.toContain('Task C');
+    });
+
+    it('should fall back to single task when no selection', async () => {
+      // No selectionStartLine/selectionEndLine = use cursorLine behavior
+      const result = await testMigrateTask({
+        source: `
+- [ ] Task A
+- [ ] Task B
+`,
+        sourceFileName: '2026-01-22 Thu',
+        targetContent: '',
+        cursorLine: 0
+        // no selection params
+      });
+
+      // Only Task A should be migrated
+      expect(result.source).toContain('- [>] Task A');
+      expect(result.source).toContain('- [ ] Task B'); // unchanged
+
+      expect(result.target).toContain('- [ ] Task A');
+      expect(result.target).not.toContain('Task B');
+    });
+  });
 });

@@ -20,6 +20,8 @@ import {
  * @param {string} options.targetContent - Target note content (null = doesn't exist)
  * @param {string} options.targetFileName - Target file basename (auto-calculated if not provided)
  * @param {number} options.cursorLine - Line where cursor is positioned (default: 0)
+ * @param {number} options.selectionStartLine - Selection start line (for multi-select)
+ * @param {number} options.selectionEndLine - Selection end line (for multi-select)
  * @param {string} options.diaryFolder - Diary folder path (default: '+Diary')
  * @returns {Promise<Object>} Result with source, target, error, notices
  */
@@ -29,6 +31,8 @@ export async function testMigrateTask({
   targetContent = '',
   targetFileName = null,
   cursorLine = 0,
+  selectionStartLine = null,
+  selectionEndLine = null,
   diaryFolder = '+Diary'
 }) {
   // Normalize markdown
@@ -75,9 +79,13 @@ export async function testMigrateTask({
   const targetPath = calculatedTargetPath ? `${calculatedTargetPath}.md` : null;
 
   // Create editor that tracks modifications
+  // Support both single cursor and selection range
+  const hasSelection = selectionStartLine !== null && selectionEndLine !== null;
   const mockEditor = createMockEditor({
     content: sourceContent,
-    cursor: { line: cursorLine, ch: 0 }
+    cursor: { line: cursorLine, ch: 0 },
+    selectionStart: hasSelection ? { line: selectionStartLine, ch: 0 } : null,
+    selectionEnd: hasSelection ? { line: selectionEndLine, ch: 0 } : null
   });
 
   // Override editor methods to track changes
