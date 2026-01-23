@@ -8,6 +8,8 @@ import {
   findTopLevelTasksInRange,
   DIARY_FOLDER
 } from '../../scripts/migrateTask.js';
+import { parseMarkdownToListItems } from '../helpers/markdownParser.js';
+import { createMockEditor } from '../mocks/obsidian.js';
 
 describe('migrateTask', () => {
   describe('parseNoteType', () => {
@@ -296,70 +298,37 @@ describe('migrateTask', () => {
   });
 
   describe('findTopLevelTasksInRange', () => {
-    // Helper to create mock listItems from line descriptions
-    function createListItems(items) {
-      return items.map(({ line, parent }) => ({
-        position: { start: { line }, end: { line } },
-        parent: parent !== undefined ? parent : -1
-      }));
-    }
-
-    // Helper to create mock editor
-    function createMockEditorForLines(lines) {
-      return {
-        getLine: (n) => lines[n] || '',
-        lineCount: () => lines.length
-      };
-    }
+    // Uses shared helpers: parseMarkdownToListItems and createMockEditor
 
     it('should find all incomplete tasks in range', () => {
-      const lines = [
-        '- [ ] Task A',
-        '- [ ] Task B',
-        '- [ ] Task C'
-      ];
-      const listItems = createListItems([
-        { line: 0 },
-        { line: 1 },
-        { line: 2 }
-      ]);
-      const editor = createMockEditorForLines(lines);
+      const content = `- [ ] Task A
+- [ ] Task B
+- [ ] Task C`;
+      const editor = createMockEditor({ content });
+      const listItems = parseMarkdownToListItems(content);
 
       const result = findTopLevelTasksInRange(editor, listItems, 0, 2);
       expect(result).toEqual([0, 1, 2]);
     });
 
     it('should exclude tasks outside range', () => {
-      const lines = [
-        '- [ ] Task A',
-        '- [ ] Task B',
-        '- [ ] Task C',
-        '- [ ] Task D'
-      ];
-      const listItems = createListItems([
-        { line: 0 },
-        { line: 1 },
-        { line: 2 },
-        { line: 3 }
-      ]);
-      const editor = createMockEditorForLines(lines);
+      const content = `- [ ] Task A
+- [ ] Task B
+- [ ] Task C
+- [ ] Task D`;
+      const editor = createMockEditor({ content });
+      const listItems = parseMarkdownToListItems(content);
 
       const result = findTopLevelTasksInRange(editor, listItems, 1, 2);
       expect(result).toEqual([1, 2]);
     });
 
     it('should exclude children of tasks in range', () => {
-      const lines = [
-        '- [ ] Task A',
-        '  - [ ] Child of A',
-        '- [ ] Task B'
-      ];
-      const listItems = createListItems([
-        { line: 0, parent: -1 },
-        { line: 1, parent: 0 },
-        { line: 2, parent: -1 }
-      ]);
-      const editor = createMockEditorForLines(lines);
+      const content = `- [ ] Task A
+  - [ ] Child of A
+- [ ] Task B`;
+      const editor = createMockEditor({ content });
+      const listItems = parseMarkdownToListItems(content);
 
       const result = findTopLevelTasksInRange(editor, listItems, 0, 2);
       // Should only include Task A and Task B, not Child of A
@@ -367,68 +336,44 @@ describe('migrateTask', () => {
     });
 
     it('should exclude completed tasks', () => {
-      const lines = [
-        '- [ ] Task A',
-        '- [x] Completed',
-        '- [ ] Task B'
-      ];
-      const listItems = createListItems([
-        { line: 0 },
-        { line: 1 },
-        { line: 2 }
-      ]);
-      const editor = createMockEditorForLines(lines);
+      const content = `- [ ] Task A
+- [x] Completed
+- [ ] Task B`;
+      const editor = createMockEditor({ content });
+      const listItems = parseMarkdownToListItems(content);
 
       const result = findTopLevelTasksInRange(editor, listItems, 0, 2);
       expect(result).toEqual([0, 2]);
     });
 
     it('should exclude plain bullets', () => {
-      const lines = [
-        '- [ ] Task A',
-        '- Just a note',
-        '- [ ] Task B'
-      ];
-      const listItems = createListItems([
-        { line: 0 },
-        { line: 1 },
-        { line: 2 }
-      ]);
-      const editor = createMockEditorForLines(lines);
+      const content = `- [ ] Task A
+- Just a note
+- [ ] Task B`;
+      const editor = createMockEditor({ content });
+      const listItems = parseMarkdownToListItems(content);
 
       const result = findTopLevelTasksInRange(editor, listItems, 0, 2);
       expect(result).toEqual([0, 2]);
     });
 
     it('should return empty array if no incomplete tasks in range', () => {
-      const lines = [
-        '- [x] Completed',
-        '- Just a note'
-      ];
-      const listItems = createListItems([
-        { line: 0 },
-        { line: 1 }
-      ]);
-      const editor = createMockEditorForLines(lines);
+      const content = `- [x] Completed
+- Just a note`;
+      const editor = createMockEditor({ content });
+      const listItems = parseMarkdownToListItems(content);
 
       const result = findTopLevelTasksInRange(editor, listItems, 0, 1);
       expect(result).toEqual([]);
     });
 
     it('should handle deeply nested children', () => {
-      const lines = [
-        '- [ ] Task A',
-        '  - [ ] Child',
-        '    - [ ] Grandchild',
-        '- [ ] Task B'
-      ];
-      const listItems = createListItems([
-        { line: 0, parent: -1 },
-        { line: 1, parent: 0 },
-        { line: 2, parent: 1 },
-        { line: 3, parent: -1 }
-      ]);
-      const editor = createMockEditorForLines(lines);
+      const content = `- [ ] Task A
+  - [ ] Child
+    - [ ] Grandchild
+- [ ] Task B`;
+      const editor = createMockEditor({ content });
+      const listItems = parseMarkdownToListItems(content);
 
       const result = findTopLevelTasksInRange(editor, listItems, 0, 3);
       // Only top-level tasks
@@ -436,17 +381,11 @@ describe('migrateTask', () => {
     });
 
     it('should handle child task whose parent is outside selection', () => {
-      const lines = [
-        '- [ ] Task A',
-        '  - [ ] Child of A',
-        '- [ ] Task B'
-      ];
-      const listItems = createListItems([
-        { line: 0, parent: -1 },
-        { line: 1, parent: 0 },
-        { line: 2, parent: -1 }
-      ]);
-      const editor = createMockEditorForLines(lines);
+      const content = `- [ ] Task A
+  - [ ] Child of A
+- [ ] Task B`;
+      const editor = createMockEditor({ content });
+      const listItems = parseMarkdownToListItems(content);
 
       // Select only Child of A and Task B (lines 1-2)
       const result = findTopLevelTasksInRange(editor, listItems, 1, 2);
