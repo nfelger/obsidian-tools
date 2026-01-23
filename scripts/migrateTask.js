@@ -130,8 +130,12 @@ function getNextNotePath(noteInfo, diaryFolder = DIARY_FOLDER) {
       const mondayOfNextWeek = new Date(mondayOfCurrentWeek);
       mondayOfNextWeek.setDate(mondayOfNextWeek.getDate() + 7);
 
-      const nextYear = mondayOfNextWeek.getFullYear();
-      const nextMonth = String(mondayOfNextWeek.getMonth() + 1).padStart(2, '0');
+      // Use Thursday to determine ISO year and month (Thursday defines which year a week belongs to)
+      const thursdayOfNextWeek = new Date(mondayOfNextWeek);
+      thursdayOfNextWeek.setDate(thursdayOfNextWeek.getDate() + 3);
+
+      const nextYear = thursdayOfNextWeek.getFullYear();
+      const nextMonth = String(thursdayOfNextWeek.getMonth() + 1).padStart(2, '0');
       const nextWeek = getISOWeekNumber(mondayOfNextWeek);
       return `${diaryFolder}/${nextYear}/${nextMonth}/${nextYear}-${nextMonth}-W${String(nextWeek).padStart(2, '0')}`;
     }

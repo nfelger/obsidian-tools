@@ -250,11 +250,10 @@ describe('migrateTask', () => {
       });
 
       it('should handle week rollover to next year', () => {
-        // 2026 has 53 weeks (Jan 1, 2026 is Thursday)
-        // Week 53 of 2026 → Week 1 of 2027
-        const noteInfo = { type: 'weekly', year: 2026, month: 12, week: 53 };
+        // Week 52 of 2025 → Week 1 of 2026
+        const noteInfo = { type: 'weekly', year: 2025, month: 12, week: 52 };
         const result = getNextNotePath(noteInfo);
-        expect(result).toBe('+Diary/2027/01/2027-01-W01');
+        expect(result).toBe('+Diary/2026/01/2026-01-W01');
       });
     });
 
