@@ -1,9 +1,12 @@
 {
   "name": "obsidian-tools",
-  "version": "1.0.0",
-  "description": "Tools, scripts, and plugins for Obsidian vault and BuJo-inspired workflow",
-  "type": "commonjs",
+  "version": "2.0.0-dev",
+  "description": "Obsidian plugin for BuJo-inspired workflow: extract logs and migrate tasks",
+  "main": "main.js",
   "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "version": "node version-bump.mjs && git add manifest.json versions.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -11,14 +14,23 @@
   },
   "keywords": [
     "obsidian",
-    "templater",
-    "bullet-journal"
+    "obsidian-plugin",
+    "bullet-journal",
+    "bujo",
+    "task-management"
   ],
-  "author": "",
+  "author": "nfelger",
   "license": "MIT",
   "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
     "@vitest/coverage-v8": "^1.2.0",
     "@vitest/ui": "^1.2.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.19.0",
+    "obsidian": "latest",
+    "typescript": "^5.3.0",
     "vitest": "^1.2.0"
   }
 }

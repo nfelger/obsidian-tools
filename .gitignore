@@ -8,6 +8,9 @@ coverage/
 # Build outputs
 dist/
 build/
+main.js
+main.js.map
+*.js.map
 
 # IDE
 .vscode/

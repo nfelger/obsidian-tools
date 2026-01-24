@@ -1,0 +1,10 @@
+{
+	"id": "obsidian-tools",
+	"name": "Obsidian Tools",
+	"version": "2.0.0-dev",
+	"minAppVersion": "1.0.0",
+	"description": "BuJo-inspired workflow tools: extract logs and migrate tasks",
+	"author": "nfelger",
+	"authorUrl": "https://github.com/nfelger/obsidian-tools",
+	"isDesktopOnly": false
+}
