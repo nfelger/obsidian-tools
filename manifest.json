@@ -1,9 +1,9 @@
 {
-	"id": "obsidian-tools",
-	"name": "Obsidian Tools",
-	"version": "2.0.0-dev",
+	"id": "bullet-flow",
+	"name": "Bullet Flow",
+	"version": "0.1.0",
 	"minAppVersion": "1.0.0",
-	"description": "BuJo-inspired workflow tools: extract logs and migrate tasks",
+	"description": "BuJo-inspired workflow: extract logs and migrate tasks from daily notes",
 	"author": "nfelger",
 	"authorUrl": "https://github.com/nfelger/obsidian-tools",
 	"isDesktopOnly": false

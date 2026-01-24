@@ -6,6 +6,9 @@ on:
       - main
       - 'claude/**'  # Enable auto-deploy for all claude branches during development
 
+permissions:
+  contents: write  # Required for creating releases
+
 jobs:
   build:
     runs-on: ubuntu-latest

@@ -1,7 +1,7 @@
 {
-  "name": "obsidian-tools",
-  "version": "2.0.0-dev",
-  "description": "Obsidian plugin for BuJo-inspired workflow: extract logs and migrate tasks",
+  "name": "bullet-flow",
+  "version": "0.1.0",
+  "description": "BuJo-inspired workflow: extract logs and migrate tasks from daily notes",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
