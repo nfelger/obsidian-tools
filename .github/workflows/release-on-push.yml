@@ -63,5 +63,7 @@ jobs:
             ${{ github.event.head_commit.message }}
           allowUpdates: true
           removeArtifacts: true
+          replacesArtifacts: true
+          updateOnlyUnreleased: false
           makeLatest: true
           token: ${{ secrets.GITHUB_TOKEN }}
