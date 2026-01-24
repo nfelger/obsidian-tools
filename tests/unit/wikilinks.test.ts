@@ -106,8 +106,8 @@ describe('stripWikilinksToDisplayText', () => {
 		expect(stripWikilinksToDisplayText('[[Note|Display]]')).toBe('Display');
 	});
 
-	it('should strip section if no alias', () => {
-		expect(stripWikilinksToDisplayText('[[Note#Section]]')).toBe('Note');
+	it('should use section name if no alias', () => {
+		expect(stripWikilinksToDisplayText('[[Note#Section]]')).toBe('Section');
 	});
 
 	it('should handle multiple wikilinks', () => {

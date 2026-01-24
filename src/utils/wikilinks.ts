@@ -1,3 +1,7 @@
+import type { TFile, MetadataCache } from 'obsidian';
+import type { WikiLink } from '../types';
+import { stripListPrefix } from './listItems';
+
 export interface ParsedWikilink {
 	linkPath: string;
 	section: string | null;
@@ -66,7 +70,7 @@ export function findWikilinkMatches(lineText: string): WikilinkMatch[] {
  * Examples:
  *   "[[Note]]" -> "Note"
  *   "[[Note|Alias]]" -> "Alias"
- *   "[[Note#Section]]" -> "Note"
+ *   "[[Note#Section]]" -> "Section" (use section name!)
  */
 export function stripWikilinksToDisplayText(text: string): string {
 	const wikiRegex = /\[\[([^\]]+)\]\]/g;
@@ -78,7 +82,80 @@ export function stripWikilinksToDisplayText(text: string): string {
 			return parsed.alias.trim();
 		}
 
-		// Otherwise use link path (without section)
+		// If section exists, use section name (not page name!)
+		if (parsed.section && parsed.section.trim() !== '') {
+			return parsed.section.trim();
+		}
+
+			// Otherwise use link path
 		return parsed.linkPath.trim();
 	});
+}
+
+/**
+ * Find the first valid wikilink in a line and resolve it to a TFile.
+ * Ignores embeds (![[...]]).
+ * Returns null if no valid markdown file link found.
+ */
+export function findFirstWikiLink(
+	lineText: string,
+	sourcePath: string,
+	metadataCache: MetadataCache
+): WikiLink | null {
+	const wikiRegex = /\[\[([^\]]+)\]\]/g;
+	let match;
+
+	while ((match = wikiRegex.exec(lineText)) !== null) {
+		const index = match.index;
+		// Ignore embeds (![[...]])
+		if (index > 0 && lineText.charAt(index - 1) === '!') {
+			continue;
+		}
+
+		const inner = match[1];
+		const parts = inner.split('|');
+		const left = parts[0]; // Note[#Section]
+		const linkParts = left.split('#');
+		const linkPath = linkParts[0];
+
+		if (!linkPath) continue;
+
+		const tfile = metadataCache.getFirstLinkpathDest(linkPath, sourcePath);
+		if (tfile && tfile.extension === 'md') {
+			return {
+				tfile,
+				index,
+				matchText: match[0],
+				wikiInner: inner
+			};
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Check if a bullet line is a "pure link bullet" - only markers + one wikilink.
+ * Examples:
+ *   "- [[Note]]" -> true
+ *   "  - [[Project]]" -> true
+ *   "- [[Note]] with text" -> false
+ *   "- Text with [[Note]]" -> false
+ */
+export function isPureLinkBullet(parentText: string, firstLink: WikiLink | null): boolean {
+	if (!firstLink) return false;
+
+	// Remove list prefix (bullet + optional checkbox)
+	const stripped = stripListPrefix(parentText).trim();
+
+	// Must be exactly the first wikilink text and nothing else
+	if (stripped !== firstLink.matchText) return false;
+
+	// Ensure there is only one wikilink on the line
+	const wikiRegex = /\[\[/g;
+	let count = 0;
+	while (wikiRegex.exec(parentText) !== null) {
+		count++;
+	}
+	return count === 1;
 }
