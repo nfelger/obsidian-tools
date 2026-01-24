@@ -1,0 +1,64 @@
+name: Build and Release on Push
+
+on:
+  push:
+    branches:
+      - main
+      - 'claude/**'  # Enable auto-deploy for all claude branches during development
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Extract version and commit info
+        id: version
+        run: |
+          echo "version=$(node -p "require('./manifest.json').version")" >> $GITHUB_OUTPUT
+          echo "commit_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Create/Update Latest Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "main.js,manifest.json"
+          tag: latest
+          name: "Development Build (v${{ steps.version.outputs.version }})"
+          body: |
+            🚀 **Auto-deployed from latest commit**
+
+            - **Version:** ${{ steps.version.outputs.version }}
+            - **Commit:** [${{ steps.version.outputs.commit_short }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+            - **Branch:** ${{ github.ref_name }}
+            - **Built:** ${{ github.event.head_commit.timestamp }}
+
+            This is an automatically generated development build.
+            Install via BRAT for auto-updates on mobile and desktop.
+
+            ## How to Install via BRAT
+
+            1. Install BRAT plugin in Obsidian
+            2. Settings → BRAT → Add Beta Plugin
+            3. Enter: `nfelger/obsidian-tools`
+            4. Enable plugin in Community Plugins
+
+            ## What's in this build
+
+            ${{ github.event.head_commit.message }}
+          allowUpdates: true
+          removeArtifacts: true
+          makeLatest: true
+          token: ${{ secrets.GITHUB_TOKEN }}
