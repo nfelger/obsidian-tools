@@ -9,7 +9,7 @@ export default class ObsidianToolsPlugin extends Plugin {
 			id: 'test-command',
 			name: 'Test - Plugin is working!',
 			callback: () => {
-				new Notice('✨ MAGIC CONFIRMED! Auto-deploy is live! ✨');
+				new Notice('🚀 Build #8 - Walking skeleton COMPLETE! 🚀');
 			}
 		});
 	}
