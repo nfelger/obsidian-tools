@@ -1,20 +1,42 @@
 # CLAUDE.md - AI Assistant Guide
 
-This document provides comprehensive guidance for AI assistants working on the obsidian-tools codebase. Read this first to understand the system's philosophy, technical constraints, and development conventions.
+This document provides comprehensive guidance for AI assistants working on the **Bullet Flow** Obsidian plugin. Read this first to understand the system's philosophy, technical architecture, and development conventions.
+
+## 🚨 MIGRATION IN PROGRESS
+
+**Current Status:** Migrating from Templater user scripts → Native Obsidian plugin
+
+**Completed:**
+- ✅ Slice 1: Plugin scaffold with TypeScript + esbuild
+- ✅ Slice 2: BRAT auto-deploy (every push auto-updates mobile/desktop)
+
+**Next Up:**
+- 🔄 Slice 3: extractLog MVP (basic extraction working)
+- ⏳ Slice 4-9: Full feature implementation, testing, docs
+
+**Key Change:** We can now use ES6 modules, split files, and leverage TypeScript!
+
+---
 
 ## Quick Start
 
-**What This Is:** A collection of Templater user scripts for Obsidian that support a BuJo-inspired (Bullet Journal) knowledge management workflow. This is NOT a traditional Obsidian plugin - scripts run via the Templater plugin and have unique constraints.
+**What This Is:** "Bullet Flow" - An Obsidian plugin supporting a BuJo-inspired (Bullet Journal) knowledge management workflow.
 
-**Key Scripts:**
-- `scripts/extractLog.js` (~520 LOC) - Extracts nested content from daily notes to project/area notes
-- `scripts/migrateTask.js` (~370 LOC) - BuJo-style task migration between periodic notes
-- `scripts/handleNewNote.js` (~58 LOC) - Prompts for folder selection when creating new notes
+**Core Features:**
+- **Extract Log** - Move nested content from daily notes to project/area notes
+- **Migrate Task** - BuJo-style task migration between periodic notes
+- **Custom Checkboxes** - Visual task markers (e.g., `[o]` for meetings)
+
+**Current Architecture:**
+- **Plugin:** TypeScript, ES6 modules, Obsidian API
+- **Legacy Scripts:** `scripts/` folder contains original Templater scripts (reference during migration)
+- **Auto-Deploy:** Every push to `main` or `claude/**` creates new release via BRAT
 
 **Essential Reading:**
-1. This file (CLAUDE.md) - Technical constraints and conventions
-2. [WORKFLOW.md](WORKFLOW.md) - Philosophy and "why" behind design decisions
-3. [TESTING.md](TESTING.md) - Testing strategy and constraints
+1. This file (CLAUDE.md) - Current state, architecture, conventions
+2. [WORKFLOW.md](WORKFLOW.md) - Philosophy and "why" (unchanged)
+3. [docs/AUTO-DEPLOY.md](docs/AUTO-DEPLOY.md) - BRAT setup and semver lessons
+4. [TESTING.md](TESTING.md) - Testing strategy (to be updated)
 
 ## Table of Contents
 
@@ -33,44 +55,65 @@ This document provides comprehensive guidance for AI assistants working on the o
 
 ```
 obsidian-tools/
-├── scripts/                   # Templater user scripts (production code)
-│   ├── extractLog.js         # Log extraction workflow
-│   ├── migrateTask.js        # BuJo-style task migration
-│   └── handleNewNote.js      # Folder picker for new notes
+├── src/                          # NEW - TypeScript plugin source
+│   ├── main.ts                   # Plugin entry point
+│   ├── commands/                 # Command implementations (TO BE CREATED)
+│   │   ├── extractLog.ts
+│   │   └── migrateTask.ts
+│   └── utils/                    # Shared utilities (TO BE CREATED)
+│       ├── indent.ts
+│       ├── listItems.ts
+│       └── wikilinks.ts
 │
-├── snippets/                  # CSS customizations
-│   └── custom-checkboxes.css # Visual checkbox markers
+├── scripts/                      # LEGACY - Templater scripts (keep as reference)
+│   ├── extractLog.js             # ~520 LOC - reference for migration
+│   ├── migrateTask.js            # ~370 LOC - reference for migration
+│   └── handleNewNote.js          # ~58 LOC - NOT migrating (deleted later)
 │
-├── tests/                     # Comprehensive test suite
-│   ├── unit/                 # Pure function tests (95%+ coverage goal)
-│   │   ├── extractLog.test.js
-│   │   └── migrateTask.test.js
-│   ├── integration/          # Full workflow tests (60-80% coverage)
-│   │   ├── extractLog.integration.test.js
-│   │   ├── migrateTask.integration.test.js
-│   │   └── handleNewNote.integration.test.js
-│   ├── helpers/              # Test utilities
-│   │   ├── extractLogTestHelper.js      # Markdown-first pattern
-│   │   ├── migrateTaskTestHelper.js     # Markdown-first pattern
-│   │   ├── handleNewNoteTestHelper.js   # UI workflow pattern
-│   │   └── markdownParser.js            # Parse markdown → listItems
-│   └── mocks/                # Obsidian API mocks
-│       └── obsidian.js       # Factory functions for all mocks
+├── snippets/                     # CSS (will be injected by plugin)
+│   └── custom-checkboxes.css    # [o] meeting marker
 │
-├── WORKFLOW.md               # Workflow philosophy (196 lines) - READ THIS
-├── TESTING.md                # Testing strategy and constraints
-├── README.md                 # Project overview
-├── package.json              # NPM configuration (CommonJS, no deps)
-├── vitest.config.js         # Test framework configuration
-└── .gitignore               # Version control exclusions
+├── tests/                        # Test suite (to be migrated to TypeScript)
+│   ├── unit/                     # Pure function tests
+│   ├── integration/              # Full workflow tests
+│   ├── helpers/                  # Test utilities
+│   └── mocks/                    # Obsidian API mocks
+│
+├── docs/                         # NEW - Documentation
+│   └── AUTO-DEPLOY.md            # BRAT setup and semver lessons
+│
+├── .github/workflows/            # NEW - CI/CD
+│   └── release-on-push.yml       # Auto-deploy to BRAT
+│
+├── manifest.json                 # NEW - Plugin metadata
+├── tsconfig.json                 # NEW - TypeScript config
+├── esbuild.config.mjs            # NEW - Build config
+├── versions.json                 # NEW - Version compatibility
+├── WORKFLOW.md                   # Workflow philosophy (unchanged)
+├── TESTING.md                    # Testing strategy
+├── README.md                     # Project overview
+├── package.json                  # NPM config (TypeScript deps added)
+└── vitest.config.js              # Test framework config
 ```
 
-### File Size Context
+### Current State (Slice 2 Complete)
 
-- **Total scripts:** ~25KB (3 files)
-- **extractLog.js:** ~520 lines (complex markdown manipulation)
-- **migrateTask.js:** ~370 lines (periodic note migration)
-- **handleNewNote.js:** ~58 lines (simple UI workflow)
+**Working:**
+- ✅ TypeScript build pipeline (esbuild)
+- ✅ Plugin loads in Obsidian
+- ✅ GitHub Actions auto-deploy
+- ✅ BRAT installation and updates
+- ✅ Test command works on mobile/desktop
+
+**In Progress:**
+- 🔄 Migrating `extractLog.js` → `src/commands/extractLog.ts`
+- 🔄 Migrating `migrateTask.js` → `src/commands/migrateTask.ts`
+
+**Not Started:**
+- ⏳ Utility extraction to `src/utils/`
+- ⏳ Test migration to TypeScript
+- ⏳ CSS injection in plugin
+- ⏳ Documentation updates
 
 ---
 
@@ -126,170 +169,304 @@ Traditional productivity systems (GTD, PARA, task apps) struggle with:
 ### Runtime Environment
 
 **Execution Context:**
-- Runs inside **Obsidian** (Electron app) via **Templater plugin**
-- Scripts executed via `window.eval()` in Obsidian context
-- Has access to Obsidian global APIs: `app`, `moment`, `Notice`
-- `tp` (Templater) object passed as function parameter
+- Runs as **native Obsidian plugin** (not via Templater)
+- TypeScript compiled to JavaScript via esbuild
+- Loaded by Obsidian's plugin system
+- Access to full Obsidian API via `this.app`
 
 **Key Obsidian APIs Used:**
-- `app.vault` - File operations (create, delete, read, modify)
-- `app.workspace` - Navigate to files, get active leaf
-- `app.metadataCache` - Access list item metadata (line numbers, children, parent)
+- `this.app.vault` - File operations (create, delete, read, modify)
+- `this.app.workspace` - Navigate to files, get active view/editor
+- `this.app.metadataCache` - Access list item metadata (line numbers, children, parent)
 - `navigator.clipboard` - Copy extracted content
+- `Notice` - User notifications
 
-**No Node.js APIs** - Scripts run in browser context, not Node.js.
+**Plugin Lifecycle:**
+- `onload()` - Register commands, inject CSS, initialize settings
+- `onunload()` - Cleanup (remove CSS, etc.)
 
 ### Tech Stack
 
-**Production:**
-- JavaScript (ES6+, CommonJS modules only)
-- Obsidian API (vault, workspace, metadataCache)
-- Templater API (tp.system.suggester, tp.file, tp.config)
+**Plugin (Production):**
+- TypeScript (ES6+ with type safety)
+- ES6 Modules (import/export)
+- Obsidian API (latest types from `npm install obsidian`)
+- esbuild (bundler - fast, simple)
 
 **Development:**
-- Node.js (development environment only)
+- Node.js 20+ (dev environment)
+- TypeScript 5.3+
 - Vitest (test framework with built-in mocking)
 - @vitest/ui (interactive test UI)
 - @vitest/coverage-v8 (code coverage)
+- GitHub Actions (CI/CD for auto-deploy)
+
+**Legacy (Templater Scripts - Reference Only):**
+- JavaScript ES6+, CommonJS modules
+- Single-file constraint
+- See `scripts/` folder for original implementation
 
 ### Module System
 
-**Critical: CommonJS Only**
-```javascript
-// ✅ CORRECT - Export function directly, attach helpers as properties
-module.exports = mainFunction;
-module.exports.mainFunction = mainFunction;
-module.exports.helperA = helperA;
-module.exports.helperB = helperB;
+**TypeScript Plugin - ES6 Modules:**
+```typescript
+// ✅ CORRECT - ES6 imports/exports
+import { Editor, Notice, TFile } from 'obsidian';
+import { parseWikilink } from '../utils/wikilinks';
 
-// ❌ WRONG - Object export breaks Templater loading
-module.exports = { mainFunction, helperA };
+export async function extractLog(plugin: BulletFlowPlugin) {
+  // Implementation
+}
 
-// ❌ WRONG - ES6 imports/exports don't work
-export function mainFunction() { }
-import { helper } from './other.js';
+export function helperFunction() {
+  // Helpers can be in same or different files
+}
 ```
 
-**Why:** Templater validates that user script exports are callable functions. Exporting an object causes "Default export is not a function" errors. By exporting the main function directly and attaching helpers as properties, both Templater and tests work correctly.
+**Main Plugin Structure:**
+```typescript
+// src/main.ts
+import { Plugin } from 'obsidian';
+import { extractLog } from './commands/extractLog';
+
+export default class BulletFlowPlugin extends Plugin {
+  async onload() {
+    this.addCommand({
+      id: 'extract-log',
+      name: 'Extract log to linked note',
+      callback: () => extractLog(this)
+    });
+  }
+}
+```
+
+**Build Process:**
+- TypeScript → esbuild → `main.js` (bundled)
+- All imports resolved and bundled into single file
+- Source maps for debugging
 
 ---
 
-## Critical Constraints
+## Plugin Development Guidelines
 
-### 1. Single-File Constraint
+### ✅ What You CAN Do Now (vs Templater Scripts)
 
-**Each script MUST be self-contained in a single file.**
+**File Organization:**
+- ✅ Split code into multiple files (commands, utils, types)
+- ✅ Create shared utility modules
+- ✅ Organize by feature or function
+- ✅ Extract reusable helpers to `src/utils/`
 
-```javascript
-// ❌ WRONG - Cannot import other user scripts
-const { helper } = require('./otherScript.js');  // BROKEN in Templater v1.10.0+
+**Module System:**
+- ✅ Use ES6 imports/exports
+- ✅ Import from `obsidian` package
+- ✅ Import custom utilities
+- ✅ Type-safe imports with TypeScript
 
-// ✅ CORRECT - All helpers in same file
-function helper() { /* ... */ }
-function mainFunction(tp) {
-  helper();  // Works because it's in same file
+**Type Safety:**
+- ✅ TypeScript for all plugin code
+- ✅ Full Obsidian API types
+- ✅ Custom type definitions
+- ✅ Strict null checks enabled
+
+**Example Structure:**
+```typescript
+// src/utils/wikilinks.ts
+import { TFile } from 'obsidian';
+
+export function parseWikilink(text: string): WikiLink | null {
+  // Implementation
+}
+
+// src/commands/extractLog.ts
+import { Notice } from 'obsidian';
+import { parseWikilink } from '../utils/wikilinks';
+import type BulletFlowPlugin from '../main';
+
+export async function extractLog(plugin: BulletFlowPlugin) {
+  const app = plugin.app;  // Access app via plugin instance
+  const link = parseWikilink(text);  // Use imported utility
+  new Notice('Done!');
 }
 ```
 
-**Why:** Templater's `require()` for importing other user scripts is broken. See [Templater Issue #539](https://github.com/SilentVoid13/Templater/issues/539).
+### 🚫 Constraints That Still Apply
 
-**Implication:** When suggesting changes, NEVER propose splitting a script into multiple files in `scripts/` directory. Helper functions must live alongside the main function.
+**Obsidian API Limitations:**
+- Must use Obsidian API for file operations (not Node.js fs)
+- Editor access only in active markdown views
+- Metadata cache updates may lag file changes
 
-### 2. CommonJS Export Pattern
+**Build Requirements:**
+- esbuild bundles everything into `main.js`
+- All TypeScript must compile successfully
+- No runtime dependencies (all bundled)
 
+**BRAT Auto-Deploy:**
+- Version in `manifest.json` must be ≥ latest dev version
+- Each push creates `{version}-dev.{run_number}` release
+- Dev versions use semantic versioning (`0.2.0-dev.9` < `0.2.0-dev.10`)
+
+### 📋 Migration-Specific Constraints
+
+**During Migration (Temporary):**
+- Keep legacy scripts in `scripts/` for reference
+- Don't modify legacy scripts (migration target only)
+- Tests will be migrated after core functionality works
+
+**File Organization During Migration:**
+```
+src/
+├── main.ts                    # Plugin entry point
+├── commands/                  # One file per command
+│   ├── extractLog.ts         # Migrate from scripts/extractLog.js
+│   └── migrateTask.ts        # Migrate from scripts/migrateTask.js
+└── utils/                    # Shared utilities
+    ├── indent.ts             # Extracted from both commands
+    ├── listItems.ts          # Extracted from both commands
+    └── wikilinks.ts          # Specific to extractLog
+```
+
+### 🎯 Code Style Guidelines
+
+**TypeScript:**
+- Use strict null checks
+- Prefer `const` over `let`
+- Use arrow functions for callbacks
+- Type function parameters and returns
+
+**Naming:**
+- Functions: `camelCase`
+- Types/Interfaces: `PascalCase`
+- Files: `camelCase.ts`
+- Constants: `UPPER_SNAKE_CASE`
+
+**Imports:**
+```typescript
+// ✅ CORRECT - Grouped and ordered
+import { Plugin, Notice, TFile } from 'obsidian';  // External first
+import type { WikiLink } from '../types';          // Types
+import { parseWikilink } from '../utils/wikilinks'; // Relative imports last
+```
+
+**Error Handling:**
+```typescript
+// ✅ CORRECT - User-friendly notices
+try {
+  await performOperation();
+} catch (e) {
+  new Notice(`Error: ${e.message}`);
+  console.error('Detailed error:', e);
+}
+```
+
+---
+
+## Migration Strategy
+
+### Approach: End-to-End Vertical Slices
+
+Each slice delivers a working, testable increment that auto-deploys via BRAT.
+
+**Completed Slices:**
+1. ✅ **Hello Plugin** - Minimal working plugin (test command)
+2. ✅ **BRAT Walking Skeleton** - Auto-deploy on every push
+
+**Upcoming Slices:**
+3. 🔄 **extractLog MVP** - Basic extraction (cursor-based, simple wikilinks)
+4. ⏳ **extractLog Complete** - Edge cases (pure links, sections, full tests)
+5. ⏳ **migrateTask MVP** - Daily note migration
+6. ⏳ **migrateTask Complete** - All periodic note types, full tests
+7. ⏳ **Polish & UX** - CSS injection, ribbon icons, settings
+8. ⏳ **Documentation** - Update all docs for plugin
+9. ⏳ **Official Release** - v1.0.0 to Obsidian community plugins
+
+### Slice 3 Goals (extractLog MVP)
+
+**Scope:**
+- ✅ Extract single bullet with `[[wikilink]]` to target note
+- ✅ Create `## Log` section if missing
+- ✅ Copy to clipboard
+- ✅ Show success notice
+- ❌ NOT: Pure link bullets, section links, complex edge cases
+
+**Deliverables:**
+- `src/commands/extractLog.ts` (~300 LOC)
+- `src/utils/wikilinks.ts` - findFirstWikiLink(), parseWikilink()
+- `src/utils/indent.ts` - countIndent(), dedentLines()
+- `src/utils/listItems.ts` - findChildrenBlockFromListItems()
+- Registered command in `src/main.ts`
+- Basic integration test (proves approach works)
+- Working on mobile/desktop via auto-deploy
+
+**Success Criteria:**
+- Can extract bullet with children to target note in real daily workflow
+- Auto-deploys to mobile on push
+- One integration test passing
+- Ready for daily use (even with limited features)
+
+### Code Migration Pattern
+
+**From Templater Script:**
 ```javascript
-// Required structure for Templater + testability
-function helperA() { /* ... */ }
-function helperB() { /* ... */ }
-
-async function mainFunction(tp) {
-  // Use helpers
+// scripts/extractLog.js (legacy)
+function parseWikilink(text) {
+  // Implementation
 }
 
-// Export main function directly, attach helpers as properties
-module.exports = mainFunction;
-module.exports.mainFunction = mainFunction;
-module.exports.helperA = helperA;
-module.exports.helperB = helperB;
-```
-
-**Usage in Templater:** `<% tp.user.scriptName(tp) %>` or `<% tp.user.scriptName.mainFunction(tp) %>`
-
-**Usage in tests:**
-```javascript
-const { mainFunction, helperA, helperB } = require('../../scripts/scriptName.js');
-```
-
-### 3. Modern JavaScript Support
-
-**ES6+ Features ARE Supported:**
-
-Obsidian runs on Electron 34+ (Chromium), which **fully supports modern JavaScript**:
-```javascript
-// ✅ ALL of these work perfectly fine
-const items = array.filter(item => item.value > 0);
-let count = 0;
-const message = `Found ${count} items`;
-const { prop1, prop2 } = object;
-async function myFunction() { await somePromise(); }
-```
-
-**The ONLY limitation is ES6 module syntax:**
-```javascript
-// ❌ WRONG - Import/export statements don't work
-import { helper } from './other.js';
-export function mainFunction() { }
-
-// ✅ CORRECT - Use CommonJS instead
-const { helper } = require('./other.js');
-module.exports = { mainFunction };
-```
-
-**Code style:**
-All scripts use modern JavaScript (ES6+) with `const`, `let`, arrow functions, and template literals.
-
-### 4. Global Variables
-
-Scripts have access to:
-- `app` - Obsidian app object (auto-injected)
-- `moment` - Moment.js library (auto-injected)
-- `Notice` - Obsidian notification API (auto-injected)
-- `tp` - Templater object (must be passed as parameter)
-
-```javascript
-// ✅ CORRECT - Use globals directly
-function mainFunction(tp) {
-  const folders = app.vault.getAllFolders();  // app is global
-  new Notice('Done!');                        // Notice is global
+async function extractLog(tp) {
+  const app = tp.app;
+  const view = app.workspace.activeLeaf.view;
+  // ...
 }
 
-// ❌ WRONG - Don't expect to import them
-import { app } from 'obsidian';  // Doesn't work
+module.exports = extractLog;
+module.exports.parseWikilink = parseWikilink;
 ```
 
-### 5. JavaScript Runtime Capabilities
+**To Plugin Command:**
+```typescript
+// src/utils/wikilinks.ts
+import { TFile } from 'obsidian';
 
-**Important Clarification:** The `window.eval()` execution context does NOT limit ES6+ features.
+export function parseWikilink(text: string): WikiLink | null {
+  // Implementation (same logic, typed)
+}
 
-Obsidian runs on **Electron 34+ (Chromium)**, which provides a modern JavaScript engine. All ES6+ features work perfectly:
+// src/commands/extractLog.ts
+import { MarkdownView, Notice } from 'obsidian';
+import { parseWikilink } from '../utils/wikilinks';
+import type BulletFlowPlugin from '../main';
 
-✅ **Fully Supported:**
-- `const`, `let` variable declarations
-- Arrow functions: `() => {}`
-- Template literals: `` `Hello ${name}` ``
-- Destructuring: `const { a, b } = obj`
-- Spread operator: `[...arr]`, `{...obj}`
-- Default parameters: `function fn(x = 5) {}`
-- async/await: `async function() { await promise; }`
-- Classes: `class MyClass {}`
-- Array methods: `.map()`, `.filter()`, `.find()`, etc.
-- Object methods: `Object.entries()`, `Object.values()`, etc.
+export async function extractLog(plugin: BulletFlowPlugin) {
+  const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+  if (!view) {
+    new Notice('No active markdown view');
+    return;
+  }
+  // Implementation (adapted for plugin API)
+}
 
-❌ **Only Limitation:**
-- ES6 module syntax: `import`/`export` statements (use CommonJS instead)
+// src/main.ts
+import { extractLog } from './commands/extractLog';
 
-**Code style:**
-All scripts use modern JavaScript (ES6+) syntax for consistency and readability.
+export default class BulletFlowPlugin extends Plugin {
+  async onload() {
+    this.addCommand({
+      id: 'extract-log',
+      name: 'Extract log to linked note',
+      callback: () => extractLog(this)
+    });
+  }
+}
+```
+
+**Key Changes:**
+1. Extract utilities to separate files
+2. Add TypeScript types
+3. Access `app` via `plugin.app` instead of `tp.app`
+4. Use `getActiveViewOfType(MarkdownView)` instead of `activeLeaf.view`
+5. Register as command callback instead of template function
 
 ---
 
