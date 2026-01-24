@@ -9,7 +9,7 @@ export default class ObsidianToolsPlugin extends Plugin {
 			id: 'test-command',
 			name: 'Test - Plugin is working!',
 			callback: () => {
-				new Notice('🎉 Bullet Flow plugin is working!');
+				new Notice('🚀 AUTO-DEPLOY WORKS! You\'re on v0.1.0 build #3');
 			}
 		});
 	}
