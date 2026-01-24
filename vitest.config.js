@@ -1,16 +1,24 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      obsidian: path.resolve(__dirname, 'tests/mocks/obsidian-api.ts')
+    }
+  },
   test: {
     globals: true,
     environment: 'node',
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      include: ['scripts/**/*.js'],
+      include: ['scripts/**/*.js', 'src/**/*.ts'],
       exclude: [
         'scripts/**/*.test.js',
         'scripts/**/*.spec.js',
+        'src/**/*.test.ts',
+        'src/**/*.spec.ts',
         'node_modules/**'
       ],
       thresholds: {
