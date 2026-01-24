@@ -25,33 +25,34 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Extract base version and commit info
+        id: version
+        run: |
+          BASE_VERSION=$(node -p "require('./manifest.json').version")
+          DEV_VERSION="${BASE_VERSION}-dev.${{ github.run_number }}"
+          echo "base_version=${BASE_VERSION}" >> $GITHUB_OUTPUT
+          echo "dev_version=${DEV_VERSION}" >> $GITHUB_OUTPUT
+          echo "commit_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Update manifest.json with dev version
+        run: |
+          node -e "const fs = require('fs'); const manifest = JSON.parse(fs.readFileSync('manifest.json')); manifest.version = '${{ steps.version.outputs.dev_version }}'; fs.writeFileSync('manifest.json', JSON.stringify(manifest, null, '\t'));"
+
       - name: Build plugin
         run: npm run build
 
-      - name: Extract version and commit info
-        id: version
-        run: |
-          echo "version=$(node -p "require('./manifest.json').version")" >> $GITHUB_OUTPUT
-          echo "commit_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Delete existing latest tag and release
-        continue-on-error: true
-        run: |
-          gh release delete latest --yes
-          git push origin :refs/tags/latest
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create/Update Latest Release
+      - name: Create Development Release
         uses: ncipollo/release-action@v1
         with:
           artifacts: "main.js,manifest.json"
-          tag: latest
-          name: "Development Build (v${{ steps.version.outputs.version }})"
+          tag: ${{ steps.version.outputs.dev_version }}
+          name: "Development Build (v${{ steps.version.outputs.dev_version }})"
           body: |
             🚀 **Auto-deployed from latest commit**
 
-            - **Version:** ${{ steps.version.outputs.version }}
+            - **Version:** ${{ steps.version.outputs.dev_version }}
+            - **Base Version:** ${{ steps.version.outputs.base_version }}
+            - **Build:** #${{ github.run_number }}
             - **Commit:** [${{ steps.version.outputs.commit_short }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
             - **Branch:** ${{ github.ref_name }}
             - **Built:** ${{ github.event.head_commit.timestamp }}
@@ -69,9 +70,6 @@ jobs:
             ## What's in this build
 
             ${{ github.event.head_commit.message }}
-          allowUpdates: true
-          removeArtifacts: true
-          replacesArtifacts: true
-          updateOnlyUnreleased: false
-          makeLatest: true
+          prerelease: true
+          makeLatest: false
           token: ${{ secrets.GITHUB_TOKEN }}
