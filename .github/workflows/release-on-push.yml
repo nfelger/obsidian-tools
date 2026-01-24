@@ -34,6 +34,14 @@ jobs:
           echo "version=$(node -p "require('./manifest.json').version")" >> $GITHUB_OUTPUT
           echo "commit_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
+      - name: Delete existing latest tag and release
+        continue-on-error: true
+        run: |
+          gh release delete latest --yes
+          git push origin :refs/tags/latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create/Update Latest Release
         uses: ncipollo/release-action@v1
         with:
