@@ -1,10 +1,18 @@
 import { Plugin, Notice } from 'obsidian';
+import { extractLog } from './commands/extractLog';
 
-export default class ObsidianToolsPlugin extends Plugin {
+export default class BulletFlowPlugin extends Plugin {
 	async onload() {
 		console.log('Loading Bullet Flow plugin');
 
-		// Test command to verify plugin is working
+		// Extract Log command
+		this.addCommand({
+			id: 'extract-log',
+			name: 'Extract log to linked note',
+			callback: () => extractLog(this)
+		});
+
+		// Test command (keep for now)
 		this.addCommand({
 			id: 'test-command',
 			name: 'Test - Plugin is working!',
