@@ -4,7 +4,7 @@ import path from 'path';
 export default defineConfig({
   resolve: {
     alias: {
-      obsidian: path.resolve(__dirname, 'tests/mocks/obsidian-api.ts')
+      obsidian: path.resolve(__dirname, 'tests/mocks/obsidian.js')
     }
   },
   test: {
