@@ -34,14 +34,50 @@ jobs:
           echo "dev_version=${DEV_VERSION}" >> $GITHUB_OUTPUT
           echo "commit_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
+      - name: Build plugin (stable)
+        if: github.ref == 'refs/heads/main'
+        run: npm run build
+
       - name: Update manifest.json with dev version
+        if: github.ref != 'refs/heads/main'
         run: |
           node -e "const fs = require('fs'); const manifest = JSON.parse(fs.readFileSync('manifest.json')); manifest.version = '${{ steps.version.outputs.dev_version }}'; fs.writeFileSync('manifest.json', JSON.stringify(manifest, null, '\t'));"
 
-      - name: Build plugin
+      - name: Build plugin (dev)
+        if: github.ref != 'refs/heads/main'
         run: npm run build
 
+      - name: Create Stable Release
+        if: github.ref == 'refs/heads/main'
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "main.js,manifest.json"
+          tag: ${{ steps.version.outputs.base_version }}
+          name: "v${{ steps.version.outputs.base_version }}"
+          body: |
+            ## Bullet Flow v${{ steps.version.outputs.base_version }}
+
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+
+            ### Installation
+
+            **Via BRAT (recommended):**
+            1. Install BRAT plugin in Obsidian
+            2. Settings → BRAT → Add Beta Plugin
+            3. Enter: `nfelger/obsidian-tools`
+            4. Enable plugin in Community Plugins
+
+            **Manual:**
+            1. Download `main.js` and `manifest.json`
+            2. Create folder: `.obsidian/plugins/bullet-flow/`
+            3. Copy files into folder
+            4. Enable plugin in Community Plugins
+          prerelease: false
+          makeLatest: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create Development Release
+        if: github.ref != 'refs/heads/main'
         uses: ncipollo/release-action@v1
         with:
           artifacts: "main.js,manifest.json"
