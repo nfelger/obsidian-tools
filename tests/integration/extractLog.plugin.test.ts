@@ -1,21 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { testExtractLog } from '../helpers/extractLogTestHelper.js';
-import {
-  createMockApp,
-  createMockWorkspace,
-  createMockTp,
-  createMockNotice
-} from '../mocks/obsidian.js';
+import { testExtractLogPlugin } from '../helpers/extractLogPluginTestHelper';
 
-const { extractLog } = require('../../scripts/extractLog.js');
-
-describe('extractLog - markdown transformations', () => {
+describe('extractLog (plugin) - markdown transformations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('extracts children to target note with wikilink', async () => {
-    const result = await testExtractLog({
+    const result = await testExtractLogPlugin({
       source: `
 - [[Target Note]]
   - Child 1
@@ -41,7 +33,7 @@ describe('extractLog - markdown transformations', () => {
   });
 
   it('shows message when no children under current bullet', async () => {
-    const result = await testExtractLog({
+    const result = await testExtractLogPlugin({
       source: `
 - Parent item
 - Sibling item
@@ -56,7 +48,7 @@ describe('extractLog - markdown transformations', () => {
   });
 
   it('handles pure link bullets with parent context', async () => {
-    const result = await testExtractLog({
+    const result = await testExtractLogPlugin({
       source: `
 - Project work
   - [[Target Note]]
@@ -87,7 +79,7 @@ describe('extractLog - markdown transformations', () => {
   });
 
   it('creates Log section if missing in target', async () => {
-    const result = await testExtractLog({
+    const result = await testExtractLogPlugin({
       source: `
 - [[Target Note]]
   - Content
@@ -107,7 +99,7 @@ Some existing content
   });
 
   it('handles nested list structures', async () => {
-    const result = await testExtractLog({
+    const result = await testExtractLogPlugin({
       source: `
 - [[Target Note]]
   - Level 1
@@ -135,7 +127,7 @@ Some existing content
   });
 
   it('handles checkboxes in list items', async () => {
-    const result = await testExtractLog({
+    const result = await testExtractLogPlugin({
       source: `
 - [[Target Note]]
   - [ ] Unchecked task
@@ -156,7 +148,7 @@ Some existing content
   });
 
   it('updates wikilink with section anchor', async () => {
-    const result = await testExtractLog({
+    const result = await testExtractLogPlugin({
       source: `
 - [[Target Note]] some context
   - Child
@@ -172,64 +164,61 @@ Some existing content
     expect(result.source).toContain('[[Target Note#');
     expect(result.source).toContain('daily');
   });
-});
 
-describe('extractLog - error cases', () => {
-  let mockNotice;
+  it('handles wikilinks with existing aliases', async () => {
+    const result = await testExtractLogPlugin({
+      source: `
+- [[Target Note|My Alias]] extra text
+  - Child content
+      `,
+      targetNotes: {
+        'Target Note': `
+## Log
+        `
+      }
+    });
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockNotice = createMockNotice();
-    vi.stubGlobal('Notice', mockNotice);
-    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn() } });
+    // Should preserve the original alias
+    expect(result.source).toContain('|My Alias]]');
+    // But update the link target to include section
+    expect(result.source).toContain('[[Target Note#');
   });
 
-  it('shows error when no active markdown view', async () => {
-    const mockWorkspace = createMockWorkspace();
-    mockWorkspace.activeLeaf = null;
+  it('handles non-pure link bullets with text after link', async () => {
+    const result = await testExtractLogPlugin({
+      source: `
+- [[Target Note]] discussed feature X
+  - Detail 1
+  - Detail 2
+      `,
+      targetNotes: {
+        'Target Note': `
+## Log
+        `
+      }
+    });
 
-    const mockApp = createMockApp({ workspace: mockWorkspace });
-    vi.stubGlobal('app', mockApp);
-
-    const mockTp = createMockTp({ app: mockApp });
-
-    await extractLog(mockTp);
-
-    expect(mockNotice).toHaveBeenCalledWith(
-      expect.stringContaining('No active markdown view'),
-      expect.any(Number)
-    );
+    // The heading suffix should be "discussed feature X"
+    expect(result.target('Target Note')).toContain('### [[daily]] discussed feature X');
   });
 
-  it('shows error when no active file', async () => {
-    const mockWorkspace = createMockWorkspace({ editor: null, file: null });
-    mockWorkspace.activeLeaf.view.file = null;
+  it('preserves indentation when dedenting children', async () => {
+    const result = await testExtractLogPlugin({
+      source: `
+- [[Target Note]]
+    - Indented child
+        - Deeply nested
+      `,
+      targetNotes: {
+        'Target Note': `
+## Log
+        `
+      }
+    });
 
-    const mockApp = createMockApp({ workspace: mockWorkspace });
-    vi.stubGlobal('app', mockApp);
-
-    const mockTp = createMockTp({ app: mockApp });
-
-    await extractLog(mockTp);
-
-    expect(mockNotice).toHaveBeenCalledWith(
-      expect.stringContaining('No active file'),
-      expect.any(Number)
-    );
-  });
-
-  it('handles errors gracefully', async () => {
-    const mockApp = createMockApp();
-    mockApp.workspace = null;
-    vi.stubGlobal('app', mockApp);
-
-    const mockTp = createMockTp({ app: mockApp });
-
-    await extractLog(mockTp);
-
-    expect(mockNotice).toHaveBeenCalledWith(
-      expect.stringContaining('ERROR'),
-      8000
-    );
+    const targetContent = result.target('Target Note');
+    // Children should be dedented but relative indentation preserved
+    expect(targetContent).toContain('- Indented child');
+    expect(targetContent).toContain('  - Deeply nested');
   });
 });

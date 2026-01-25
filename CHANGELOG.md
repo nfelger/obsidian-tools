@@ -1,0 +1,50 @@
+# Changelog
+
+All notable changes to Bullet Flow are documented here.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.2.0] - 2026-01-25
+
+### Added
+
+**Task Migration**
+- Multi-select task migration: Select multiple tasks and migrate them all at once
+- Support for all periodic note types: daily, weekly, monthly, and yearly notes
+- Smart boundary transitions: Sunday automatically migrates to next week, December to next year
+- Task migration now works on mobile devices with touch selection
+
+**Extract Log**
+- Section link support: Extract to specific sections like `[[Note#Section]]`
+- Smart context: Bullets that are pure links inherit context from their parent
+- Automatic back-links: Extracted content includes timestamp and link back to source
+- Clipboard copy: Extracted content is automatically copied for easy pasting
+
+**Custom Checkboxes**
+- Custom checkbox CSS now works automatically (no manual setup needed)
+- Meeting marker `[o]` displays with red calendar icon
+
+**Auto-Update**
+- Plugin updates automatically via BRAT
+- No manual file copying or installation required
+
+### Improved
+
+- Better mobile support for text selection
+- Handles YAML frontmatter when inserting content
+- Automatic next note calculation for all note types
+
+### Changed
+
+- Now a native Obsidian plugin (previously Templater user scripts)
+- Automatic installation and updates via BRAT
+
+## [0.1.0] - 2026-01-23
+
+Initial release as Templater user scripts.
+
+### Added
+- Extract Log: Move nested content from daily notes to project/area notes
+- Migrate Task: BuJo-style task migration between periodic notes
+- Folder selection for new notes

@@ -7,37 +7,53 @@ import {
   createMockMetadataCache,
   createMockVault,
   createMockWorkspace,
-  createMockTp,
   createMockNotice,
   createMockClipboard
 } from '../mocks/obsidian.js';
+import type { ListItem } from '../../src/types';
+import type BulletFlowPlugin from '../../src/main';
+
+interface TestExtractLogOptions {
+  source: string;
+  targetNotes?: Record<string, string>;
+  cursorLine?: number;
+  fileName?: string;
+}
+
+interface TestExtractLogResult {
+  source: string;
+  target: (name: string) => string | null;
+  error: string | null;
+  notice: string | null;
+  notices: string[];
+}
 
 /**
- * Test extractLog with markdown-first approach
+ * Test extractLog (plugin version) with markdown-first approach
  *
- * @param {Object} options
- * @param {string} options.source - Source markdown content
- * @param {Object} options.targetNotes - Target notes as { 'NoteName': 'markdown content' }
- * @param {number} options.cursorLine - Line where cursor is positioned (default: 0)
- * @param {string} options.fileName - Source file name (default: 'daily.md')
- * @returns {Promise<Object>} Result with source, target(), error, notice
+ * @param options - Test configuration
+ * @param options.source - Source markdown content
+ * @param options.targetNotes - Target notes as { 'NoteName': 'markdown content' }
+ * @param options.cursorLine - Line where cursor is positioned (default: 0)
+ * @param options.fileName - Source file name (default: 'daily.md')
+ * @returns Result with source, target(), error, notice
  */
-export async function testExtractLog({
+export async function testExtractLogPlugin({
   source,
   targetNotes = {},
   cursorLine = 0,
   fileName = 'daily.md'
-}) {
+}: TestExtractLogOptions): Promise<TestExtractLogResult> {
   // Normalize markdown
   const normalizedSource = normalizeMarkdown(source);
 
   // Parse source markdown → listItems
-  const listItems = parseMarkdownToListItems(normalizedSource);
+  const listItems = parseMarkdownToListItems(normalizedSource) as ListItem[];
 
   // Track content state
   let sourceContent = normalizedSource;
-  const targetContents = new Map();
-  const errors = [];
+  const targetContents = new Map<string, string>();
+  const errors: string[] = [];
 
   // Initialize target note contents
   for (const [name, content] of Object.entries(targetNotes)) {
@@ -51,7 +67,7 @@ export async function testExtractLog({
   });
 
   // Override editor methods to track changes
-  mockEditor.replaceRange = vi.fn((text, from, to) => {
+  mockEditor.replaceRange = vi.fn((text: string, from: any, to: any) => {
     const lines = sourceContent.split('\n');
     const deleteCount = to.line - from.line;
 
@@ -66,20 +82,20 @@ export async function testExtractLog({
     sourceContent = lines.join('\n');
   });
 
-  mockEditor.setLine = vi.fn((lineNum, text) => {
+  mockEditor.setLine = vi.fn((lineNum: number, text: string) => {
     const lines = sourceContent.split('\n');
     lines[lineNum] = text;
     sourceContent = lines.join('\n');
   });
 
   // Build file cache
-  const fileCache = {
+  const fileCache: Record<string, any> = {
     [fileName]: { listItems }
   };
 
   // Setup target notes in cache
-  const linkDests = new Map();
-  const allFiles = [];
+  const linkDests = new Map<string, any>();
+  const allFiles: any[] = [];
   const mockSourceFile = createMockFile({
     path: fileName,
     basename: fileName.replace('.md', '')
@@ -91,7 +107,7 @@ export async function testExtractLog({
 
     // Parse target note for headings
     const targetLines = normalizeMarkdown(content).split('\n');
-    const headings = [];
+    const headings: any[] = [];
     targetLines.forEach((line, idx) => {
       const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
       if (headingMatch) {
@@ -115,7 +131,7 @@ export async function testExtractLog({
 
   // Create vault that tracks modifications
   const mockVault = createMockVault({ files: allFiles });
-  mockVault.process = vi.fn(async (file, processFn) => {
+  mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {
     const targetName = file.basename;
     const currentContent = targetContents.get(targetName) || '';
     const newContent = await processFn(currentContent);
@@ -143,39 +159,41 @@ export async function testExtractLog({
   });
 
   // Setup globals
-  const notices = [];
-  const mockNotice = createMockNotice();
-  mockNotice.mockImplementation((msg) => {
+  const notices: string[] = [];
+  vi.stubGlobal('navigator', { clipboard: createMockClipboard() });
+
+  // Spy on Notice constructor to track messages
+  const NoticeModule = await import('obsidian');
+  const NoticeSpy = vi.spyOn(NoticeModule, 'Notice').mockImplementation(function(this: any, msg: string) {
     notices.push(msg);
     if (msg.includes('ERROR') || msg.includes('error')) {
       errors.push(msg);
     }
-  });
+    this.message = msg;
+    return this;
+  } as any);
 
-  vi.stubGlobal('app', mockApp);
-  vi.stubGlobal('Notice', mockNotice);
-  vi.stubGlobal('navigator', { clipboard: createMockClipboard() });
-
-  // Create tp object
-  const mockTp = createMockTp({ app: mockApp });
-  mockTp.file = { title: fileName.replace('.md', ''), path: fileName };
+  // Create mock plugin
+  const mockPlugin = {
+    app: mockApp
+  } as BulletFlowPlugin;
 
   // Import and run extractLog
-  const { extractLog } = require('../../scripts/extractLog.js');
-  await extractLog(mockTp);
+  const { extractLog } = await import('../../src/commands/extractLog');
+  await extractLog(mockPlugin);
+
+  // Cleanup
+  NoticeSpy.mockRestore();
 
   // Return clean result
   return {
     source: normalizeMarkdown(sourceContent),
-    target: (name) => {
+    target: (name: string) => {
       const content = targetContents.get(name);
       return content ? normalizeMarkdown(content) : null;
     },
     error: errors[0] || null,
     notice: notices[0] || null,
-    notices: notices,
-    // For debugging if needed
-    _editor: mockEditor,
-    _vault: mockVault
+    notices: notices
   };
 }

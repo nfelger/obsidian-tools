@@ -1,31 +1,26 @@
 # CLAUDE.md - AI Assistant Guide
 
-This document provides comprehensive guidance for AI assistants working on the obsidian-tools codebase. Read this first to understand the system's philosophy, technical constraints, and development conventions.
+This document provides comprehensive guidance for AI assistants working on the **Bullet Flow** Obsidian plugin.
 
 ## Quick Start
 
-**What This Is:** A collection of Templater user scripts for Obsidian that support a BuJo-inspired (Bullet Journal) knowledge management workflow. This is NOT a traditional Obsidian plugin - scripts run via the Templater plugin and have unique constraints.
+**Bullet Flow** is an Obsidian plugin supporting a BuJo-inspired (Bullet Journal) knowledge management workflow.
 
-**Key Scripts:**
-- `scripts/extractLog.js` (~520 LOC) - Extracts nested content from daily notes to project/area notes
-- `scripts/migrateTask.js` (~370 LOC) - BuJo-style task migration between periodic notes
-- `scripts/handleNewNote.js` (~58 LOC) - Prompts for folder selection when creating new notes
+**Core Features:**
+- **Extract Log** - Move nested content from daily notes to project/area notes
+- **Migrate Task** - BuJo-style task migration between periodic notes
+- **Custom Checkboxes** - Visual task markers (e.g., `[o]` for meetings)
+
+**Architecture:**
+- TypeScript plugin using Obsidian API
+- ES6 modules with esbuild bundling
+- Auto-deploy via BRAT (every push to `main` or `claude/**`)
+- Comprehensive test suite with Vitest
 
 **Essential Reading:**
-1. This file (CLAUDE.md) - Technical constraints and conventions
-2. [WORKFLOW.md](WORKFLOW.md) - Philosophy and "why" behind design decisions
-3. [TESTING.md](TESTING.md) - Testing strategy and constraints
-
-## Table of Contents
-
-1. [Codebase Structure](#codebase-structure)
-2. [Workflow Philosophy](#workflow-philosophy)
-3. [Technical Architecture](#technical-architecture)
-4. [Critical Constraints](#critical-constraints)
-5. [Development Conventions](#development-conventions)
-6. [Testing Strategy](#testing-strategy)
-7. [Common Tasks](#common-tasks)
-8. [References](#references)
+1. [WORKFLOW.md](WORKFLOW.md) - Philosophy and workflow principles
+2. [TESTING.md](TESTING.md) - Testing strategy and patterns
+3. [docs/AUTO-DEPLOY.md](docs/AUTO-DEPLOY.md) - BRAT setup and deployment
 
 ---
 
@@ -33,52 +28,45 @@ This document provides comprehensive guidance for AI assistants working on the o
 
 ```
 obsidian-tools/
-├── scripts/                   # Templater user scripts (production code)
-│   ├── extractLog.js         # Log extraction workflow
-│   ├── migrateTask.js        # BuJo-style task migration
-│   └── handleNewNote.js      # Folder picker for new notes
+├── src/                          # TypeScript plugin source
+│   ├── main.ts                   # Plugin entry point
+│   ├── types.ts                  # Shared type definitions
+│   ├── commands/                 # Command implementations
+│   │   ├── extractLog.ts
+│   │   └── migrateTask.ts
+│   └── utils/                    # Shared utilities
+│       ├── commandSetup.ts       # Common command setup
+│       ├── indent.ts             # Indentation utilities
+│       ├── listItems.ts          # List item operations
+│       ├── periodicNotes.ts      # Date/note type calculations
+│       ├── tasks.ts              # Task operations
+│       └── wikilinks.ts          # Wikilink parsing
 │
-├── snippets/                  # CSS customizations
-│   └── custom-checkboxes.css # Visual checkbox markers
+├── tests/                        # Test suite
+│   ├── unit/                     # Pure function tests
+│   ├── integration/              # Full workflow tests
+│   ├── helpers/                  # Test utilities
+│   └── mocks/                    # Obsidian API mocks
 │
-├── tests/                     # Comprehensive test suite
-│   ├── unit/                 # Pure function tests (95%+ coverage goal)
-│   │   ├── extractLog.test.js
-│   │   └── migrateTask.test.js
-│   ├── integration/          # Full workflow tests (60-80% coverage)
-│   │   ├── extractLog.integration.test.js
-│   │   ├── migrateTask.integration.test.js
-│   │   └── handleNewNote.integration.test.js
-│   ├── helpers/              # Test utilities
-│   │   ├── extractLogTestHelper.js      # Markdown-first pattern
-│   │   ├── migrateTaskTestHelper.js     # Markdown-first pattern
-│   │   ├── handleNewNoteTestHelper.js   # UI workflow pattern
-│   │   └── markdownParser.js            # Parse markdown → listItems
-│   └── mocks/                # Obsidian API mocks
-│       └── obsidian.js       # Factory functions for all mocks
+├── docs/                         # Documentation
+├── .github/workflows/            # CI/CD
+│   └── release-on-push.yml       # Auto-deploy
 │
-├── WORKFLOW.md               # Workflow philosophy (196 lines) - READ THIS
-├── TESTING.md                # Testing strategy and constraints
-├── README.md                 # Project overview
-├── package.json              # NPM configuration (CommonJS, no deps)
-├── vitest.config.js         # Test framework configuration
-└── .gitignore               # Version control exclusions
+├── manifest.json                 # Plugin metadata
+├── tsconfig.json                 # TypeScript config
+├── esbuild.config.mjs            # Build config
+├── WORKFLOW.md                   # Workflow philosophy
+├── TESTING.md                    # Testing strategy
+└── README.md                     # User documentation
 ```
-
-### File Size Context
-
-- **Total scripts:** ~25KB (3 files)
-- **extractLog.js:** ~520 lines (complex markdown manipulation)
-- **migrateTask.js:** ~370 lines (periodic note migration)
-- **handleNewNote.js:** ~58 lines (simple UI workflow)
 
 ---
 
 ## Workflow Philosophy
 
-### The Core Problem This Solves
+### The Core Problem
 
-Traditional productivity systems (GTD, PARA, task apps) struggle with:
+Traditional productivity systems struggle with:
 1. **Capture friction** - Forcing decisions about *where* before you can write
 2. **Review collapse** - Scheduled reviews fail when life gets chaotic
 3. **Retrieval failure** - Analog BuJo is great for thinking, terrible for finding
@@ -86,26 +74,13 @@ Traditional productivity systems (GTD, PARA, task apps) struggle with:
 
 ### The Solution: Chaos → Structure
 
-**Morning:** Everything starts in the daily note (`YYYY-MM-DD ddd`) as a rapid, unorganized log.
+**Morning:** Everything starts in the daily note as rapid, unorganized capture.
 
-**Throughout Day:** Continuous capture without categorization. Use semantic bullets (checkboxes, custom markers) for visual structure.
+**Throughout Day:** Continuous capture without categorization. Use semantic bullets for visual structure.
 
-**Reflection Passes:** Ad hoc mini-passes throughout the day ask: "Is this ephemeral or does it belong somewhere longer?" Extract lasting content to Project/Area notes.
+**Reflection Passes:** Ad hoc mini-passes ask: "Is this ephemeral or does it belong somewhere longer?" Extract lasting content to Project/Area notes.
 
 **End of Day:** BuJo-style migration - move forward, schedule for later, or explicitly drop tasks.
-
-### 10 Core Principles
-
-1. **Simplicity** - Start simple; complexity emerges only when needed
-2. **Frictionless Capture** - One entry point, no decisions required
-3. **Expect Chaos** - Messiness is allowed; transformation happens later
-4. **Continuous Review** - Reflection is woven in, not scheduled separately
-5. **Resilience** - Works when life is chaotic, not just when disciplined
-6. **Lightness** - No guilt, no overdue backlogs, no psychological drag
-7. **Findability** - If you can't find it fast, it doesn't exist
-8. **Text over Logic** - Clarity beats abstraction; redundancy is acceptable
-9. **One System** - Work and life live together; no artificial boundaries
-10. **Flexibility** - Structure adapts to context-switching
 
 **Read [WORKFLOW.md](WORKFLOW.md) for complete philosophy and examples.**
 
@@ -115,8 +90,8 @@ Traditional productivity systems (GTD, PARA, task apps) struggle with:
 +Diary/              # Daily, weekly, monthly, yearly notes (center of gravity)
 1 Projekte/          # Time-bound projects with clear outcomes
 2 Areas/             # Ongoing responsibilities
-3 Ressourcen/        # Timeless resources (optional, evolving)
-4 Archive/           # Completed projects and old notes (optional)
+3 Ressourcen/        # Timeless resources (optional)
+4 Archive/           # Completed projects (optional)
 ```
 
 ---
@@ -126,210 +101,159 @@ Traditional productivity systems (GTD, PARA, task apps) struggle with:
 ### Runtime Environment
 
 **Execution Context:**
-- Runs inside **Obsidian** (Electron app) via **Templater plugin**
-- Scripts executed via `window.eval()` in Obsidian context
-- Has access to Obsidian global APIs: `app`, `moment`, `Notice`
-- `tp` (Templater) object passed as function parameter
+- Native Obsidian plugin (TypeScript compiled to JavaScript)
+- Loaded by Obsidian's plugin system
+- Access to full Obsidian API via `this.app`
 
-**Key Obsidian APIs Used:**
-- `app.vault` - File operations (create, delete, read, modify)
-- `app.workspace` - Navigate to files, get active leaf
-- `app.metadataCache` - Access list item metadata (line numbers, children, parent)
+**Key Obsidian APIs:**
+- `this.app.vault` - File operations
+- `this.app.workspace` - Navigate to files, get active view/editor
+- `this.app.metadataCache` - Access list item metadata
 - `navigator.clipboard` - Copy extracted content
+- `Notice` - User notifications
 
-**No Node.js APIs** - Scripts run in browser context, not Node.js.
+**Plugin Lifecycle:**
+- `onload()` - Register commands, inject CSS
+- `onunload()` - Cleanup
 
 ### Tech Stack
 
-**Production:**
-- JavaScript (ES6+, CommonJS modules only)
-- Obsidian API (vault, workspace, metadataCache)
-- Templater API (tp.system.suggester, tp.file, tp.config)
+**Plugin:**
+- TypeScript with strict type checking
+- ES6 Modules (import/export)
+- Obsidian API (latest types)
+- esbuild (bundler)
 
 **Development:**
-- Node.js (development environment only)
-- Vitest (test framework with built-in mocking)
-- @vitest/ui (interactive test UI)
-- @vitest/coverage-v8 (code coverage)
+- Node.js 20+
+- TypeScript 5.3+
+- Vitest (test framework with mocking)
+- GitHub Actions (CI/CD)
 
 ### Module System
 
-**Critical: CommonJS Only**
-```javascript
-// ✅ CORRECT - Export function directly, attach helpers as properties
-module.exports = mainFunction;
-module.exports.mainFunction = mainFunction;
-module.exports.helperA = helperA;
-module.exports.helperB = helperB;
+```typescript
+// ✅ CORRECT - ES6 imports/exports
+import { Editor, Notice, TFile } from 'obsidian';
+import type { WikiLink, NoteInfo } from './types';
+import { parseWikilink } from './utils/wikilinks';
 
-// ❌ WRONG - Object export breaks Templater loading
-module.exports = { mainFunction, helperA };
-
-// ❌ WRONG - ES6 imports/exports don't work
-export function mainFunction() { }
-import { helper } from './other.js';
+export async function extractLog(plugin: BulletFlowPlugin) {
+  // Implementation
+}
 ```
 
-**Why:** Templater validates that user script exports are callable functions. Exporting an object causes "Default export is not a function" errors. By exporting the main function directly and attaching helpers as properties, both Templater and tests work correctly.
+**Build Process:**
+- TypeScript → esbuild → `main.js` (bundled)
+- All imports resolved and bundled into single file
+- Source maps for debugging
 
 ---
 
-## Critical Constraints
+## Development Guidelines
 
-### 1. Single-File Constraint
+### Code Organization
 
-**Each script MUST be self-contained in a single file.**
+**Type Definitions:**
+- All shared types live in `src/types.ts`
+- Organized by category (List Items, Wikilinks, Periodic Notes)
+- Import with `import type { TypeName } from '../types'`
 
-```javascript
-// ❌ WRONG - Cannot import other user scripts
-const { helper } = require('./otherScript.js');  // BROKEN in Templater v1.10.0+
+**Utility Functions:**
+- Pure functions in `src/utils/`
+- One file per concern (wikilinks, tasks, indent, etc.)
+- Mark internal utilities with `@internal` JSDoc
 
-// ✅ CORRECT - All helpers in same file
-function helper() { /* ... */ }
-function mainFunction(tp) {
-  helper();  // Works because it's in same file
+**Command Structure:**
+```typescript
+// src/commands/newCommand.ts
+import { Notice } from 'obsidian';
+import type BulletFlowPlugin from '../main';
+import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
+
+export async function newCommand(plugin: BulletFlowPlugin): Promise<void> {
+  try {
+    const context = getActiveMarkdownFile(plugin);
+    if (!context) return;
+
+    const { editor, file } = context;
+    const listItems = getListItems(plugin, file);
+
+    // Implementation
+  } catch (e) {
+    new Notice(`newCommand ERROR: ${e.message}`);
+  }
 }
 ```
 
-**Why:** Templater's `require()` for importing other user scripts is broken. See [Templater Issue #539](https://github.com/SilentVoid13/Templater/issues/539).
+**Main Plugin:**
+```typescript
+// src/main.ts
+import { newCommand } from './commands/newCommand';
 
-**Implication:** When suggesting changes, NEVER propose splitting a script into multiple files in `scripts/` directory. Helper functions must live alongside the main function.
-
-### 2. CommonJS Export Pattern
-
-```javascript
-// Required structure for Templater + testability
-function helperA() { /* ... */ }
-function helperB() { /* ... */ }
-
-async function mainFunction(tp) {
-  // Use helpers
-}
-
-// Export main function directly, attach helpers as properties
-module.exports = mainFunction;
-module.exports.mainFunction = mainFunction;
-module.exports.helperA = helperA;
-module.exports.helperB = helperB;
+this.addCommand({
+  id: 'new-command',
+  name: 'New command description',
+  callback: () => newCommand(this)
+});
 ```
-
-**Usage in Templater:** `<% tp.user.scriptName(tp) %>` or `<% tp.user.scriptName.mainFunction(tp) %>`
-
-**Usage in tests:**
-```javascript
-const { mainFunction, helperA, helperB } = require('../../scripts/scriptName.js');
-```
-
-### 3. Modern JavaScript Support
-
-**ES6+ Features ARE Supported:**
-
-Obsidian runs on Electron 34+ (Chromium), which **fully supports modern JavaScript**:
-```javascript
-// ✅ ALL of these work perfectly fine
-const items = array.filter(item => item.value > 0);
-let count = 0;
-const message = `Found ${count} items`;
-const { prop1, prop2 } = object;
-async function myFunction() { await somePromise(); }
-```
-
-**The ONLY limitation is ES6 module syntax:**
-```javascript
-// ❌ WRONG - Import/export statements don't work
-import { helper } from './other.js';
-export function mainFunction() { }
-
-// ✅ CORRECT - Use CommonJS instead
-const { helper } = require('./other.js');
-module.exports = { mainFunction };
-```
-
-**Code style:**
-All scripts use modern JavaScript (ES6+) with `const`, `let`, arrow functions, and template literals.
-
-### 4. Global Variables
-
-Scripts have access to:
-- `app` - Obsidian app object (auto-injected)
-- `moment` - Moment.js library (auto-injected)
-- `Notice` - Obsidian notification API (auto-injected)
-- `tp` - Templater object (must be passed as parameter)
-
-```javascript
-// ✅ CORRECT - Use globals directly
-function mainFunction(tp) {
-  const folders = app.vault.getAllFolders();  // app is global
-  new Notice('Done!');                        // Notice is global
-}
-
-// ❌ WRONG - Don't expect to import them
-import { app } from 'obsidian';  // Doesn't work
-```
-
-### 5. JavaScript Runtime Capabilities
-
-**Important Clarification:** The `window.eval()` execution context does NOT limit ES6+ features.
-
-Obsidian runs on **Electron 34+ (Chromium)**, which provides a modern JavaScript engine. All ES6+ features work perfectly:
-
-✅ **Fully Supported:**
-- `const`, `let` variable declarations
-- Arrow functions: `() => {}`
-- Template literals: `` `Hello ${name}` ``
-- Destructuring: `const { a, b } = obj`
-- Spread operator: `[...arr]`, `{...obj}`
-- Default parameters: `function fn(x = 5) {}`
-- async/await: `async function() { await promise; }`
-- Classes: `class MyClass {}`
-- Array methods: `.map()`, `.filter()`, `.find()`, etc.
-- Object methods: `Object.entries()`, `Object.values()`, etc.
-
-❌ **Only Limitation:**
-- ES6 module syntax: `import`/`export` statements (use CommonJS instead)
-
-**Code style:**
-All scripts use modern JavaScript (ES6+) syntax for consistency and readability.
-
----
-
-## Development Conventions
 
 ### Code Style
 
-**Production Scripts:**
-- Modern JavaScript (ES6+): `const`, `let`, arrow functions, template literals, etc.
-- CommonJS modules only (no ES6 import/export)
-- Comprehensive inline comments explaining complex logic
-- Single-file constraint: all helpers in same file
+**TypeScript:**
+- Use strict null checks
+- Prefer `const` over `let`
+- Type function parameters and returns
+- Use arrow functions for callbacks
 
-**Test Code:**
-- Modern JavaScript (ES6+)
-- Clear, descriptive test names
-- Arrange-Act-Assert pattern
-- Extensive comments explaining test scenarios
+**Naming:**
+- Functions: `camelCase`
+- Types/Interfaces: `PascalCase`
+- Files: `camelCase.ts`
+- Constants: `UPPER_SNAKE_CASE`
 
-### Naming Conventions
+**Error Handling:**
+```typescript
+try {
+  await performOperation();
+} catch (e) {
+  new Notice(`Error: ${e.message}`);
+  console.error('Detailed error:', e);
+}
+```
 
-- **Scripts:** camelCase (extractLog.js, handleNewNote.js)
-- **Test files:** `*.test.js` (unit), `*.integration.test.js` (integration)
-- **Helper files:** `*TestHelper.js`, `*Parser.js`
-- **Mock files:** Plain descriptive names (obsidian.js)
+### Important Code Conventions
 
-### Git Workflow
+**❌ NEVER add planning comments to permanent code:**
+```typescript
+// ❌ BAD - Don't include planning artifacts
+// TODO: Add file picker support in Slice 10
+// NOTE: This is MVP implementation, will refactor later
+// FIXME: Temporary solution until we implement feature X
 
-- Feature branches with descriptive names
-- Small, focused commits
-- Commit messages: "Add unit tests for X helper (TDD)" or "Refactor X with Y pattern"
-- Merge via pull requests
-- Recent example: PR #4 (comprehensive test infrastructure)
+// ✅ GOOD - Only document current behavior
+// Returns null if no wikilink found on current line
+```
 
-### Documentation Style
+**Planning comments (TODO, FIXME, MVP, Slice, etc.) should NOT appear in committed code.** They belong in:
+- GitHub issues
+- Pull request descriptions
+- Planning documents (deleted after completion)
 
-- **Inline comments:** Explain complex logic, not obvious code
-- **JSDoc comments:** Used in test helpers for API documentation
-- **Markdown docs:** For workflow philosophy (WORKFLOW.md), testing strategy (TESTING.md)
-- **No excessive documentation:** Prefer clear code over extensive comments
+**❌ NEVER include stats in documentation that go out of date:**
+```typescript
+// ❌ BAD in docs
+"Comprehensive test suite with 291 tests"
+"Unit tests for utilities (95%+ coverage)"
+"The plugin has 1,104 lines of code"
+
+// ✅ GOOD in docs
+"Comprehensive test suite covering all functionality"
+"Unit tests for utilities"
+"Well-organized codebase with clear separation of concerns"
+```
+
+Statistics are useful during development but become misleading in permanent documentation. Focus on *what* is tested, not *how many*.
 
 ---
 
@@ -337,8 +261,8 @@ All scripts use modern JavaScript (ES6+) syntax for consistency and readability.
 
 ### Philosophy
 
-- **Unit tests** for pure helper functions (95%+ coverage goal)
-- **Integration tests** for main workflows (60-80% coverage expected)
+- **Unit tests** for pure helper functions
+- **Integration tests** for main workflows
 - **Mock Obsidian APIs** to simulate vault operations
 - **TDD approach** - Write tests first, then implement
 
@@ -346,500 +270,268 @@ All scripts use modern JavaScript (ES6+) syntax for consistency and readability.
 
 ```
 tests/
-├── unit/                           # Pure function tests
-│   ├── extractLog.test.js         # ~470 lines
-│   └── migrateTask.test.js        # ~390 lines
-│
-├── integration/                    # Full workflow tests
-│   ├── extractLog.integration.test.js      # ~235 lines
-│   ├── migrateTask.integration.test.js     # ~280 lines
-│   └── handleNewNote.integration.test.js   # ~122 lines
-│
-├── helpers/                        # Test utilities
-│   ├── extractLogTestHelper.js            # Markdown-first pattern
-│   ├── migrateTaskTestHelper.js           # Markdown-first pattern
-│   ├── handleNewNoteTestHelper.js         # UI workflow pattern
-│   └── markdownParser.js                  # Parse markdown → listItems
-│
-└── mocks/                          # Obsidian API mocks
-    └── obsidian.js                # Factory functions
+├── unit/                               # Pure function tests
+│   ├── *.test.ts                      # TypeScript tests
+├── integration/                        # Full workflow tests
+│   ├── *.plugin.test.ts               # Plugin integration tests
+├── helpers/                            # Test utilities
+│   ├── *PluginTestHelper.ts           # Test helper functions
+└── mocks/
+    └── obsidian.js                    # Obsidian API mock factories
 ```
 
-### Two Testing Patterns
+### Testing Pattern: Markdown-First
 
-#### Pattern 1: Markdown-First Testing
+**Use for:** Commands that transform markdown content
 
-**Use for:** Scripts that transform markdown content (like extractLog.js)
+**Key Insight:** Multi-line template strings make test input/expectations much easier to read:
 
-**Approach:**
-- Accept markdown strings as input
-- Return transformed markdown as output
-- State tracking captures all modifications during execution
-- Test helper hides mock complexity
-
-**Example:**
-```javascript
+```typescript
+// ✅ GOOD - Multi-line template strings
 const result = await testExtractLog({
-  sourceContent: `
+  source: `
 - Extract this [[Target Note]]
   - Child content
+  - More details
 `,
   targetNoteName: 'Target Note',
-  targetNoteContent: ''
+  targetNoteContent: `
+## Existing Section
+
+Some content
+`
 });
 
-expect(result.targetContent).toContain('## Log');
-expect(result.targetContent).toContain('Child content');
+expect(result.target).toContain('## Log');
+expect(result.target).toContain('Child content');
+
+// ❌ BAD - Concatenated strings are hard to read
+const result = await testExtractLog({
+  source: '- Extract this [[Target Note]]\n  - Child content\n  - More details\n',
+  targetNoteName: 'Target Note',
+  targetNoteContent: '## Existing Section\n\nSome content\n'
+});
 ```
 
-**Benefits:**
+**Benefits of template strings:**
 - Tests read like user stories
 - Easy to see input → output transformation
-- Minimal mock setup in test code
-
-**See:** `tests/integration/extractLog.integration.test.js`
-
-#### Pattern 2: UI Workflow Testing
-
-**Use for:** Scripts that orchestrate file operations and UI (like handleNewNote.js)
-
-**Approach:**
-- Accept configuration objects (folders, user choices)
-- Return structured results (what was displayed, created, opened)
-- Test helper manages all mocking
-- Tests focus on user interactions
-
-**Example:**
-```javascript
-const result = await testHandleNewNote({
-  noteTitle: 'My Note',
-  folders: ['1 Projekte/', '2 Areas/'],
-  userChoice: '1 Projekte/'
-});
-
-expect(result.deleted).toBe('My Note.md');
-expect(result.created).toBe('1 Projekte/My Note.md');
-expect(result.opened).toBe('1 Projekte/My Note.md');
-```
-
-**Benefits:**
-- Clear separation of test data and assertions
-- Easy to test different user choices
-- Tracks state changes rather than content
-
-**See:** `tests/integration/handleNewNote.integration.test.js`
+- Natural indentation matches markdown structure
+- Clear whitespace handling
 
 ### Mock Architecture
 
 **Factory Functions in `/tests/mocks/obsidian.js`:**
-- `createMockTFile(path, basename)` - Mock file objects
-- `createMockEditor(content)` - Mock editor with getLine, getCursor
-- `createMockMetadataCache(sourceFile, listItems)` - Mock list metadata
-- `createMockVault()` - Mock vault operations (read, modify, create, delete)
-- `createMockWorkspace()` - Mock workspace (getLeaf, openFile)
-- `createMockApp()` - Mock app with vault, workspace, metadataCache
-- `createMockTp()` - Mock Templater object
+- `createMockEditor(content)` - Mock editor
+- `createMockMetadataCache(file, listItems)` - Mock metadata
+- `createMockVault()` - Mock vault operations
+- `createMockApp()` - Mock app with vault, workspace, cache
 
 **Global Mocks:**
-- `vi.stubGlobal('app', mockApp)` - Obsidian app object
-- `vi.stubGlobal('Notice', vi.fn())` - Notification API
-- `navigator.clipboard.writeText = vi.fn()` - Clipboard API
+```javascript
+vi.stubGlobal('Notice', vi.fn());
+navigator.clipboard.writeText = vi.fn();
+```
 
 ### Running Tests
 
 ```bash
-npm test              # Run all tests once
+npm test              # Run all tests
 npm run test:watch    # Watch mode (TDD)
-npm run test:coverage # Generate coverage report
+npm run test:coverage # Coverage report
 npm run test:ui       # Interactive UI
 ```
 
-### Coverage Configuration
+---
 
-**Target:** 75% across all metrics (lines, functions, branches, statements)
+## Documentation Conventions
 
-```javascript
-// vitest.config.js
-coverage: {
-  provider: 'v8',
-  include: ['scripts/**/*.js'],
-  thresholds: {
-    lines: 75,
-    functions: 75,
-    branches: 75,
-    statements: 75
+### User-Focused Documentation
+
+When updating user-facing documentation (README.md, CHANGELOG.md), focus on **what users care about**, not internal development details.
+
+**CHANGELOG.md Best Practices:**
+
+```markdown
+<!-- ❌ BAD - Inside baseball -->
+## [0.2.0] - 2026-01-25
+
+**Slice 7: Polish & UX**
+- Inject custom checkbox CSS directly in plugin
+- Removed test command
+- Updated main.ts (44 insertions, 10 deletions)
+
+**Slice 6: Complete migrateTask Implementation**
+- Ported all 46 legacy unit tests
+- Created periodicNotes.ts utility
+- Fixed mobile selection detection using editor.listSelections()
+
+<!-- ✅ GOOD - User perspective -->
+## [0.2.0] - 2026-01-25
+
+### Added
+- Custom checkbox CSS now injected automatically (no manual setup)
+- Multi-select task migration (select multiple tasks at once)
+- All periodic note types supported (weekly, monthly, yearly)
+- Boundary transitions (Sunday → weekly, December → yearly)
+
+### Improved
+- Better mobile support for text selection
+- Handles YAML frontmatter when inserting content
+
+### Fixed
+- Task migration now works reliably on mobile devices
+```
+
+**Key differences:**
+- ✅ Features users will notice
+- ✅ Problems that are now solved
+- ✅ Improvements to workflows
+- ❌ Implementation details (file names, line counts)
+- ❌ Development phases (slices, MVPs)
+- ❌ Test counts or coverage stats
+
+Ask yourself: **"Would a user care about this, or is it just development noise?"**
+
+---
+
+## Common Development Tasks
+
+### Adding a New Command
+
+1. **Create command file** - `src/commands/newCommand.ts`
+2. **Create utilities** - `src/utils/newHelper.ts` (if needed)
+3. **Add types** - Update `src/types.ts` if new types needed
+4. **Write unit tests** - `tests/unit/newHelper.test.ts`
+5. **Write integration tests** - `tests/integration/newCommand.test.ts`
+6. **Create test helper** - `tests/helpers/newCommandTestHelper.ts`
+7. **Register command** - Add to `src/main.ts`
+
+**Template:**
+```typescript
+// src/commands/newCommand.ts
+import { Notice } from 'obsidian';
+import type BulletFlowPlugin from '../main';
+import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
+
+export async function newCommand(plugin: BulletFlowPlugin): Promise<void> {
+  try {
+    const context = getActiveMarkdownFile(plugin);
+    if (!context) return;
+
+    const { editor, file } = context;
+    // Implementation
+
+    new Notice('newCommand: Success!');
+  } catch (e) {
+    new Notice(`newCommand ERROR: ${e.message}`);
+    console.error('newCommand error:', e);
   }
 }
 ```
 
-### When to Use Which Test Type
+### Adding Tests to Existing Code
 
-**Unit Tests:**
-- Testing pure functions (no side effects)
-- Complex logic needing edge case coverage
-- Fast feedback (run instantly)
-
-**Integration Tests:**
-- Testing main workflow end-to-end
-- Validating markdown transformations
-- Ensuring multiple components work together
-
-**Don't Test:**
-- Obsidian internals (trust the framework)
-- Third-party libraries (trust their tests)
-- Simple getters/setters with no logic
-
----
-
-## Common Tasks
-
-### Adding a New Script
-
-1. **Create the script file** in `scripts/` directory
-2. **Use CommonJS exports** - export main function and helpers
-3. **Write tests first** (TDD approach)
-4. **Implement the function**
-5. **Test in Obsidian** - Verify it works in Templater
-6. **Document if needed** - Add to README if it's a major feature
-
-**Example structure:**
-```javascript
-// scripts/myNewScript.js
-
-function helper() {
-  // Logic here
-}
-
-async function mainFunction(tp) {
-  // Use helper
-}
-
-// Export main function directly, attach helpers as properties
-module.exports = mainFunction;
-module.exports.mainFunction = mainFunction;
-module.exports.helper = helper;
-```
-
-### Adding Tests to Existing Script
-
-1. **Read the script** - Understand current structure
+1. **Read the code** - Understand current structure
 2. **Identify pure functions** - Functions with no side effects
-3. **Export helpers** - Add to module.exports if not already exported
-4. **Choose test pattern** - Markdown-first or UI workflow
-5. **Write unit tests** - For each helper function
-6. **Write integration tests** - For main function workflow
-7. **Verify coverage** - Run `npm run test:coverage`
+3. **Choose test pattern** - Markdown-first for transformations
+4. **Write unit tests** - For each helper function
+5. **Write integration tests** - For main workflow
+6. **Use template strings** - For markdown test cases
 
-### Refactoring a Script
+### Refactoring Code
 
 1. **Write tests first** - Ensure current behavior is captured
 2. **Make small changes** - One refactor at a time
 3. **Keep tests passing** - Green → refactor → green
-4. **Don't split files** - Remember single-file constraint
-5. **Maintain exports** - Keep helper functions exported for tests
-
-### Debugging a Test Failure
-
-1. **Read the error message** - What assertion failed?
-2. **Check the test helper** - Understand what it's testing
-3. **Add console.logs** - In test code (not production code)
-4. **Use test:ui** - Interactive UI for debugging
-5. **Check mock setup** - Ensure mocks match expected behavior
-
-### Adding a New Test Helper
-
-1. **Identify the pattern** - Markdown-first or UI workflow?
-2. **Create helper file** - In `tests/helpers/`
-3. **Use factory pattern** - Accept config objects, return results
-4. **Add JSDoc comments** - Document parameters and return values
-5. **Export helper** - `module.exports = { helperFunction };`
-6. **Use in tests** - Import and use in integration tests
+4. **Update types** - Keep `types.ts` synchronized
+5. **Remove dead code** - Don't leave commented-out code
 
 ---
 
-## Important: What NOT to Do
+## Key Insights
 
-### ❌ Never Suggest These
+### Periodic Notes
 
-1. **Splitting scripts into multiple files**
-   - Single-file constraint is absolute
-   - `require()` between scripts is broken
+**ISO Week Numbering:**
+- Week 1 contains the first Thursday of the year
+- Week 1 always contains January 4th
+- Weeks start on Monday, end on Sunday
+- Some years have 53 weeks (e.g., 2020, 2026)
 
-2. **Using ES6 imports/exports**
-   - Scripts run via `window.eval()`
-   - CommonJS only
+**Our Implementation:**
+- `getISOWeekNumber()` - Calculates week number from date
+- `getMondayOfISOWeek()` - Gets Monday of a given week
+- **Verified correct** against ISO 8601 spec and date-fns
+- Handles edge cases: year boundaries, leap years, DST
 
-3. **Creating "shared utilities" folder in scripts/**
-   - Cannot import between scripts
-   - Helpers must be duplicated if needed in multiple scripts
+**Boundary Rules:**
+- Daily (Sunday) → next Weekly
+- Weekly → always next Weekly
+- Monthly (December) → next Yearly
+- Yearly → always next Yearly
 
-4. **Complex build processes**
-   - Keep it simple - no bundlers, no transpilers
-   - Tests run in Node.js, scripts run in Obsidian
+### Wikilink Parsing
 
-5. **Creating unnecessary documentation files**
-   - Don't proactively create .md files
-   - Prefer clear code over extensive docs
+**Formats Supported:**
+- `[[Note]]` - Simple link
+- `[[Note|Alias]]` - Link with alias
+- `[[Note#Section]]` - Link to section
+- `[[Note#Section|Alias]]` - Section link with alias
 
-### ⚠️ Approach with Caution
+**Edge Cases:**
+- Multiple `|` in alias (e.g., `[[Note|Some|Text]]`) - last parts are alias
+- Multiple `#` in section (e.g., `[[Note#A#B]]`) - last parts are section
+- Nested wikilinks stripped from display text to avoid `[[...]]` in section anchors
 
-1. **Suggesting architectural changes**
-   - Read WORKFLOW.md first to understand "why"
-   - Don't suggest changes that violate core principles
+### List Item Hierarchy
 
-2. **Adding new dependencies**
-   - Production code has ZERO dependencies
-   - Only add devDependencies if truly necessary
+**Obsidian Metadata Cache:**
+- Provides `listItems` array with position and parent relationships
+- Parent is line number of parent item (-1 for top-level)
+- Used to find children without parsing markdown manually
 
-3. **Changing test patterns**
-   - Current patterns are well-tested
-   - Only change if you have strong justification
-
----
-
-## Key Scripts Deep Dive
-
-### extractLog.js (~520 lines)
-
-**Purpose:** Extract nested bullet content from daily notes to project/area notes.
-
-**Key Features:**
-- Handles wikilinks: `[[Target Note]]`, `[[Target Note|alias]]`, `[[Target Note#section]]`
-- "Pure link bullets" inherit context from parent items
-- Automatically manages "## Log" sections in target notes
-- Preserves list hierarchy and checkbox states
-- Copies extracted content to clipboard
-- Creates section anchors for linking back
-
-**Main Function:** `extractLog(tp)` - Entry point called from template
-
-**Helper Functions (exported for testing):**
-- `parseWikilink(text)` - Parse wikilink syntax
-- `findPureLinks(lines)` - Find bullets that are just wikilinks
-- `buildExtraction(parent, children)` - Build extraction content
-- `insertIntoLogSection(content, extraction)` - Insert at start of ## Log
-- Many more... (see unit tests for complete list)
-
-**Usage in Templater:**
-```
-<% tp.user.extractLog.extractLog(tp) %>
-```
-
-**Testing:**
-- Unit tests: `tests/unit/extractLog.test.js` (~470 lines)
-- Integration tests: `tests/integration/extractLog.integration.test.js` (~235 lines)
-- Uses markdown-first testing pattern
-
-### migrateTask.js (~370 lines)
-
-**Purpose:** BuJo-style task migration between periodic notes.
-
-**Key Features:**
-- Migrates incomplete tasks (`- [ ]`) and started tasks (`- [/]`) to next note
-- Determines target based on note type and boundaries:
-  - Daily (Mon-Sat) → next daily
-  - Daily (Sunday) → next weekly
-  - Weekly → next weekly
-  - Monthly (Jan-Nov) → next monthly
-  - Monthly (December) → next yearly
-  - Yearly → next yearly
-- Multi-select support: migrate all top-level tasks in selection
-- Marks source as `- [>]`, target gets `- [ ]`
-- Preserves task children with proper indentation
-
-**Main Function:** `migrateTask(tp)` - Entry point called from template
-
-**Helper Functions (exported for testing):**
-- `parseNoteType(basename)` - Parse periodic note filename
-- `getNextNotePath(noteInfo)` - Calculate target note path
-- `isIncompleteTask(line)` - Check if line is incomplete task
-- `findTopLevelTasksInRange(editor, listItems, start, end)` - Find tasks in selection
-- `findChildrenLines(editor, listItems, line)` - Find children of a task
-- `insertUnderLogHeading(content, extraction)` - Insert under ## Log heading
-
-**Usage in Templater:**
-```
-<% tp.user.migrateTask.migrateTask(tp) %>
-```
-
-**Testing:**
-- Unit tests: `tests/unit/migrateTask.test.js` (~390 lines)
-- Integration tests: `tests/integration/migrateTask.integration.test.js` (~280 lines)
-- Uses markdown-first testing pattern
-
-### handleNewNote.js (~58 lines)
-
-**Purpose:** Prompt for destination folder when creating new notes.
-
-**Key Features:**
-- Lists all folders (excluding hidden, journal, archive)
-- Displays folder picker via `tp.system.suggester()`
-- Deletes original note, creates in chosen location
-- Opens the newly created note
-
-**Main Function:** `handleNewNote(tp)` - Entry point called from template
-
-**No helper functions** - Simple linear workflow
-
-**Usage in Templater:**
-```
-<% tp.user.handleNewNote(tp) %>
-```
-
-**Testing:**
-- Integration tests: `tests/integration/handleNewNote.integration.test.js` (122 lines)
-- Uses UI workflow testing pattern
-
----
-
-## Development Workflow (TDD)
-
-### Recommended Process
-
-1. **Write the test first** - Define expected behavior
-   ```javascript
-   describe('helperFunction', () => {
-     it('should handle edge case X', () => {
-       const result = helperFunction(input);
-       expect(result).toBe(expected);
-     });
-   });
-   ```
-
-2. **Run the test** - It should fail (red)
-   ```bash
-   npm run test:watch
-   ```
-
-3. **Write/refactor code** - Make the test pass (green)
-   ```javascript
-   function helperFunction(input) {
-     // Implementation
-   }
-   ```
-
-4. **Refactor** - Clean up while keeping tests passing
-   - Extract duplicated logic
-   - Improve variable names
-   - Add comments for complex sections
-
-5. **Commit** - Small, focused commits
-   ```bash
-   git add .
-   git commit -m "Add unit tests for helperFunction (TDD)"
-   ```
-
-### Recent Development Example
-
-PR #4 shows exemplary TDD workflow:
-- Started with unit tests for each helper function
-- Built mock factories for Obsidian APIs
-- Created integration tests with markdown-first approach
-- Refactored to UI workflow pattern for handleNewNote
-- Documented testing strategy and constraints
-
-Each commit was focused on a single helper or concept, making the history easy to follow.
-
----
-
-## Obsidian Plugin Ecosystem
-
-### Key Plugins Used
-
-**Templater** - Enables user scripts in Obsidian
-- Provides `tp` object with file, system, config APIs
-- Scripts run via `window.eval()` in Obsidian context
-- [Templater Documentation](https://silentvoid13.github.io/Templater/)
-
-**Periodic Notes** - Auto-generates daily/weekly/monthly/yearly notes
-- Creates notes based on templates
-- Used for daily note workflow
-
-**Minimal Theme** - Semantic bullets and visual markers
-- Custom checkbox styling
-- Visual hierarchy without extra effort
-
-**Calendar Plugin** - Navigation for period notes
-- Highlights notes with unhandled tasks
-- Supports workflow's migration pattern
-
-**Dataview** - Queries and summaries
-- Dynamic embeds (e.g., MIT list in daily note)
-- Query language for note metadata
-
-### Why Not a "Real" Plugin?
-
-**User scripts via Templater are sufficient** because:
-1. Scripts execute in Obsidian context with full API access
-2. No plugin packaging, approval, or distribution needed
-3. Immediate testing and iteration
-4. Simple to maintain and version control
-5. Works on mobile (via Templater mobile support)
-
-**Limitations accepted:**
-- Single-file constraint
-- CommonJS only (no ES6 import/export syntax)
-- Manual execution via templates (not automatic hooks)
-
-These limitations are manageable and documented. The benefits of simplicity outweigh the constraints.
+**Finding Children:**
+- Walk listItems to find direct children
+- Check `parent` field matches current line
+- Recursively find all descendants using `isDescendantOf()`
 
 ---
 
 ## References
 
-### Documentation
-
-- [WORKFLOW.md](WORKFLOW.md) - Complete workflow philosophy and principles
-- [TESTING.md](TESTING.md) - Testing strategy, constraints, and patterns
-- [README.md](README.md) - Project overview and quick start
-
-### External Resources
-
-- [Templater User Scripts Documentation](https://silentvoid13.github.io/Templater/user-functions/script-user-functions.html) - Shows ES6+ examples in official docs
-- [Templater Issue #539 - Import limitations](https://github.com/SilentVoid13/Templater/issues/539)
-- [Templater TypeScript Discussion #765](https://github.com/SilentVoid13/Templater/discussions/765)
 - [Obsidian API Documentation](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
-- [Obsidian Electron Changelog](https://fevol.github.io/obsidian-typings/resources/electron-changelog/) - Tracks Electron version (34+)
-
-### Code Examples
-
-- See `tests/integration/` for complete working examples
-- See `tests/helpers/` for test helper patterns
-- See `tests/mocks/` for mock factory patterns
+- [ISO 8601 Week Date Specification](https://en.wikipedia.org/wiki/ISO_week_date)
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
+- [Vitest Documentation](https://vitest.dev/)
 
 ---
 
 ## Summary: AI Assistant Checklist
 
-When working on this codebase, remember:
+When working on this codebase:
 
 ✅ **Always:**
-- Use CommonJS (`module.exports`, `require()`)
-- Use modern JavaScript (ES6+): `const`, `let`, arrow functions, template literals
-- Keep scripts in single files
-- Export helpers for testing
+- Use TypeScript with ES6 imports/exports
+- Add types to `src/types.ts` for shared definitions
 - Write tests first (TDD)
-- Read WORKFLOW.md to understand "why"
-- Use appropriate test pattern (markdown-first or UI workflow)
-- Mock Obsidian global APIs in tests
-- Target 75%+ coverage
+- Use multi-line template strings for markdown test cases
+- Focus user documentation on user-visible changes
+- Keep code comments focused on current behavior
 
 ❌ **Never:**
-- Use ES6 import/export syntax
-- Split scripts into multiple files in `scripts/`
-- Try to `require()` other user scripts
-- Suggest complex build processes
-- Create unnecessary documentation
+- Add planning comments (TODO, MVP, Slice, etc.) to permanent code
+- Include statistics in documentation that will go out of date
+- Write inside-baseball CHANGELOG entries
 - Test Obsidian internals (trust the framework)
+- Skip type definitions for shared interfaces
 
 ⚠️ **When in doubt:**
+- Read [WORKFLOW.md](WORKFLOW.md) to understand "why"
 - Check existing test patterns
-- Read TESTING.md for constraints
-- Ask before making architectural changes
 - Keep it simple - this system values simplicity over sophistication
 
 ---
 
-**Last Updated:** 2026-01-23
-
+**Last Updated:** 2026-01-25
 **Repository:** [nfelger/obsidian-tools](https://github.com/nfelger/obsidian-tools)

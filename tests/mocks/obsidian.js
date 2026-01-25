@@ -45,6 +45,14 @@ export function createMockEditor({
       return cursor;
     }),
     somethingSelected: vi.fn(() => from.line !== to.line || from.ch !== to.ch),
+    listSelections: vi.fn(() => {
+      // Return array of selections with anchor/head format
+      // anchor is where selection started, head is where it ended
+      return [{
+        anchor: from,
+        head: to
+      }];
+    }),
     setLine: vi.fn(),
     replaceRange: vi.fn(),
     replaceSelection: vi.fn(),
@@ -115,7 +123,14 @@ export function createMockWorkspace({ editor = null, file = null } = {}) {
     activeLeaf: leaf,
     getLeaf: vi.fn(() => ({
       openFile: vi.fn()
-    }))
+    })),
+    getActiveViewOfType: vi.fn((type) => {
+      // Return the view if it matches the requested type
+      if (type.name === 'MarkdownView') {
+        return view;
+      }
+      return null;
+    })
   };
 }
 
@@ -170,4 +185,46 @@ export function createMockClipboard() {
   return {
     writeText: vi.fn()
   };
+}
+
+/**
+ * Mock Obsidian API classes
+ * These are used when importing from 'obsidian' in plugin code
+ */
+
+// Mock Notice class
+export class Notice {
+  constructor(message, duration) {
+    // Store for testing
+    this.message = message;
+    this.duration = duration;
+  }
+}
+
+// Mock MarkdownView class
+export class MarkdownView {
+  constructor() {
+    this.editor = null;
+    this.file = null;
+  }
+}
+
+// Mock TFile class
+export class TFile {
+  constructor(path) {
+    this.path = path;
+    this.basename = path.replace('.md', '').split('/').pop();
+    this.extension = 'md';
+  }
+}
+
+// Mock Plugin class
+export class Plugin {
+  constructor() {
+    this.app = null;
+  }
+
+  async onload() {}
+  onunload() {}
+  addCommand() {}
 }

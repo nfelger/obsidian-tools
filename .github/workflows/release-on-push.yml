@@ -1,0 +1,75 @@
+name: Build and Release on Push
+
+on:
+  push:
+    branches:
+      - main
+      - 'claude/**'  # Enable auto-deploy for all claude branches during development
+
+permissions:
+  contents: write  # Required for creating releases
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Extract base version and commit info
+        id: version
+        run: |
+          BASE_VERSION=$(node -p "require('./manifest.json').version")
+          DEV_VERSION="${BASE_VERSION}-dev.${{ github.run_number }}"
+          echo "base_version=${BASE_VERSION}" >> $GITHUB_OUTPUT
+          echo "dev_version=${DEV_VERSION}" >> $GITHUB_OUTPUT
+          echo "commit_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Update manifest.json with dev version
+        run: |
+          node -e "const fs = require('fs'); const manifest = JSON.parse(fs.readFileSync('manifest.json')); manifest.version = '${{ steps.version.outputs.dev_version }}'; fs.writeFileSync('manifest.json', JSON.stringify(manifest, null, '\t'));"
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Create Development Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "main.js,manifest.json"
+          tag: ${{ steps.version.outputs.dev_version }}
+          name: "Development Build (v${{ steps.version.outputs.dev_version }})"
+          body: |
+            🚀 **Auto-deployed from latest commit**
+
+            - **Version:** ${{ steps.version.outputs.dev_version }}
+            - **Base Version:** ${{ steps.version.outputs.base_version }}
+            - **Build:** #${{ github.run_number }}
+            - **Commit:** [${{ steps.version.outputs.commit_short }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+            - **Branch:** ${{ github.ref_name }}
+            - **Built:** ${{ github.event.head_commit.timestamp }}
+
+            This is an automatically generated development build.
+            Install via BRAT for auto-updates on mobile and desktop.
+
+            ## How to Install via BRAT
+
+            1. Install BRAT plugin in Obsidian
+            2. Settings → BRAT → Add Beta Plugin
+            3. Enter: `nfelger/obsidian-tools`
+            4. Enable plugin in Community Plugins
+
+            ## What's in this build
+
+            ${{ github.event.head_commit.message }}
+          prerelease: true
+          makeLatest: false
+          token: ${{ secrets.GITHUB_TOKEN }}
