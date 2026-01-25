@@ -1,47 +1,79 @@
-# Obsidian Tools
+# Bullet Flow
 
-Tools, scripts, and plugins for my Obsidian vault and BuJo-inspired workflow.
+An Obsidian plugin for BuJo-inspired knowledge management: extract logs from daily notes and migrate tasks between periodic notes.
 
 ## What This Is
 
-This repository collects the technical components that power my Obsidian knowledge management system:
-- Custom scripts for extraction and migration
-- Code snippets and CSS customizations
-- Helper utilities and automation
-- Future plugins (as they're developed)
+**Bullet Flow** is a native Obsidian plugin that powers a lightweight workflow blending bullet journaling simplicity with digital searchability. It's designed to survive real-world chaos while supporting rapid context-switching and deep thinking.
 
-The workflow itself blends bullet journaling simplicity with digital searchability — a lightweight system designed to survive real-world chaos while supporting rapid context-switching and deep thinking.
+**Key Features:**
+- **Extract Log** — Move nested content from daily notes to project/area notes via wikilinks
+- **Migrate Task** — BuJo-style task migration between periodic notes (daily/weekly/monthly/yearly)
+- **Custom Checkboxes** — Visual task markers (e.g., `[o]` for meetings) injected automatically
+
+## Installation
+
+### Via BRAT (Beta Reviewers Auto-update Tester)
+
+1. Install the [BRAT plugin](https://github.com/TfTHacker/obsidian42-brat)
+2. Open BRAT settings: **Add Beta Plugin**
+3. Enter: `nfelger/obsidian-tools`
+4. Enable **Bullet Flow** in Community Plugins
+
+BRAT will automatically update the plugin whenever new versions are released.
+
+### Manual Installation
+
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/nfelger/obsidian-tools/releases)
+2. Create folder: `{vault}/.obsidian/plugins/bullet-flow/`
+3. Copy files to the folder
+4. Enable **Bullet Flow** in Community Plugins
 
 ## Repository Contents
 
-- **`scripts/`** — Templater user scripts
-- **`snippets/`** — CSS customizations
+- **`src/`** — TypeScript plugin source code
+- **`scripts/`** — Legacy Templater scripts (reference only)
+- **`tests/`** — Comprehensive test suite (291 tests)
 
-## Scripts
+## Commands
 
-### extractLog.js
+### Extract Log
 
-Extracts nested content from daily notes to project/area notes.
-
-**Usage:** `<% tp.user.extractLog.extractLog(tp) %>`
+**Command:** `Bullet Flow: Extract log to linked note`
 
 **Behavior:**
 - Place cursor on a bullet containing a `[[wikilink]]`
 - Extracts all children to the linked note under a `## Log` heading
-- Creates a back-link to the daily note
+- Creates a back-link to the daily note with timestamp
 - Copies extracted content to clipboard
+- Handles pure link bullets (inherits context from parent)
+- Supports section links: `[[Note#Section]]`
 
-### migrateTask.js
+**Example:**
+```
+- Project meeting notes [[Project Alpha]]
+  - Decided on MVP scope
+  - Next milestone: Feb 15
+```
 
-Migrates incomplete tasks to the next periodic note (BuJo-style migration).
+After extraction, the linked note `Project Alpha` gets:
+```markdown
+## Log
 
-**Usage:** `<% tp.user.migrateTask.migrateTask(tp) %>`
+- 2026-01-25 Sat - Project meeting notes
+  - Decided on MVP scope
+  - Next milestone: Feb 15
+```
+
+### Migrate Task
+
+**Command:** `Bullet Flow: Migrate task to next note`
 
 **Behavior:**
 - Place cursor on an incomplete task (`- [ ]` or `- [/]`), or select multiple lines
 - Marks the task(s) as migrated (`- [>]`)
 - Copies task(s) and children to the next note under `## Log` (started tasks reset to `- [ ]`)
-- Automatically determines target based on note type:
+- Automatically determines target based on note type and boundaries:
   - Daily (Mon-Sat) → next daily
   - Daily (Sunday) → next weekly
   - Weekly → next weekly
@@ -49,17 +81,18 @@ Migrates incomplete tasks to the next periodic note (BuJo-style migration).
   - Monthly (December) → next yearly
   - Yearly → next yearly
 
-**Multi-select:** When text is selected, migrates all top-level incomplete tasks within the selection. Nested child tasks are included with their parents but are not treated as separate migrations.
+**Multi-select:** When text is selected, migrates all top-level incomplete tasks within the selection. Child tasks are included with their parents automatically.
 
-### handleNewNote.js
+**Example:**
+```
+- [ ] Write documentation
+  - [ ] Update README
+  - [ ] Create CHANGELOG
+```
 
-Prompts for folder selection when creating new notes.
-
-**Usage:** `<% tp.user.handleNewNote.handleNewNote(tp) %>`
-
-**Behavior:**
-- Displays folder picker with vault folders
-- Moves the new note to the selected folder
+After migration from Sunday (2026-01-25):
+- Source (daily): `- [>] Write documentation` (children removed)
+- Target (weekly 2026-01-W05): Full task tree under `## Log`
 
 ## Workflow Overview
 
@@ -95,31 +128,46 @@ All periodic notes live under `+Diary/` with a nested folder structure:
 
 ## Tech Stack
 
-**Obsidian Plugins:**
+**Plugin:**
+- **TypeScript** — Type-safe plugin development
+- **Obsidian API** — Full access to vault, editor, metadata cache
+- **esbuild** — Fast compilation and bundling
+
+**Recommended Obsidian Plugins:**
 - **Periodic Notes** — Auto-generates daily/weekly/monthly/yearly notes
-- **Minimal Theme** — Semantic bullets and visual markers
-- **Calendar Plugin** — Provides navigation for period notes; highlights notes with unhandled tasks
-- **Templater** — Note templates and user scripts
+- **Calendar** — Navigation for periodic notes
 - **Dataview** — Queries and summaries
+- **Minimal Theme** — Enhanced visual markers (optional)
 
 **Development:**
-- **Vitest** — Testing framework for user scripts
-- **Node.js** — Development environment
+- **Vitest** — Testing framework with 291 tests
+- **TypeScript 5.3+** — Strict type checking
+- **GitHub Actions** — Automated releases via BRAT
 
 ## Development
 
-### Testing
-
-This repository includes comprehensive tests for all Templater user scripts.
+### Building the Plugin
 
 ```bash
 # Install dependencies
 npm install
 
+# Build plugin (outputs to main.js)
+npm run build
+
+# Development build with watch mode
+npm run dev
+```
+
+### Testing
+
+Comprehensive test suite with 291 tests covering all functionality:
+
+```bash
 # Run all tests
 npm test
 
-# Watch mode (re-run on file changes)
+# Watch mode (TDD)
 npm run test:watch
 
 # Coverage report
@@ -130,17 +178,34 @@ npm run test:ui
 ```
 
 **Testing approach:**
-- Unit tests for pure helper functions (95%+ coverage)
-- Integration tests with markdown-first approach for main workflows
-- Mock factories for Obsidian APIs
-- See [TESTING.md](TESTING.md) for full documentation
+- Unit tests for utilities (95%+ coverage)
+- Integration tests with markdown-first pattern
+- Full Obsidian API mocks
+- See [TESTING.md](TESTING.md) for details
 
 ### Project Structure
 
 ```
 obsidian-tools/
-├── scripts/           # Templater user scripts
-├── snippets/          # CSS customizations
-├── tests/             # Test suite
+├── src/               # TypeScript plugin source
+│   ├── main.ts        # Plugin entry point
+│   ├── commands/      # extractLog, migrateTask
+│   └── utils/         # Shared utilities
+├── tests/             # Test suite (291 tests)
+│   ├── unit/          # Pure function tests
+│   ├── integration/   # Full workflow tests
+│   ├── helpers/       # Test utilities
+│   └── mocks/         # Obsidian API mocks
+├── scripts/           # Legacy Templater scripts (reference)
 └── docs/              # Documentation
 ```
+
+### Auto-Deploy
+
+Every push to `main` or `claude/**` branches triggers:
+1. Version bump in manifest.json
+2. Build and bundle via esbuild
+3. GitHub release creation
+4. BRAT auto-update for all users
+
+See [docs/AUTO-DEPLOY.md](docs/AUTO-DEPLOY.md) for details.

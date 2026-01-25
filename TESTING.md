@@ -1,8 +1,100 @@
 # Testing Guide
 
-This document describes the testing strategy and constraints for Obsidian Templater user scripts.
+This document describes the testing strategy for the Bullet Flow Obsidian plugin.
 
-## Templater User Script Constraints
+## Overview
+
+The test suite includes **291 tests** covering both plugin implementation (TypeScript) and legacy Templater scripts (JavaScript). Tests use Vitest with comprehensive Obsidian API mocks.
+
+**Test Organization:**
+- **Plugin Tests** — TypeScript tests for `src/` (commands and utilities)
+- **Legacy Tests** — JavaScript tests for `scripts/` (reference implementation)
+
+## Plugin Testing (TypeScript)
+
+### Module System
+
+**ES6 Modules**
+- Plugin code uses TypeScript with ES6 `import`/`export`
+- Compiled to JavaScript via esbuild
+- Bundled into single `main.js` for distribution
+
+**Example:**
+```typescript
+// src/utils/wikilinks.ts
+import { TFile } from 'obsidian';
+
+export function parseWikilink(text: string): WikiLink | null {
+  // Implementation
+}
+
+// src/commands/extractLog.ts
+import { MarkdownView, Notice } from 'obsidian';
+import { parseWikilink } from '../utils/wikilinks';
+import type BulletFlowPlugin from '../main';
+
+export async function extractLog(plugin: BulletFlowPlugin) {
+  const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+  // Implementation
+}
+```
+
+### Test Structure for Plugin
+
+**Unit Tests** (`.test.ts` files):
+- Test pure utility functions in `src/utils/`
+- TypeScript with type safety
+- Mock-free where possible
+- Examples: `indent.test.ts`, `wikilinks.test.ts`, `periodicNotes.test.ts`, `tasks.test.ts`
+
+**Integration Tests** (`.plugin.test.ts` files):
+- Test full command workflows
+- Use test helpers (`extractLogPluginTestHelper.ts`, `migrateTaskPluginTestHelper.ts`)
+- Mock Obsidian APIs via factory functions
+- Markdown-first pattern: input markdown → output markdown
+- Examples: `extractLog.plugin.test.ts`, `migrateTask.plugin.test.ts`
+
+### Plugin Test Pattern
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { parseWikilink } from '../../src/utils/wikilinks';
+
+describe('parseWikilink', () => {
+  it('parses basic wikilink', () => {
+    const result = parseWikilink('[[Note]]');
+    expect(result).toEqual({
+      link: 'Note',
+      display: null,
+      section: null
+    });
+  });
+});
+```
+
+**Integration test with helper:**
+```typescript
+import { testExtractLogPlugin } from '../helpers/extractLogPluginTestHelper';
+
+it('should extract bullet to target note', async () => {
+  const result = await testExtractLogPlugin({
+    source: '- Extract this [[Target]]\n  - Child content',
+    sourceFileName: '2026-01-25 Sat',
+    targetNoteName: 'Target',
+    targetContent: '',
+    cursorLine: 0
+  });
+
+  expect(result.target).toContain('## Log');
+  expect(result.target).toContain('Child content');
+});
+```
+
+## Legacy Testing (JavaScript - Templater Scripts)
+
+The `scripts/` folder contains the original Templater implementation, kept as reference during migration. These scripts have their own test suite using the same infrastructure.
+
+### Templater User Script Constraints
 
 ### Module System
 
@@ -66,10 +158,17 @@ The `tp` (Templater) object must be passed as a function parameter.
 
 ```
 tests/
-├── unit/          # Pure function tests
-├── integration/   # Full flow tests with mocks
-├── helpers/       # Test utilities (markdown parsers, test builders)
-├── mocks/         # Mock factories for Obsidian APIs
+├── unit/                               # Pure function tests
+│   ├── *.test.ts                      # Plugin utilities (TypeScript)
+│   └── *.test.js                      # Legacy scripts (JavaScript)
+├── integration/                        # Full workflow tests
+│   ├── *.plugin.test.ts               # Plugin commands (TypeScript)
+│   └── *.integration.test.js          # Legacy scripts (JavaScript)
+├── helpers/                            # Test utilities
+│   ├── *PluginTestHelper.ts           # Plugin test helpers
+│   └── *TestHelper.js                 # Legacy test helpers
+├── mocks/
+│   └── obsidian.js                    # Obsidian API mock factories
 └── vitest.setup.js
 ```
 
