@@ -2,8 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
 	isIncompleteTask,
 	dedentLinesByAmount,
-	insertUnderLogHeading
+	insertUnderLogHeading,
+	findTopLevelTasksInRange
 } from '../../src/utils/tasks';
+import { parseMarkdownToListItems } from '../helpers/markdownParser.js';
+import { createMockEditor } from '../mocks/obsidian.js';
 
 describe('isIncompleteTask', () => {
 	it('detects open tasks', () => {
@@ -153,5 +156,102 @@ Some content`;
 		const logIdx = lines.findIndex(l => l === '## Log');
 		expect(lines[logIdx + 1]).toBe('- Task 2'); // Most recent first
 		expect(lines[logIdx + 2]).toBe('- Task 1');
+	});
+});
+
+describe('findTopLevelTasksInRange', () => {
+	it('finds all incomplete tasks in range', () => {
+		const content = `- [ ] Task A
+- [ ] Task B
+- [ ] Task C`;
+		const editor = createMockEditor({ content });
+		const listItems = parseMarkdownToListItems(content);
+
+		const result = findTopLevelTasksInRange(editor, listItems, 0, 2);
+		expect(result).toEqual([0, 1, 2]);
+	});
+
+	it('excludes tasks outside range', () => {
+		const content = `- [ ] Task A
+- [ ] Task B
+- [ ] Task C
+- [ ] Task D`;
+		const editor = createMockEditor({ content });
+		const listItems = parseMarkdownToListItems(content);
+
+		const result = findTopLevelTasksInRange(editor, listItems, 1, 2);
+		expect(result).toEqual([1, 2]);
+	});
+
+	it('excludes children of tasks in range', () => {
+		const content = `- [ ] Task A
+  - [ ] Child of A
+- [ ] Task B`;
+		const editor = createMockEditor({ content });
+		const listItems = parseMarkdownToListItems(content);
+
+		const result = findTopLevelTasksInRange(editor, listItems, 0, 2);
+		// Should only include Task A and Task B, not Child of A
+		expect(result).toEqual([0, 2]);
+	});
+
+	it('excludes completed tasks', () => {
+		const content = `- [ ] Task A
+- [x] Completed
+- [ ] Task B`;
+		const editor = createMockEditor({ content });
+		const listItems = parseMarkdownToListItems(content);
+
+		const result = findTopLevelTasksInRange(editor, listItems, 0, 2);
+		expect(result).toEqual([0, 2]);
+	});
+
+	it('excludes plain bullets', () => {
+		const content = `- [ ] Task A
+- Just a note
+- [ ] Task B`;
+		const editor = createMockEditor({ content });
+		const listItems = parseMarkdownToListItems(content);
+
+		const result = findTopLevelTasksInRange(editor, listItems, 0, 2);
+		expect(result).toEqual([0, 2]);
+	});
+
+	it('returns empty array if no incomplete tasks in range', () => {
+		const content = `- [x] Completed
+- Just a note`;
+		const editor = createMockEditor({ content });
+		const listItems = parseMarkdownToListItems(content);
+
+		const result = findTopLevelTasksInRange(editor, listItems, 0, 1);
+		expect(result).toEqual([]);
+	});
+
+	it('handles deeply nested children', () => {
+		const content = `- [ ] Task A
+  - [ ] Child
+    - [ ] Grandchild
+- [ ] Task B`;
+		const editor = createMockEditor({ content });
+		const listItems = parseMarkdownToListItems(content);
+
+		const result = findTopLevelTasksInRange(editor, listItems, 0, 3);
+		// Only top-level tasks
+		expect(result).toEqual([0, 3]);
+	});
+
+	it('handles child task whose parent is outside selection', () => {
+		const content = `- [ ] Task A
+  - [ ] Child of A
+- [ ] Task B`;
+		const editor = createMockEditor({ content });
+		const listItems = parseMarkdownToListItems(content);
+
+		// Select only Child of A and Task B (lines 1-2)
+		const result = findTopLevelTasksInRange(editor, listItems, 1, 2);
+		// Child of A has parent at line 0 which is outside selection,
+		// but it's still a child so should NOT be included as top-level
+		// Only Task B should be included
+		expect(result).toEqual([2]);
 	});
 });
