@@ -4,11 +4,13 @@ This document describes the testing strategy for the Bullet Flow Obsidian plugin
 
 ## Overview
 
-The test suite includes **291 tests** covering both plugin implementation (TypeScript) and legacy Templater scripts (JavaScript). Tests use Vitest with comprehensive Obsidian API mocks.
+The test suite covers all plugin functionality using Vitest with comprehensive Obsidian API mocks.
 
 **Test Organization:**
-- **Plugin Tests** — TypeScript tests for `src/` (commands and utilities)
-- **Legacy Tests** — JavaScript tests for `scripts/` (reference implementation)
+- **Unit Tests** — Pure function tests in `tests/unit/`
+- **Integration Tests** — Full command workflows in `tests/integration/`
+- **Test Helpers** — Reusable test utilities in `tests/helpers/`
+- **Mocks** — Obsidian API mocks in `tests/mocks/`
 
 ## Plugin Testing (TypeScript)
 
@@ -73,78 +75,47 @@ describe('parseWikilink', () => {
 ```
 
 **Integration test with helper:**
+
+**Key Insight:** Use multi-line template strings for markdown test cases - they're much easier to read than concatenated strings:
+
 ```typescript
 import { testExtractLogPlugin } from '../helpers/extractLogPluginTestHelper';
 
 it('should extract bullet to target note', async () => {
+  // ✅ GOOD - Multi-line template strings are readable
   const result = await testExtractLogPlugin({
-    source: '- Extract this [[Target]]\n  - Child content',
+    source: `
+- Extract this [[Target]]
+  - Child content
+  - More details
+`,
     sourceFileName: '2026-01-25 Sat',
     targetNoteName: 'Target',
-    targetContent: '',
+    targetContent: `
+## Existing Section
+
+Some content
+`,
     cursorLine: 0
   });
 
   expect(result.target).toContain('## Log');
   expect(result.target).toContain('Child content');
 });
+
+// ❌ BAD - Concatenated strings are hard to read
+// source: '- Extract this [[Target]]\n  - Child content\n  - More details\n'
 ```
 
-## Legacy Testing (JavaScript - Templater Scripts)
+**Benefits of template strings:**
+- Natural indentation matches markdown structure
+- Easy to see the actual content being tested
+- Clear whitespace handling
+- Tests read like user stories
 
-The `scripts/` folder contains the original Templater implementation, kept as reference during migration. These scripts have their own test suite using the same infrastructure.
+## Legacy Scripts
 
-### Templater User Script Constraints
-
-### Module System
-
-**CommonJS Only**
-- Templater user scripts use **CommonJS** (`module.exports`) exclusively
-- Scripts are executed via `window.eval()` in the Obsidian context
-- **No ES6 imports/exports** - these will not work
-
-**Single-File Constraint**
-- Each script **must be self-contained in a single file**
-- `require()` for importing other user scripts is **broken** in Templater v1.10.0+
-- All helper functions must live in the same file as the main function
-
-### Export Pattern
-
-Export the main function directly, with helpers attached as properties:
-
-```javascript
-function helperA() { /* ... */ }
-function helperB() { /* ... */ }
-
-async function mainFunction(tp) {
-  // Use helpers
-}
-
-// Export main function directly for Templater compatibility
-// Attach helpers as properties for testing
-module.exports = mainFunction;
-module.exports.mainFunction = mainFunction;
-module.exports.helperA = helperA;
-module.exports.helperB = helperB;
-```
-
-**Why this pattern:** Templater validates that user script exports are callable functions. Exporting an object causes "Default export is not a function" errors.
-
-**Usage in template:** `<% tp.user.scriptName(tp) %>` or `<% tp.user.scriptName.mainFunction(tp) %>`
-
-**In tests:** Import with destructuring for clean syntax:
-```javascript
-const { mainFunction, helperA, helperB } = require('../../scripts/scriptName.js');
-```
-
-### Global Variables
-
-Scripts have access to Obsidian globals:
-- `app` - Obsidian app object (vault, workspace, metadataCache, etc.)
-- `moment` - Moment.js library
-- `Notice` - Obsidian notification API
-
-The `tp` (Templater) object must be passed as a function parameter.
+The `scripts/` folder contains `handleNewNote.js`, a Templater user script that is not yet part of the plugin. It has its own test suite using JavaScript and CommonJS patterns.
 
 ## Testing Strategy
 
@@ -174,18 +145,16 @@ tests/
 
 ### Testing Approach
 
-**Unit Tests: Test Exported Helpers**
+**Unit Tests: Test Pure Functions**
 - Focus on pure functions (no side effects)
 - Test with simple inputs/outputs
-- Aim for 95%+ coverage on helpers
+- Cover edge cases thoroughly
 
-**Integration Tests: Test Main Functions**
-- Use markdown-first approach for readable tests
+**Integration Tests: Test Command Workflows**
+- Use markdown-first approach with template strings for readable tests
 - Test user-visible transformations, not implementation details
 - Mock Obsidian APIs (`app`, `vault`, `editor`)
-- Mock Templater `tp` object
 - Test full workflows with realistic scenarios
-- Aim for 60-80% coverage (harder to test orchestration)
 
 ### Test Patterns
 
@@ -216,8 +185,6 @@ See the actual test files in `tests/integration/` and their corresponding helper
 - Third-party libraries (trust their tests)
 - Simple getters/setters with no logic
 
-Coverage targets are configured in `vitest.config.js`.
-
 ### Running Tests
 
 ```bash
@@ -246,32 +213,29 @@ npm run test:ui
 
 ### Refactoring for Testability
 
-When adding tests to existing scripts:
+When adding tests to existing code:
 
 1. **Identify pure functions** - Functions with no side effects
 2. **Extract if needed** - Separate pure logic from Obsidian API calls
-3. **Export helpers** - Add to `module.exports.helperName = helperName`
-4. **Write tests** - Cover edge cases and typical usage
-5. **Verify in Obsidian** - Ensure script still works in Templater
+3. **Write tests** - Cover edge cases and typical usage
+4. **Verify in Obsidian** - Ensure plugin still works
 
 ### Key Principles
 
 ✅ **DO:**
-- Keep everything in single files
-- Export helpers as properties of `module.exports`
+- Use TypeScript with ES6 modules
 - Mock Obsidian global APIs in tests
 - Test pure functions thoroughly
 - Write small, focused tests
+- Use multi-line template strings for markdown test cases
 - Commit often
 
 ❌ **DON'T:**
-- Try to use `require()` to import other user scripts
-- Split script logic into multiple files in `scripts/` folder
-- Assume Node.js module resolution works normally
 - Test Obsidian internals (trust the framework)
+- Include test counts or coverage stats in documentation
 
 ## References
 
-- [Templater User Scripts Documentation](https://silentvoid13.github.io/Templater/user-functions/script-user-functions.html)
-- [Templater Issue #539 - Import limitations](https://github.com/SilentVoid13/Templater/issues/539)
-- [Templater TypeScript Discussion #765](https://github.com/SilentVoid13/Templater/discussions/765)
+- [Vitest Documentation](https://vitest.dev/)
+- [Obsidian API Documentation](https://docs.obsidian.md/Plugins/Getting+started/Build+a+plugin)
+- [Testing Best Practices](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library)
