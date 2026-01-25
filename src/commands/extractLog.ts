@@ -100,8 +100,6 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 				headingSuffix = afterLinkRaw.trim();
 			}
 		} else {
-			// CASE 3: No link - show file picker (NOTE: requires tp.system.suggester)
-			// For now, just error out. TODO: Add suggester support in future
 			new Notice('extractLog ERROR: No wikilink found on current line.');
 			return;
 		}

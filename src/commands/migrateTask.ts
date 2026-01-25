@@ -52,11 +52,7 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 		let taskLines: number[];
 		if (editor.somethingSelected()) {
 			// Multi-select: find all top-level tasks in range
-			// Get all selections (handles multi-cursor too)
 			const selections = editor.listSelections();
-
-			// For now, use the first selection
-			// TODO: Could support multi-cursor in the future
 			const selection = selections[0];
 			const startLine = Math.min(selection.anchor.line, selection.head.line);
 			const endLine = Math.max(selection.anchor.line, selection.head.line);
