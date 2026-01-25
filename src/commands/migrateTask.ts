@@ -61,15 +61,19 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 		const listItems = fileCache?.listItems;
 
 		// Check for selection vs single cursor
-		const from = editor.getCursor('from');
-		const to = editor.getCursor('to');
-		const hasSelection = from.line !== to.line || from.ch !== to.ch;
-
+		// Use somethingSelected() for more reliable detection on mobile
 		let taskLines: number[];
-		if (hasSelection) {
+		if (editor.somethingSelected()) {
 			// Multi-select: find all top-level tasks in range
-			const startLine = Math.min(from.line, to.line);
-			const endLine = Math.max(from.line, to.line);
+			// Get all selections (handles multi-cursor too)
+			const selections = editor.listSelections();
+
+			// For now, use the first selection
+			// TODO: Could support multi-cursor in the future
+			const selection = selections[0];
+			const startLine = Math.min(selection.anchor.line, selection.head.line);
+			const endLine = Math.max(selection.anchor.line, selection.head.line);
+
 			taskLines = findTopLevelTasksInRange(editor, listItems || [], startLine, endLine);
 
 			if (taskLines.length === 0) {

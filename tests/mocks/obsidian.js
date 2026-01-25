@@ -45,6 +45,14 @@ export function createMockEditor({
       return cursor;
     }),
     somethingSelected: vi.fn(() => from.line !== to.line || from.ch !== to.ch),
+    listSelections: vi.fn(() => {
+      // Return array of selections with anchor/head format
+      // anchor is where selection started, head is where it ended
+      return [{
+        anchor: from,
+        head: to
+      }];
+    }),
     setLine: vi.fn(),
     replaceRange: vi.fn(),
     replaceSelection: vi.fn(),
