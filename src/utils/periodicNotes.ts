@@ -2,18 +2,12 @@
  * Utilities for working with periodic notes (daily, weekly, monthly, yearly).
  */
 
+import type { NoteInfo } from '../types';
+
 const DIARY_FOLDER = '+Diary';
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-export interface NoteInfo {
-	type: 'daily' | 'weekly' | 'monthly' | 'yearly';
-	year: number;
-	month?: number;
-	day?: number;
-	week?: number;
-}
 
 /**
  * Parse a periodic note filename to determine its type and date info.

@@ -1,18 +1,6 @@
 import type { TFile, MetadataCache } from 'obsidian';
-import type { WikiLink } from '../types';
+import type { WikiLink, ParsedWikilink, WikilinkMatch } from '../types';
 import { stripListPrefix } from './listItems';
-
-export interface ParsedWikilink {
-	linkPath: string;
-	section: string | null;
-	alias: string | null;
-}
-
-export interface WikilinkMatch {
-	index: number;
-	matchText: string;
-	inner: string;
-}
 
 /**
  * Parse the inner text of a wikilink.
