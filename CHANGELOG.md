@@ -9,94 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-**Slice 7: Polish & UX**
-- Inject custom checkbox CSS directly in plugin (no manual snippet installation needed)
-- Custom `[o]` marker for meetings with red calendar icon
+**Task Migration**
+- Multi-select task migration: Select multiple tasks and migrate them all at once
+- Support for all periodic note types: daily, weekly, monthly, and yearly notes
+- Smart boundary transitions: Sunday automatically migrates to next week, December to next year
+- Task migration now works on mobile devices with touch selection
 
-**Slice 6: Complete migrateTask Implementation**
-- Full periodic note support (weekly, monthly, yearly)
-- Boundary transitions (Sunday → weekly, December → yearly)
-- Multi-select task migration
-- ISO week number calculations
-- Ported all 46 legacy unit tests for periodic notes
-- Ported all 18 legacy integration tests
-- Mobile-friendly selection detection using `editor.listSelections()`
+**Extract Log**
+- Section link support: Extract to specific sections like `[[Note#Section]]`
+- Smart context: Bullets that are pure links inherit context from their parent
+- Automatic back-links: Extracted content includes timestamp and link back to source
+- Clipboard copy: Extracted content is automatically copied for easy pasting
 
-**Slice 5: migrateTask MVP**
-- Daily note migration command
-- Task marking (`[ ]` → `[>]`)
-- Child task handling with proper indentation
-- Automatic next note path calculation
-- Created `tasks.ts` utility
-- Created `periodicNotes.ts` utility
-- Ported 25 unit tests from legacy script
+**Custom Checkboxes**
+- Custom checkbox CSS now works automatically (no manual setup needed)
+- Meeting marker `[o]` displays with red calendar icon
 
-**Slice 4: Complete extractLog Implementation**
-- Section link support (`[[Note#Section]]`)
-- Pure link bullet detection and parent context inheritance
-- Comprehensive edge case handling
-- Full test suite ported (71 unit + 10 integration tests)
-- Clipboard integration
-- Back-link generation with timestamps
+**Auto-Update**
+- Plugin updates automatically via BRAT
+- No manual file copying or installation required
 
-**Slice 3: extractLog MVP**
-- Basic extraction from daily notes to target notes
-- Wikilink parsing (`[[Note]]`, `[[Note|alias]]`)
-- `## Log` section management
-- Child content preservation
-- Created `wikilinks.ts` utility
-- Created `indent.ts` utility
-- Created `listItems.ts` utility
+### Improved
 
-**Slice 2: BRAT Walking Skeleton**
-- GitHub Actions workflow for auto-deploy
-- Semantic versioning with dev releases
-- BRAT installation support
-- Every push creates new release automatically
-
-**Slice 1: Hello Plugin**
-- TypeScript plugin scaffold
-- esbuild build pipeline
-- Obsidian API integration
-- Plugin loads on mobile and desktop
-- Test command for verification
+- Better mobile support for text selection
+- Handles YAML frontmatter when inserting content
+- Automatic next note calculation for all note types
 
 ### Changed
-- Migrated from Templater user scripts to native Obsidian plugin
-- Module system: CommonJS → ES6 modules with TypeScript
-- File organization: Single files → Multi-file structure
-- Distribution: Manual copying → BRAT auto-update
-- CSS injection: Manual snippet → Automatic plugin injection
 
-### Migration Notes
-
-**From v0.1.0 (Templater Scripts):**
-
-The plugin maintains full feature parity with the original Templater scripts while adding:
-- Automatic updates via BRAT
-- No manual file copying required
-- Custom CSS injected automatically
-- Better mobile selection handling
-- Full TypeScript type safety
-- 291 comprehensive tests
-
-**Legacy scripts** in `scripts/` folder are kept as reference but are no longer needed.
+- Now a native Obsidian plugin (previously Templater user scripts)
+- Automatic installation and updates via BRAT
 
 ## [0.1.0] - 2026-01-23
 
+Initial release as Templater user scripts.
+
 ### Added
-- Initial Templater user scripts implementation
-- `extractLog.js` - Extract nested content from daily notes
-- `migrateTask.js` - BuJo-style task migration
-- `handleNewNote.js` - Folder selection for new notes
-- Comprehensive test suite with Vitest
-- 75%+ code coverage
-- Obsidian API mocks
-- Markdown-first testing pattern
-
----
-
-## Version History
-
-- **0.2.0** - Native Obsidian plugin with auto-deploy (current)
-- **0.1.0** - Templater user scripts (legacy)
+- Extract Log: Move nested content from daily notes to project/area notes
+- Migrate Task: BuJo-style task migration between periodic notes
+- Folder selection for new notes
