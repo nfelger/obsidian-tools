@@ -32,8 +32,7 @@ BRAT will automatically update the plugin whenever new versions are released.
 ## Repository Contents
 
 - **`src/`** — TypeScript plugin source code
-- **`scripts/`** — Legacy Templater scripts (reference only)
-- **`tests/`** — Comprehensive test suite (291 tests)
+- **`tests/`** — Comprehensive test suite
 
 ## Commands
 
@@ -90,7 +89,7 @@ After extraction, the linked note `Project Alpha` gets:
   - [ ] Create CHANGELOG
 ```
 
-After migration from Sunday (2026-01-25):
+After migrating from Sunday (2026-01-25):
 - Source (daily): `- [>] Write documentation` (children removed)
 - Target (weekly 2026-01-W05): Full task tree under `## Log`
 
@@ -140,7 +139,7 @@ All periodic notes live under `+Diary/` with a nested folder structure:
 - **Minimal Theme** — Enhanced visual markers (optional)
 
 **Development:**
-- **Vitest** — Testing framework with 291 tests
+- **Vitest** — Testing framework
 - **TypeScript 5.3+** — Strict type checking
 - **GitHub Actions** — Automated releases via BRAT
 
@@ -161,7 +160,7 @@ npm run dev
 
 ### Testing
 
-Comprehensive test suite with 291 tests covering all functionality:
+Comprehensive test suite covering all functionality:
 
 ```bash
 # Run all tests
@@ -178,7 +177,7 @@ npm run test:ui
 ```
 
 **Testing approach:**
-- Unit tests for utilities (95%+ coverage)
+- Unit tests for utilities
 - Integration tests with markdown-first pattern
 - Full Obsidian API mocks
 - See [TESTING.md](TESTING.md) for details
@@ -191,12 +190,11 @@ obsidian-tools/
 │   ├── main.ts        # Plugin entry point
 │   ├── commands/      # extractLog, migrateTask
 │   └── utils/         # Shared utilities
-├── tests/             # Test suite (291 tests)
+├── tests/             # Test suite
 │   ├── unit/          # Pure function tests
 │   ├── integration/   # Full workflow tests
 │   ├── helpers/       # Test utilities
 │   └── mocks/         # Obsidian API mocks
-├── scripts/           # Legacy Templater scripts (reference)
 └── docs/              # Documentation
 ```
 
