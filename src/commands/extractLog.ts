@@ -1,4 +1,4 @@
-import { MarkdownView, Notice, TFile } from 'obsidian';
+import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import {
 	findFirstWikiLink,
@@ -7,6 +7,7 @@ import {
 } from '../utils/wikilinks';
 import { dedentLines } from '../utils/indent';
 import { findChildrenBlockFromListItems, getListItemAtLine, stripListPrefix } from '../utils/listItems';
+import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
 
 /**
  * Copy text to clipboard with error handling.
@@ -36,33 +37,19 @@ async function copyToClipboard(text: string): Promise<void> {
  */
 export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 	try {
-		// Get active markdown view
-		const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-		if (!view) {
-			new Notice('extractLog ERROR: No active markdown view.');
-			return;
-		}
+		const context = getActiveMarkdownFile(plugin);
+		if (!context) return;
 
-		const editor = view.editor;
-		const file = view.file;
-		if (!file) {
-			new Notice('extractLog ERROR: No active file.');
-			return;
-		}
-
+		const { editor, file } = context;
 		const sourcePath = file.path;
 		const dailyNoteName = file.basename;
 
-		// Get cursor position
 		const cursor = editor.getCursor();
 		const parentLine = cursor.line;
 		const parentText = editor.getLine(parentLine);
 
-		// Get list items from metadata cache
-		const sourceCache = plugin.app.metadataCache.getFileCache(file);
-		const listItems = sourceCache?.listItems;
-
-		if (!listItems || listItems.length === 0) {
+		const listItems = getListItems(plugin, file);
+		if (listItems.length === 0) {
 			new Notice('extractLog ERROR: No listItems metadata in this file.');
 			return;
 		}

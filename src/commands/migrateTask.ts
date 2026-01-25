@@ -1,9 +1,10 @@
-import { MarkdownView, Notice, TFile } from 'obsidian';
+import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { parseNoteType, getNextNotePath } from '../utils/periodicNotes';
 import { isIncompleteTask, dedentLinesByAmount, insertUnderLogHeading, findTopLevelTasksInRange } from '../utils/tasks';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
+import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
 
 /**
  * Migrate incomplete tasks from the current periodic note to the next note.
@@ -25,40 +26,26 @@ import { countIndent } from '../utils/indent';
  */
 export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 	try {
-		// Get active markdown view
-		const view = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-		if (!view) {
-			new Notice('migrateTask: No active markdown view.');
-			return;
-		}
+		const context = getActiveMarkdownFile(plugin);
+		if (!context) return;
 
-		const editor = view.editor;
-		const file = view.file;
-		if (!file) {
-			new Notice('migrateTask: No active file.');
-			return;
-		}
+		const { editor, file } = context;
 
-		// Parse note type (supports all types)
 		const noteInfo = parseNoteType(file.basename);
 		if (!noteInfo) {
 			new Notice('migrateTask: This is not a periodic note.');
 			return;
 		}
 
-		// Calculate target note path
 		const targetPath = getNextNotePath(noteInfo) + '.md';
 
-		// Check if target note exists
 		const targetFile = plugin.app.vault.getAbstractFileByPath(targetPath) as TFile;
 		if (!targetFile) {
 			new Notice(`migrateTask: Target note does not exist: ${targetPath}`);
 			return;
 		}
 
-		// Get list items metadata
-		const fileCache = plugin.app.metadataCache.getFileCache(file);
-		const listItems = fileCache?.listItems;
+		const listItems = getListItems(plugin, file);
 
 		// Check for selection vs single cursor
 		// Use somethingSelected() for more reliable detection on mobile
