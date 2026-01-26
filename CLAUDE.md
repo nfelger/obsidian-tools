@@ -518,6 +518,7 @@ When working on this codebase:
 - Use multi-line template strings for markdown test cases
 - Focus user documentation on user-visible changes
 - Keep code comments focused on current behavior
+- Update CHANGELOG.md when bumping versions
 
 ❌ **Never:**
 - Add planning comments (TODO, MVP, Slice, etc.) to permanent code
@@ -533,5 +534,5 @@ When working on this codebase:
 
 ---
 
-**Last Updated:** 2026-01-25
+**Last Updated:** 2026-01-26
 **Repository:** [nfelger/obsidian-tools](https://github.com/nfelger/obsidian-tools)
