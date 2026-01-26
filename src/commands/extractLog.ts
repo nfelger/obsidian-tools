@@ -8,6 +8,8 @@ import {
 import { dedentLines } from '../utils/indent';
 import { findChildrenBlockFromListItems, getListItemAtLine, stripListPrefix } from '../utils/listItems';
 import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
+import { NOTICE_TIMEOUT_SUCCESS, NOTICE_TIMEOUT_ERROR } from '../config';
+import { parseLogHeading } from '../utils/tasks';
 
 /**
  * Copy text to clipboard with error handling.
@@ -112,8 +114,11 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 		);
 
 		// Build heading line (can contain wikilinks)
+		// Use one level deeper than the log heading
+		const { level: logLevel } = parseLogHeading(plugin.settings.logSectionHeading);
+		const subHeadingPrefix = '#'.repeat(logLevel + 1);
 		const rawHeadingLineSuffix = headingSuffix ? ` ${headingSuffix}` : '';
-		const headingLine = `### [[${dailyNoteName}]]${rawHeadingLineSuffix}`;
+		const headingLine = `${subHeadingPrefix} [[${dailyNoteName}]]${rawHeadingLineSuffix}`;
 
 		// For section anchor, strip wikilinks to avoid nested brackets
 		const rawHeadingTextForLink = dailyNoteName + rawHeadingLineSuffix;
@@ -150,13 +155,14 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 			editor.setLine(parentLine, updatedParentText);
 		}
 
-		// Find ## Log in target via metadataCache
+		// Find log heading in target via metadataCache
+		const { level: logLevel2, text: logText } = parseLogHeading(plugin.settings.logSectionHeading);
 		const targetCache = plugin.app.metadataCache.getFileCache(targetFile);
 		let logHeadingLine: number | null = null;
 
 		if (targetCache && targetCache.headings) {
 			for (const heading of targetCache.headings) {
-				if (heading.level === 2 && heading.heading === 'Log') {
+				if (heading.level === logLevel2 && heading.heading === logText) {
 					logHeadingLine = heading.position.start.line;
 					break;
 				}
@@ -176,7 +182,7 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 				lines.splice(insertAt, 0, ...blockLines);
 				return lines.join('\n');
 			} else {
-				// No ## Log - create it at the end
+				// No log heading - create it at the end
 				const newLines = lines.slice();
 				if (
 					newLines.length > 0 &&
@@ -184,19 +190,19 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 				) {
 					newLines.push('');
 				}
-				newLines.push('## Log');
+				newLines.push(plugin.settings.logSectionHeading);
 				newLines.push(...blockLines);
 				return newLines.join('\n');
 			}
 		});
 
 		new Notice(
-			`extractLog: moved child block to "${targetFile.basename}" > Log`,
-			4000
+			`extractLog: moved child block to "${targetFile.basename}" > ${logText}`,
+			NOTICE_TIMEOUT_SUCCESS
 		);
 
 	} catch (e) {
-		new Notice(`extractLog ERROR: ${e.message}`, 8000);
+		new Notice(`extractLog ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.log('extractLog ERROR', e);
 	}
 }

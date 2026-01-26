@@ -11,6 +11,7 @@ import {
   createMockClipboard
 } from '../mocks/obsidian.js';
 import type { ListItem } from '../../src/types';
+import { DEFAULT_SETTINGS } from '../../src/types';
 import type BulletFlowPlugin from '../../src/main';
 
 interface TestExtractLogOptions {
@@ -175,7 +176,8 @@ export async function testExtractLogPlugin({
 
   // Create mock plugin
   const mockPlugin = {
-    app: mockApp
+    app: mockApp,
+    settings: DEFAULT_SETTINGS
   } as BulletFlowPlugin;
 
   // Import and run extractLog
