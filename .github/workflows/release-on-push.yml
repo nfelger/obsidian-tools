@@ -51,7 +51,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "main.js,manifest.json"
+          artifacts: "main.js,manifest.json,styles.css"
           tag: ${{ steps.version.outputs.base_version }}
           name: "v${{ steps.version.outputs.base_version }}"
           body: |
@@ -68,7 +68,7 @@ jobs:
             4. Enable plugin in Community Plugins
 
             **Manual:**
-            1. Download `main.js` and `manifest.json`
+            1. Download `main.js`, `manifest.json`, and `styles.css`
             2. Create folder: `.obsidian/plugins/bullet-flow/`
             3. Copy files into folder
             4. Enable plugin in Community Plugins
@@ -80,7 +80,7 @@ jobs:
         if: github.ref != 'refs/heads/main'
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "main.js,manifest.json"
+          artifacts: "main.js,manifest.json,styles.css"
           tag: ${{ steps.version.outputs.dev_version }}
           name: "Development Build (v${{ steps.version.outputs.dev_version }})"
           body: |
