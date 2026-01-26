@@ -21,12 +21,12 @@ export function isIncompleteTask(line: string): boolean {
 }
 
 /**
- * Parse a log section heading to extract level and text.
+ * Parse a target section heading to extract level and text.
  *
  * @param heading - The heading string (e.g., "## Log", "### Inbox")
  * @returns Object with level (number of #) and text (heading without #)
  */
-export function parseLogHeading(heading: string): { level: number; text: string } {
+export function parseTargetHeading(heading: string): { level: number; text: string } {
 	const match = heading.match(/^(#+)\s*(.*)$/);
 	if (!match) {
 		// Fallback to default if invalid
@@ -127,40 +127,40 @@ export function findTopLevelTasksInRange(
 }
 
 /**
- * Insert content under log heading, creating it if necessary.
+ * Insert content under target heading, creating it if necessary.
  *
  * @param content - Full file content
  * @param taskContent - Content to insert
- * @param logHeading - The log heading to use (e.g., "## Log")
+ * @param targetHeading - The target heading to use (e.g., "## Log")
  * @returns Updated file content
  */
-export function insertUnderLogHeading(
+export function insertUnderTargetHeading(
 	content: string,
 	taskContent: string,
-	logHeading: string = DEFAULT_SETTINGS.logSectionHeading
+	targetHeading: string = DEFAULT_SETTINGS.targetSectionHeading
 ): string {
 	const lines = content.split('\n');
-	const { level, text } = parseLogHeading(logHeading);
+	const { level, text } = parseTargetHeading(targetHeading);
 
 	// Build regex to find the heading
 	const headingRegex = new RegExp(`^${'#'.repeat(level)} ${text}\\s*$`);
 
-	// Find log heading
-	let logLineIdx = -1;
+	// Find target heading
+	let targetLineIdx = -1;
 	for (let i = 0; i < lines.length; i++) {
 		if (lines[i].match(headingRegex)) {
-			logLineIdx = i;
+			targetLineIdx = i;
 			break;
 		}
 	}
 
-	if (logLineIdx >= 0) {
+	if (targetLineIdx >= 0) {
 		// Insert after the heading
-		lines.splice(logLineIdx + 1, 0, taskContent);
+		lines.splice(targetLineIdx + 1, 0, taskContent);
 		return lines.join('\n');
 	}
 
-	// Need to create log heading
+	// Need to create target heading
 	// Find where to insert (after frontmatter if present)
 	let insertIdx = 0;
 
@@ -174,8 +174,8 @@ export function insertUnderLogHeading(
 		}
 	}
 
-	// Insert log heading and task
-	const newContent = [logHeading, taskContent];
+	// Insert target heading and task
+	const newContent = [targetHeading, taskContent];
 	lines.splice(insertIdx, 0, ...newContent);
 	return lines.join('\n');
 }

@@ -53,39 +53,44 @@ export interface NoteInfo {
 /**
  * Plugin settings that are user-configurable via the settings tab.
  *
- * Pattern tokens:
- * - {year} - 4-digit year (e.g., 2026)
- * - {month} - 2-digit month, zero-padded (e.g., 01)
- * - {day} - 2-digit day, zero-padded (e.g., 22)
- * - {weekday} - 3-letter weekday abbreviation (e.g., Mon, Tue)
- * - {monthName} - 3-letter month abbreviation (e.g., Jan, Feb)
- * - {week} - 2-digit ISO week number, zero-padded (e.g., 04)
+ * Note patterns use moment.js format tokens:
+ * @see https://momentjs.com/docs/#/displaying/format/
+ *
+ * Common tokens:
+ * - YYYY - 4-digit year
+ * - MM - 2-digit month (01-12)
+ * - DD - 2-digit day (01-31)
+ * - ddd - 3-letter weekday (Mon, Tue, etc.)
+ * - MMM - 3-letter month (Jan, Feb, etc.)
+ * - WW - ISO week number (01-53)
+ * - gggg - ISO week-numbering year
+ * - [text] - Literal text (escaped)
  */
 export interface BulletFlowSettings {
 	/** Base folder for periodic notes (e.g., '+Diary') */
 	diaryFolder: string;
 
-	/** Log section heading with level (e.g., '## Log', '### Inbox') */
-	logSectionHeading: string;
+	/** Target section heading with level (e.g., '## Log', '### Inbox') */
+	targetSectionHeading: string;
 
-	/** Daily note path pattern (e.g., '{year}/{month}/{year}-{month}-{day} {weekday}') */
+	/** Daily note path pattern using moment.js format (e.g., 'YYYY/MM/YYYY-MM-DD ddd') */
 	dailyNotePattern: string;
 
-	/** Weekly note path pattern (e.g., '{year}/{month}/{year}-{month}-W{week}') */
+	/** Weekly note path pattern using moment.js format (e.g., 'gggg/MM/gggg-MM-[W]WW') */
 	weeklyNotePattern: string;
 
-	/** Monthly note path pattern (e.g., '{year}/{year}-{month} {monthName}') */
+	/** Monthly note path pattern using moment.js format (e.g., 'YYYY/YYYY-MM MMM') */
 	monthlyNotePattern: string;
 
-	/** Yearly note path pattern (e.g., '{year}/{year}') */
+	/** Yearly note path pattern using moment.js format (e.g., 'YYYY/YYYY') */
 	yearlyNotePattern: string;
 }
 
 export const DEFAULT_SETTINGS: BulletFlowSettings = {
 	diaryFolder: '+Diary',
-	logSectionHeading: '## Log',
-	dailyNotePattern: '{year}/{month}/{year}-{month}-{day} {weekday}',
-	weeklyNotePattern: '{year}/{month}/{year}-{month}-W{week}',
-	monthlyNotePattern: '{year}/{year}-{month} {monthName}',
-	yearlyNotePattern: '{year}/{year}'
+	targetSectionHeading: '## Log',
+	dailyNotePattern: 'YYYY/MM/YYYY-MM-DD ddd',
+	weeklyNotePattern: 'gggg/MM/gggg-MM-[W]WW',
+	monthlyNotePattern: 'YYYY/YYYY-MM MMM',
+	yearlyNotePattern: 'YYYY/YYYY'
 };

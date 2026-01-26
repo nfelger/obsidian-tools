@@ -1,14 +1,12 @@
 import { Plugin } from 'obsidian';
 import { extractLog } from './commands/extractLog';
 import { migrateTask } from './commands/migrateTask';
-import { CUSTOM_CHECKBOX_CSS } from './config';
 import { BulletFlowSettingTab } from './settings';
 import type { BulletFlowSettings } from './types';
 import { DEFAULT_SETTINGS } from './types';
 
 export default class BulletFlowPlugin extends Plugin {
 	settings: BulletFlowSettings;
-	private styleEl?: HTMLStyleElement;
 
 	async onload() {
 		console.log('Loading Bullet Flow plugin');
@@ -18,9 +16,6 @@ export default class BulletFlowPlugin extends Plugin {
 
 		// Register settings tab
 		this.addSettingTab(new BulletFlowSettingTab(this.app, this));
-
-		// Inject custom checkbox CSS
-		this.injectCustomCSS();
 
 		// Extract Log command
 		this.addCommand({
@@ -39,11 +34,6 @@ export default class BulletFlowPlugin extends Plugin {
 
 	onunload() {
 		console.log('Unloading Bullet Flow plugin');
-
-		// Remove custom CSS
-		if (this.styleEl) {
-			this.styleEl.remove();
-		}
 	}
 
 	async loadSettings() {
@@ -52,15 +42,5 @@ export default class BulletFlowPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-
-	private injectCustomCSS() {
-		// Create style element
-		this.styleEl = document.createElement('style');
-		this.styleEl.id = 'bullet-flow-custom-checkboxes';
-		this.styleEl.textContent = CUSTOM_CHECKBOX_CSS;
-
-		// Add to document head
-		document.head.appendChild(this.styleEl);
 	}
 }

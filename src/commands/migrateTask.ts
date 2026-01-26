@@ -1,7 +1,7 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { parseNoteType, getNextNotePath } from '../utils/periodicNotes';
-import { isIncompleteTask, dedentLinesByAmount, insertUnderLogHeading, findTopLevelTasksInRange } from '../utils/tasks';
+import { isIncompleteTask, dedentLinesByAmount, insertUnderTargetHeading, findTopLevelTasksInRange } from '../utils/tasks';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
@@ -122,12 +122,12 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 		// Reverse to restore original order (we processed bottom-to-top)
 		allContentToMigrate.reverse();
 
-		// Add all content to target note under log heading
-		const logHeading = plugin.settings.logSectionHeading;
+		// Add all content to target note under target heading
+		const targetHeading = plugin.settings.targetSectionHeading;
 		await plugin.app.vault.process(targetFile, (data: string) => {
 			let result = data;
 			for (const content of allContentToMigrate) {
-				result = insertUnderLogHeading(result, content, logHeading);
+				result = insertUnderTargetHeading(result, content, targetHeading);
 			}
 			return result;
 		});
