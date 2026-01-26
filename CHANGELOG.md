@@ -5,6 +5,27 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-01-26
+
+### Improved
+
+- Updated CHANGELOG with missing 0.3.0 release notes
+
+## [0.3.0] - 2026-01-26
+
+### Added
+
+**Plugin Settings**
+- Configurable diary folder name (default: `+Diary`)
+- Configurable target section heading for Extract Log (default: `## Log`)
+- Customizable periodic note path patterns using moment.js format tokens
+- Compatible with the Periodic Notes community plugin
+
+### Improved
+
+- Folder picker with autocomplete in settings
+- Custom checkbox CSS now loads automatically via `styles.css`
+
 ## [0.2.0] - 2026-01-25
 
 ### Added
