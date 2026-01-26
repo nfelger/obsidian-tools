@@ -1,6 +1,6 @@
 {
   "name": "bullet-flow",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "BuJo-inspired workflow: extract logs and migrate tasks from daily notes",
   "main": "main.js",
   "scripts": {
