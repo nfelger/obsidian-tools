@@ -34,17 +34,17 @@ describe('parseNoteType', () => {
 		});
 
 		it('parses daily notes for different weekdays', () => {
-			expect(parseNoteType('2026-01-19 Sun')).toEqual({
+			expect(parseNoteType('2026-01-18 Sun')).toEqual({
+				type: 'daily',
+				year: 2026,
+				month: 1,
+				day: 18
+			});
+			expect(parseNoteType('2026-01-19 Mon')).toEqual({
 				type: 'daily',
 				year: 2026,
 				month: 1,
 				day: 19
-			});
-			expect(parseNoteType('2026-01-20 Mon')).toEqual({
-				type: 'daily',
-				year: 2026,
-				month: 1,
-				day: 20
 			});
 		});
 	});

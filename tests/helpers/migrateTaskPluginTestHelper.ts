@@ -8,7 +8,8 @@ import {
 	createMockVault,
 	createMockWorkspace
 } from '../mocks/obsidian.js';
-import type { ListItem } from '../../src/types';
+import type { ListItem, BulletFlowSettings } from '../../src/types';
+import { DEFAULT_SETTINGS } from '../../src/types';
 import type BulletFlowPlugin from '../../src/main';
 import { parseNoteType, getNextNotePath } from '../../src/utils/periodicNotes';
 
@@ -59,8 +60,11 @@ export async function testMigrateTaskPlugin({
 	let targetContentState = targetContent !== null ? normalizeMarkdown(targetContent) : null;
 	const targetExists = targetContent !== null;
 
+	// Build settings with custom diary folder
+	const settings: BulletFlowSettings = { ...DEFAULT_SETTINGS, diaryFolder };
+
 	// Calculate paths
-	const noteInfo = parseNoteType(sourceFileName);
+	const noteInfo = parseNoteType(sourceFileName, settings);
 
 	// Build source path based on note type
 	let sourcePath: string;
@@ -81,7 +85,7 @@ export async function testMigrateTaskPlugin({
 	}
 
 	// Calculate target path
-	const calculatedTargetPath = noteInfo ? getNextNotePath(noteInfo, diaryFolder) : null;
+	const calculatedTargetPath = noteInfo ? getNextNotePath(noteInfo, settings) : null;
 	const actualTargetFileName = targetFileName || (calculatedTargetPath ? calculatedTargetPath.split('/').pop() : null);
 	const targetPath = calculatedTargetPath ? `${calculatedTargetPath}.md` : null;
 
@@ -208,7 +212,8 @@ export async function testMigrateTaskPlugin({
 
 	// Create mock plugin
 	const mockPlugin = {
-		app: mockApp
+		app: mockApp,
+		settings
 	} as BulletFlowPlugin;
 
 	// Import and run migrateTask

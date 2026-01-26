@@ -1,10 +1,17 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { parseNoteType, getNextNotePath } from '../utils/periodicNotes';
-import { isIncompleteTask, dedentLinesByAmount, insertUnderLogHeading, findTopLevelTasksInRange } from '../utils/tasks';
+import { isIncompleteTask, dedentLinesByAmount, insertUnderTargetHeading, findTopLevelTasksInRange } from '../utils/tasks';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
+import {
+	NOTICE_TIMEOUT_ERROR,
+	STARTED_TO_OPEN_PATTERN,
+	OPEN_TASK_MARKER,
+	MIGRATE_TASK_PATTERN,
+	MIGRATED_MARKER
+} from '../config';
 
 /**
  * Migrate incomplete tasks from the current periodic note to the next note.
@@ -31,13 +38,13 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		const { editor, file } = context;
 
-		const noteInfo = parseNoteType(file.basename);
+		const noteInfo = parseNoteType(file.basename, plugin.settings);
 		if (!noteInfo) {
 			new Notice('migrateTask: This is not a periodic note.');
 			return;
 		}
 
-		const targetPath = getNextNotePath(noteInfo) + '.md';
+		const targetPath = getNextNotePath(noteInfo, plugin.settings) + '.md';
 
 		const targetFile = plugin.app.vault.getAbstractFileByPath(targetPath) as TFile;
 		if (!targetFile) {
@@ -90,7 +97,7 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 			const parentIndent = countIndent(lineText);
 			const parentLineStripped = lineText.slice(parentIndent);
 			// Convert started [/] to open [ ] in target
-			const parentLineForTarget = parentLineStripped.replace(/^(- )\[\/\]/, '$1[ ]');
+			const parentLineForTarget = parentLineStripped.replace(STARTED_TO_OPEN_PATTERN, '$1' + OPEN_TASK_MARKER);
 			let taskContent = parentLineForTarget;
 			if (children && children.lines.length > 0) {
 				const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
@@ -99,7 +106,7 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 			allContentToMigrate.push(taskContent);
 
 			// Mark source line as migrated
-			const migratedLine = lineText.replace(/^(\s*- )\[[ /]\]/, '$1[>]');
+			const migratedLine = lineText.replace(MIGRATE_TASK_PATTERN, '$1' + MIGRATED_MARKER);
 			editor.setLine(taskLine, migratedLine);
 
 			// Remove children from source
@@ -115,11 +122,12 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 		// Reverse to restore original order (we processed bottom-to-top)
 		allContentToMigrate.reverse();
 
-		// Add all content to target note under ## Log
+		// Add all content to target note under target heading
+		const targetHeading = plugin.settings.targetSectionHeading;
 		await plugin.app.vault.process(targetFile, (data: string) => {
 			let result = data;
 			for (const content of allContentToMigrate) {
-				result = insertUnderLogHeading(result, content);
+				result = insertUnderTargetHeading(result, content, targetHeading);
 			}
 			return result;
 		});
@@ -130,7 +138,7 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 			: `migrateTask: ${taskCount} tasks migrated successfully.`;
 		new Notice(message);
 	} catch (e: any) {
-		new Notice(`migrateTask ERROR: ${e.message}`, 8000);
+		new Notice(`migrateTask ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.log('migrateTask ERROR', e);
 	}
 }

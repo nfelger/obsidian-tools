@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	isIncompleteTask,
 	dedentLinesByAmount,
-	insertUnderLogHeading,
+	insertUnderTargetHeading,
 	findTopLevelTasksInRange
 } from '../../src/utils/tasks';
 import { parseMarkdownToListItems } from '../helpers/markdownParser.js';
@@ -107,14 +107,14 @@ describe('dedentLinesByAmount', () => {
 	});
 });
 
-describe('insertUnderLogHeading', () => {
+describe('insertUnderTargetHeading', () => {
 	it('inserts after existing ## Log heading', () => {
 		const content = `# Note
 
 ## Log
 
 Existing content`;
-		const result = insertUnderLogHeading(content, '- New task');
+		const result = insertUnderTargetHeading(content, '- New task');
 		expect(result).toContain('## Log\n- New task\n\nExisting content');
 	});
 
@@ -122,17 +122,17 @@ Existing content`;
 		const content = `# Note
 
 Some content`;
-		const result = insertUnderLogHeading(content, '- New task');
+		const result = insertUnderTargetHeading(content, '- New task');
 		expect(result).toContain('## Log\n- New task');
 	});
 
-	it('inserts after frontmatter when creating ## Log', () => {
+	it('inserts after frontmatter when creating heading', () => {
 		const content = `---
 title: Note
 ---
 
 Some content`;
-		const result = insertUnderLogHeading(content, '- New task');
+		const result = insertUnderTargetHeading(content, '- New task');
 		const lines = result.split('\n');
 		expect(lines[0]).toBe('---');
 		expect(lines[1]).toBe('title: Note');
@@ -143,14 +143,14 @@ Some content`;
 
 	it('inserts at top of empty file', () => {
 		const content = '';
-		const result = insertUnderLogHeading(content, '- New task');
+		const result = insertUnderTargetHeading(content, '- New task');
 		expect(result.trim()).toBe('## Log\n- New task');
 	});
 
 	it('handles multiple insertions', () => {
 		let content = '# Note\n\nSome content';
-		content = insertUnderLogHeading(content, '- Task 1');
-		content = insertUnderLogHeading(content, '- Task 2');
+		content = insertUnderTargetHeading(content, '- Task 1');
+		content = insertUnderTargetHeading(content, '- Task 2');
 
 		const lines = content.split('\n');
 		const logIdx = lines.findIndex(l => l === '## Log');

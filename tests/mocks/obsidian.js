@@ -1,4 +1,8 @@
 import { vi } from 'vitest';
+import momentLib from 'moment';
+
+// Export moment as Obsidian does
+export const moment = momentLib;
 
 /**
  * Create a mock TFile object

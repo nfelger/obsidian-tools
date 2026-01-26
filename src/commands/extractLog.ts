@@ -8,6 +8,8 @@ import {
 import { dedentLines } from '../utils/indent';
 import { findChildrenBlockFromListItems, getListItemAtLine, stripListPrefix } from '../utils/listItems';
 import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
+import { NOTICE_TIMEOUT_SUCCESS, NOTICE_TIMEOUT_ERROR } from '../config';
+import { parseTargetHeading } from '../utils/tasks';
 
 /**
  * Copy text to clipboard with error handling.
@@ -30,7 +32,7 @@ async function copyToClipboard(text: string): Promise<void> {
  *
  * Extracts nested bullet content from current line to a linked note.
  * - Handles pure link bullets (inherits parent context)
- * - Creates ## Log section if missing
+ * - Creates target section if missing
  * - Updates wikilink with section anchor
  * - Preserves exact display text with aliases
  * - Falls back to file picker if no wikilink found
@@ -112,8 +114,11 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 		);
 
 		// Build heading line (can contain wikilinks)
+		// Use one level deeper than the target heading
+		const { level: targetLevel } = parseTargetHeading(plugin.settings.targetSectionHeading);
+		const subHeadingPrefix = '#'.repeat(targetLevel + 1);
 		const rawHeadingLineSuffix = headingSuffix ? ` ${headingSuffix}` : '';
-		const headingLine = `### [[${dailyNoteName}]]${rawHeadingLineSuffix}`;
+		const headingLine = `${subHeadingPrefix} [[${dailyNoteName}]]${rawHeadingLineSuffix}`;
 
 		// For section anchor, strip wikilinks to avoid nested brackets
 		const rawHeadingTextForLink = dailyNoteName + rawHeadingLineSuffix;
@@ -150,33 +155,34 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 			editor.setLine(parentLine, updatedParentText);
 		}
 
-		// Find ## Log in target via metadataCache
+		// Find target heading in target via metadataCache
+		const { level: targetLevel2, text: targetText } = parseTargetHeading(plugin.settings.targetSectionHeading);
 		const targetCache = plugin.app.metadataCache.getFileCache(targetFile);
-		let logHeadingLine: number | null = null;
+		let targetHeadingLine: number | null = null;
 
 		if (targetCache && targetCache.headings) {
 			for (const heading of targetCache.headings) {
-				if (heading.level === 2 && heading.heading === 'Log') {
-					logHeadingLine = heading.position.start.line;
+				if (heading.level === targetLevel2 && heading.heading === targetText) {
+					targetHeadingLine = heading.position.start.line;
 					break;
 				}
 			}
 		}
 
-		// Build block that goes into ## Log (with blank lines around heading)
+		// Build block that goes into target section (with blank lines around heading)
 		const blockLines = ['', headingLine, ''].concat(dedentedChildrenLines);
 
 		// Update target file using vault.process (atomic)
 		await plugin.app.vault.process(targetFile, (data: string) => {
 			const lines = data.split('\n');
 
-			if (logHeadingLine !== null && logHeadingLine < lines.length) {
-				// ## Log exists - insert after it
-				const insertAt = logHeadingLine + 1;
+			if (targetHeadingLine !== null && targetHeadingLine < lines.length) {
+				// Target heading exists - insert after it
+				const insertAt = targetHeadingLine + 1;
 				lines.splice(insertAt, 0, ...blockLines);
 				return lines.join('\n');
 			} else {
-				// No ## Log - create it at the end
+				// No target heading - create it at the end
 				const newLines = lines.slice();
 				if (
 					newLines.length > 0 &&
@@ -184,19 +190,19 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 				) {
 					newLines.push('');
 				}
-				newLines.push('## Log');
+				newLines.push(plugin.settings.targetSectionHeading);
 				newLines.push(...blockLines);
 				return newLines.join('\n');
 			}
 		});
 
 		new Notice(
-			`extractLog: moved child block to "${targetFile.basename}" > Log`,
-			4000
+			`extractLog: moved child block to "${targetFile.basename}" > ${targetText}`,
+			NOTICE_TIMEOUT_SUCCESS
 		);
 
 	} catch (e) {
-		new Notice(`extractLog ERROR: ${e.message}`, 8000);
+		new Notice(`extractLog ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.log('extractLog ERROR', e);
 	}
 }
