@@ -5,6 +5,12 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-01-26
+
+### Fixed
+
+- Custom checkbox styles (`[o]` meeting marker) now included in releases
+
 ## [0.3.1] - 2026-01-26
 
 ### Improved
