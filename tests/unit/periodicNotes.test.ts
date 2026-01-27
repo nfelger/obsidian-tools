@@ -8,7 +8,9 @@ import {
 	getISOWeekNumber,
 	getMondayOfISOWeek,
 	formatDailyPath,
-	getNextNotePath
+	getNextNotePath,
+	dateIsInPeriod,
+	getLowerNotePath
 } from '../../src/utils/periodicNotes';
 
 describe('parseNoteType', () => {
@@ -310,5 +312,213 @@ describe('getNextNotePath', () => {
 
 	it('returns empty string for null noteInfo', () => {
 		expect(getNextNotePath(null as any)).toBe('');
+	});
+});
+
+describe('dateIsInPeriod', () => {
+	describe('daily notes', () => {
+		it('returns true for exact match', () => {
+			const date = new Date(2026, 0, 22); // Jan 22, 2026
+			const noteInfo = { type: 'daily' as const, year: 2026, month: 1, day: 22 };
+			expect(dateIsInPeriod(date, noteInfo)).toBe(true);
+		});
+
+		it('returns false for different day', () => {
+			const date = new Date(2026, 0, 23); // Jan 23, 2026
+			const noteInfo = { type: 'daily' as const, year: 2026, month: 1, day: 22 };
+			expect(dateIsInPeriod(date, noteInfo)).toBe(false);
+		});
+
+		it('returns false for different month', () => {
+			const date = new Date(2026, 1, 22); // Feb 22, 2026
+			const noteInfo = { type: 'daily' as const, year: 2026, month: 1, day: 22 };
+			expect(dateIsInPeriod(date, noteInfo)).toBe(false);
+		});
+
+		it('returns false for different year', () => {
+			const date = new Date(2025, 0, 22); // Jan 22, 2025
+			const noteInfo = { type: 'daily' as const, year: 2026, month: 1, day: 22 };
+			expect(dateIsInPeriod(date, noteInfo)).toBe(false);
+		});
+	});
+
+	describe('weekly notes', () => {
+		it('returns true for Monday of the week', () => {
+			// W04 2026: Mon Jan 19 - Sun Jan 25
+			const monday = new Date(2026, 0, 19);
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
+			expect(dateIsInPeriod(monday, noteInfo)).toBe(true);
+		});
+
+		it('returns true for Sunday of the week', () => {
+			const sunday = new Date(2026, 0, 25);
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
+			expect(dateIsInPeriod(sunday, noteInfo)).toBe(true);
+		});
+
+		it('returns true for mid-week day', () => {
+			const wednesday = new Date(2026, 0, 21);
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
+			expect(dateIsInPeriod(wednesday, noteInfo)).toBe(true);
+		});
+
+		it('returns false for day before the week', () => {
+			const dayBefore = new Date(2026, 0, 18); // Sunday before W04
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
+			expect(dateIsInPeriod(dayBefore, noteInfo)).toBe(false);
+		});
+
+		it('returns false for day after the week', () => {
+			const dayAfter = new Date(2026, 0, 26); // Monday after W04
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
+			expect(dateIsInPeriod(dayAfter, noteInfo)).toBe(false);
+		});
+
+		it('handles week at year boundary', () => {
+			// W01 2026: Mon Dec 29, 2025 - Sun Jan 4, 2026
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 1 };
+			expect(dateIsInPeriod(new Date(2025, 11, 29), noteInfo)).toBe(true); // Mon Dec 29
+			expect(dateIsInPeriod(new Date(2026, 0, 4), noteInfo)).toBe(true);   // Sun Jan 4
+			expect(dateIsInPeriod(new Date(2025, 11, 28), noteInfo)).toBe(false); // Sun Dec 28
+		});
+	});
+
+	describe('monthly notes', () => {
+		it('returns true for first day of month', () => {
+			const date = new Date(2026, 0, 1);
+			const noteInfo = { type: 'monthly' as const, year: 2026, month: 1 };
+			expect(dateIsInPeriod(date, noteInfo)).toBe(true);
+		});
+
+		it('returns true for last day of month', () => {
+			const date = new Date(2026, 0, 31);
+			const noteInfo = { type: 'monthly' as const, year: 2026, month: 1 };
+			expect(dateIsInPeriod(date, noteInfo)).toBe(true);
+		});
+
+		it('returns false for previous month', () => {
+			const date = new Date(2025, 11, 31);
+			const noteInfo = { type: 'monthly' as const, year: 2026, month: 1 };
+			expect(dateIsInPeriod(date, noteInfo)).toBe(false);
+		});
+
+		it('returns false for next month', () => {
+			const date = new Date(2026, 1, 1);
+			const noteInfo = { type: 'monthly' as const, year: 2026, month: 1 };
+			expect(dateIsInPeriod(date, noteInfo)).toBe(false);
+		});
+	});
+
+	describe('yearly notes', () => {
+		it('returns true for first day of year', () => {
+			const date = new Date(2026, 0, 1);
+			const noteInfo = { type: 'yearly' as const, year: 2026 };
+			expect(dateIsInPeriod(date, noteInfo)).toBe(true);
+		});
+
+		it('returns true for last day of year', () => {
+			const date = new Date(2026, 11, 31);
+			const noteInfo = { type: 'yearly' as const, year: 2026 };
+			expect(dateIsInPeriod(date, noteInfo)).toBe(true);
+		});
+
+		it('returns false for different year', () => {
+			const date = new Date(2025, 6, 15);
+			const noteInfo = { type: 'yearly' as const, year: 2026 };
+			expect(dateIsInPeriod(date, noteInfo)).toBe(false);
+		});
+	});
+});
+
+describe('getLowerNotePath', () => {
+	describe('from yearly', () => {
+		it('returns current month note path', () => {
+			const today = new Date(2026, 0, 27); // Jan 27, 2026
+			const noteInfo = { type: 'yearly' as const, year: 2026 };
+			const result = getLowerNotePath(noteInfo, today);
+			expect(result).toBe('+Diary/2026/2026-01 Jan');
+		});
+
+		it('returns correct month in December', () => {
+			const today = new Date(2026, 11, 15); // Dec 15, 2026
+			const noteInfo = { type: 'yearly' as const, year: 2026 };
+			const result = getLowerNotePath(noteInfo, today);
+			expect(result).toBe('+Diary/2026/2026-12 Dec');
+		});
+
+		it('throws if today not in source period', () => {
+			const today = new Date(2025, 6, 15); // July 2025
+			const noteInfo = { type: 'yearly' as const, year: 2026 };
+			expect(() => getLowerNotePath(noteInfo, today)).toThrow();
+		});
+	});
+
+	describe('from monthly', () => {
+		it('returns current week note path', () => {
+			const today = new Date(2026, 0, 22); // Thu Jan 22, 2026 - in W04
+			const noteInfo = { type: 'monthly' as const, year: 2026, month: 1 };
+			const result = getLowerNotePath(noteInfo, today);
+			expect(result).toBe('+Diary/2026/01/2026-01-W04');
+		});
+
+		it('handles first week of month', () => {
+			const today = new Date(2026, 0, 5); // Mon Jan 5, 2026 - in W02
+			const noteInfo = { type: 'monthly' as const, year: 2026, month: 1 };
+			const result = getLowerNotePath(noteInfo, today);
+			expect(result).toBe('+Diary/2026/01/2026-01-W02');
+		});
+
+		it('throws if today not in source period', () => {
+			const today = new Date(2026, 1, 15); // Feb 15
+			const noteInfo = { type: 'monthly' as const, year: 2026, month: 1 };
+			expect(() => getLowerNotePath(noteInfo, today)).toThrow();
+		});
+	});
+
+	describe('from weekly', () => {
+		it('returns current day note path', () => {
+			const today = new Date(2026, 0, 22); // Thu Jan 22, 2026
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
+			const result = getLowerNotePath(noteInfo, today);
+			expect(result).toBe('+Diary/2026/01/2026-01-22 Thu');
+		});
+
+		it('handles Monday of week', () => {
+			const today = new Date(2026, 0, 19); // Mon Jan 19
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
+			const result = getLowerNotePath(noteInfo, today);
+			expect(result).toBe('+Diary/2026/01/2026-01-19 Mon');
+		});
+
+		it('handles Sunday of week', () => {
+			const today = new Date(2026, 0, 25); // Sun Jan 25
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
+			const result = getLowerNotePath(noteInfo, today);
+			expect(result).toBe('+Diary/2026/01/2026-01-25 Sun');
+		});
+
+		it('throws if today not in source period', () => {
+			const today = new Date(2026, 0, 26); // Mon Jan 26 - W05
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
+			expect(() => getLowerNotePath(noteInfo, today)).toThrow();
+		});
+	});
+
+	describe('from daily', () => {
+		it('returns null (already at lowest level)', () => {
+			const today = new Date(2026, 0, 22);
+			const noteInfo = { type: 'daily' as const, year: 2026, month: 1, day: 22 };
+			const result = getLowerNotePath(noteInfo, today);
+			expect(result).toBeNull();
+		});
+	});
+
+	describe('custom settings', () => {
+		it('uses custom diary folder', () => {
+			const today = new Date(2026, 0, 22);
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
+			const result = getLowerNotePath(noteInfo, today, { diaryFolder: 'Journal' });
+			expect(result).toBe('Journal/2026/01/2026-01-22 Thu');
+		});
 	});
 });
