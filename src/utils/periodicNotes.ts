@@ -33,6 +33,80 @@ function normalizeSettings(settingsOrFolder?: Partial<BulletFlowSettings> | stri
 	return { ...DEFAULT_SETTINGS, ...settingsOrFolder };
 }
 
+// === Periodic Note Service ===
+
+/**
+ * Service for periodic note operations with encapsulated settings.
+ *
+ * Provides a cleaner API by eliminating settings threading through method calls.
+ */
+export class PeriodicNoteService {
+	constructor(private readonly settings: BulletFlowSettings) {}
+
+	/**
+	 * Parse a periodic note filename to determine its type and date info.
+	 */
+	parseNoteType(filename: string): NoteInfo | null {
+		return parseNoteType(filename, this.settings);
+	}
+
+	/**
+	 * Calculate the path to the next periodic note.
+	 */
+	getNextNotePath(noteInfo: NoteInfo): string {
+		return getNextNotePath(noteInfo, this.settings);
+	}
+
+	/**
+	 * Get the path to the higher-level periodic note.
+	 */
+	getHigherNotePath(noteInfo: NoteInfo): string | null {
+		return getHigherNotePath(noteInfo, this.settings);
+	}
+
+	/**
+	 * Get the path to the lower-level periodic note for the current date.
+	 */
+	getLowerNotePath(noteInfo: NoteInfo, today: Date): string | null {
+		return getLowerNotePath(noteInfo, today, this.settings);
+	}
+
+	/**
+	 * Check if a date falls within a periodic note's range.
+	 */
+	dateIsInPeriod(date: Date, noteInfo: NoteInfo): boolean {
+		return dateIsInPeriod(date, noteInfo);
+	}
+
+	/**
+	 * Format a date as a daily note path.
+	 */
+	formatDailyPath(date: Date): string {
+		return formatDailyPath(date, this.settings);
+	}
+
+	/**
+	 * Format a weekly note path.
+	 */
+	formatWeeklyPath(date: Date, week: number): string {
+		return formatWeeklyPath(date, week, this.settings);
+	}
+
+	/**
+	 * Format a monthly note path.
+	 */
+	formatMonthlyPath(year: number, month: number): string {
+		return formatMonthlyPath(year, month, this.settings);
+	}
+
+	/**
+	 * Format a yearly note path.
+	 */
+	formatYearlyPath(year: number): string {
+		return formatYearlyPath(year, this.settings);
+	}
+}
+
 // === Note Type Detection ===
 
 interface ParseResult {

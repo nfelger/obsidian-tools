@@ -1,6 +1,84 @@
-import type { TFile, MetadataCache } from 'obsidian';
-import type { WikiLink, ParsedWikilink, WikilinkMatch } from '../types';
+import type { TFile, MetadataCache, Vault } from 'obsidian';
+import type { WikiLink, ParsedWikilink, WikilinkMatch, ResolvedLink, LinkResolver } from '../types';
 import { stripListPrefix } from './listItems';
+
+// === Link Resolver Implementation ===
+
+/**
+ * Obsidian implementation of the LinkResolver interface.
+ * Wraps MetadataCache to provide link resolution.
+ */
+export class ObsidianLinkResolver implements LinkResolver {
+	constructor(
+		private readonly metadataCache: MetadataCache,
+		private readonly vault: Vault
+	) {}
+
+	resolve(linkPath: string, sourcePath: string): ResolvedLink | null {
+		const tfile = this.metadataCache.getFirstLinkpathDest(linkPath, sourcePath);
+		if (!tfile || tfile.extension !== 'md') {
+			return null;
+		}
+		return {
+			path: tfile.path,
+			basename: tfile.basename,
+			extension: tfile.extension,
+			index: 0,
+			matchText: '',
+			inner: ''
+		};
+	}
+
+	/**
+	 * Get the underlying TFile for legacy code.
+	 * @deprecated Use resolve() for new code
+	 */
+	resolveToTFile(linkPath: string, sourcePath: string): TFile | null {
+		const tfile = this.metadataCache.getFirstLinkpathDest(linkPath, sourcePath);
+		return (tfile && tfile.extension === 'md') ? tfile : null;
+	}
+}
+
+/**
+ * Find the first valid wikilink in a line and resolve it using LinkResolver.
+ * Domain-friendly version that doesn't expose TFile.
+ */
+export function findFirstResolvedLink(
+	lineText: string,
+	sourcePath: string,
+	resolver: LinkResolver
+): ResolvedLink | null {
+	const wikiRegex = /\[\[([^\]]+)\]\]/g;
+	let match;
+
+	while ((match = wikiRegex.exec(lineText)) !== null) {
+		const index = match.index;
+		// Ignore embeds (![[...]])
+		if (index > 0 && lineText.charAt(index - 1) === '!') {
+			continue;
+		}
+
+		const inner = match[1];
+		const parts = inner.split('|');
+		const left = parts[0];
+		const linkParts = left.split('#');
+		const linkPath = linkParts[0];
+
+		if (!linkPath) continue;
+
+		const resolved = resolver.resolve(linkPath, sourcePath);
+		if (resolved) {
+			return {
+				...resolved,
+				index,
+				matchText: match[0],
+				inner
+			};
+		}
+	}
+
+	return null;
+}
 
 /**
  * Parse the inner text of a wikilink.
