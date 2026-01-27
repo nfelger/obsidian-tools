@@ -1,7 +1,14 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { parseNoteType, getLowerNotePath, dateIsInPeriod } from '../utils/periodicNotes';
-import { isIncompleteTask, dedentLinesByAmount, insertUnderTargetHeading, findTopLevelTasksInRange, markTaskAsScheduled } from '../utils/tasks';
+import {
+	isIncompleteTask,
+	dedentLinesByAmount,
+	findTopLevelTasksInRange,
+	markTaskAsScheduled,
+	extractTaskText,
+	insertTaskWithDeduplication
+} from '../utils/tasks';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
@@ -111,24 +118,56 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 		// Process tasks from bottom to top to preserve line numbers
 		taskLines.sort((a, b) => b - a);
 
-		// Collect all content to push
-		const allContentToPush: string[] = [];
+		// Track statistics
+		let mergedCount = 0;
+		let newCount = 0;
 
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
 			const children = findChildrenBlockFromListItems(editor, listItems || [], taskLine);
+
+			// Extract task text for deduplication
+			const taskText = extractTaskText(lineText);
 
 			// Build content to push (parent line + children)
 			const parentIndent = countIndent(lineText);
 			const parentLineStripped = lineText.slice(parentIndent);
 			// Convert started [/] to open [ ] in target
 			const parentLineForTarget = parentLineStripped.replace(STARTED_TO_OPEN_PATTERN, '$1' + OPEN_TASK_MARKER);
-			let taskContent = parentLineForTarget;
+
+			// Prepare children content (dedented)
+			let childrenContent = '';
 			if (children && children.lines.length > 0) {
 				const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
-				taskContent += '\n' + dedentedChildren.join('\n');
+				childrenContent = dedentedChildren.join('\n');
 			}
-			allContentToPush.push(taskContent);
+
+			// Build full task content for new insertions
+			let taskContent = parentLineForTarget;
+			if (childrenContent) {
+				const indentedChildren = childrenContent.split('\n').map(line =>
+					line ? '  ' + line : line
+				).join('\n');
+				taskContent += '\n' + indentedChildren;
+			}
+
+			// Process target with deduplication
+			const targetHeading = plugin.settings.targetSectionHeading;
+			await plugin.app.vault.process(targetFile, (data: string) => {
+				const result = insertTaskWithDeduplication(
+					data,
+					taskText,
+					taskContent,
+					childrenContent,
+					targetHeading
+				);
+				if (result.wasMerged) {
+					mergedCount++;
+				} else {
+					newCount++;
+				}
+				return result.content;
+			});
 
 			// Mark source line as scheduled
 			const scheduledLine = markTaskAsScheduled(lineText);
@@ -144,23 +183,18 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 			}
 		}
 
-		// Reverse to restore original order (we processed bottom-to-top)
-		allContentToPush.reverse();
-
-		// Add all content to target note under target heading
-		const targetHeading = plugin.settings.targetSectionHeading;
-		await plugin.app.vault.process(targetFile, (data: string) => {
-			let result = data;
-			for (const content of allContentToPush) {
-				result = insertUnderTargetHeading(result, content, targetHeading);
-			}
-			return result;
-		});
-
 		const taskCount = taskLines.length;
-		const message = taskCount === 1
-			? 'pushTaskDown: Task pushed to lower note.'
-			: `pushTaskDown: ${taskCount} tasks pushed to lower note.`;
+		let message: string;
+		if (taskCount === 1) {
+			message = mergedCount > 0
+				? 'pushTaskDown: Task merged with existing in lower note.'
+				: 'pushTaskDown: Task pushed to lower note.';
+		} else {
+			const parts: string[] = [];
+			if (newCount > 0) parts.push(`${newCount} new`);
+			if (mergedCount > 0) parts.push(`${mergedCount} merged`);
+			message = `pushTaskDown: ${taskCount} tasks pushed to lower note (${parts.join(', ')}).`;
+		}
 		new Notice(message);
 	} catch (e: any) {
 		new Notice(`pushTaskDown ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);

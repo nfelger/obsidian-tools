@@ -4,13 +4,10 @@ import { parseNoteType, getHigherNotePath } from '../utils/periodicNotes';
 import {
 	isIncompleteTask,
 	dedentLinesByAmount,
-	insertUnderTargetHeading,
 	findTopLevelTasksInRange,
 	markTaskAsScheduled,
 	extractTaskText,
-	findMatchingTask,
-	markScheduledAsOpen,
-	insertChildrenUnderTask
+	insertTaskWithDeduplication
 } from '../utils/tasks';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
@@ -127,42 +124,32 @@ export async function pullUp(plugin: BulletFlowPlugin): Promise<void> {
 				childrenContent = dedentedChildren.join('\n');
 			}
 
-			// Process target with deduplication
-			await plugin.app.vault.process(targetFile, (data: string) => {
-				const match = findMatchingTask(data, taskText);
+			// Build full task content for new insertions
+			const parentLineStripped = lineText.slice(parentIndent);
+			let taskContent = parentLineStripped;
+			if (childrenContent) {
+				const indentedChildren = childrenContent.split('\n').map(line =>
+					line ? '  ' + line : line
+				).join('\n');
+				taskContent += '\n' + indentedChildren;
+			}
 
-				if (match) {
-					// Duplicate found - merge children
-					let result = data;
-					if (match.isScheduled) {
-						// Reopen scheduled task
-						const lines = result.split('\n');
-						lines[match.lineNumber] = markScheduledAsOpen(lines[match.lineNumber]);
-						result = lines.join('\n');
-					}
-					if (childrenContent) {
-						// Add proper indentation to children (2 spaces for child level)
-						const indentedChildren = childrenContent.split('\n').map(line =>
-							line ? '  ' + line : line
-						).join('\n');
-						result = insertChildrenUnderTask(result, match.lineNumber, indentedChildren);
-					}
+			// Process target with deduplication
+			const targetHeading = plugin.settings.targetSectionHeading;
+			await plugin.app.vault.process(targetFile, (data: string) => {
+				const result = insertTaskWithDeduplication(
+					data,
+					taskText,
+					taskContent,
+					childrenContent,
+					targetHeading
+				);
+				if (result.wasMerged) {
 					mergedCount++;
-					return result;
 				} else {
-					// No duplicate - insert full task
-					const parentLineStripped = lineText.slice(parentIndent);
-					let taskContent = parentLineStripped;
-					if (childrenContent) {
-						// Add proper indentation to children (2 spaces for child level)
-						const indentedChildren = childrenContent.split('\n').map(line =>
-							line ? '  ' + line : line
-						).join('\n');
-						taskContent += '\n' + indentedChildren;
-					}
 					newCount++;
-					return insertUnderTargetHeading(data, taskContent, plugin.settings.targetSectionHeading);
 				}
+				return result.content;
 			});
 
 			// Mark source line as scheduled

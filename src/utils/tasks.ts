@@ -200,7 +200,7 @@ export function insertUnderTargetHeading(
 	return lines.join('\n');
 }
 
-// === Deduplication Helpers for pullUp ===
+// === Deduplication and Task Transfer Helpers ===
 
 /**
  * Check if a line is a scheduled task (marked with [<]).
@@ -321,4 +321,65 @@ export function insertChildrenUnderTask(
 	lines.splice(insertLineNumber, 0, ...childrenLines);
 
 	return lines.join('\n');
+}
+
+/**
+ * Result of inserting a task with deduplication.
+ */
+export interface InsertTaskResult {
+	content: string;
+	wasMerged: boolean;
+	reopenedScheduled: boolean;
+}
+
+/**
+ * Insert a task into content with deduplication.
+ *
+ * If the task already exists (incomplete or scheduled), merges children under it.
+ * If the existing task was scheduled [<], reopens it as [ ].
+ * Otherwise, inserts as a new task under the target heading.
+ *
+ * @param content - The target file content
+ * @param taskText - The task text (without checkbox) for deduplication matching
+ * @param taskContent - The full task content to insert (parent + children, properly formatted)
+ * @param childrenContent - Just the children content (for merging under existing task)
+ * @param targetHeading - The heading to insert under if task is new
+ * @returns Result with updated content and flags
+ */
+export function insertTaskWithDeduplication(
+	content: string,
+	taskText: string,
+	taskContent: string,
+	childrenContent: string,
+	targetHeading: string
+): InsertTaskResult {
+	const match = findMatchingTask(content, taskText);
+
+	if (match) {
+		// Duplicate found - merge children under existing task
+		let result = content;
+		let reopenedScheduled = false;
+
+		if (match.isScheduled) {
+			// Reopen scheduled task
+			const lines = result.split('\n');
+			lines[match.lineNumber] = markScheduledAsOpen(lines[match.lineNumber]);
+			result = lines.join('\n');
+			reopenedScheduled = true;
+		}
+
+		if (childrenContent) {
+			// Add proper indentation to children (2 spaces for child level)
+			const indentedChildren = childrenContent.split('\n').map(line =>
+				line ? '  ' + line : line
+			).join('\n');
+			result = insertChildrenUnderTask(result, match.lineNumber, indentedChildren);
+		}
+
+		return { content: result, wasMerged: true, reopenedScheduled };
+	} else {
+		// No duplicate - insert full task under heading
+		const result = insertUnderTargetHeading(content, taskContent, targetHeading);
+		return { content: result, wasMerged: false, reopenedScheduled: false };
+	}
 }

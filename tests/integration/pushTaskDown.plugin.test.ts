@@ -295,4 +295,131 @@ Some content
 			expect(result.target).toContain('- [ ] Task B');
 		});
 	});
+
+	describe('deduplication', () => {
+		it('should merge children when task already exists as incomplete', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] Review PR
+  - Check tests
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: `
+## Log
+- [ ] Review PR
+  - Existing note
+`,
+				today: new Date(2026, 0, 22),
+				cursorLine: 0
+			});
+
+			// Source marked as scheduled
+			expect(result.source).toContain('- [<] Review PR');
+
+			// Target: task NOT duplicated, children merged
+			const taskMatches = result.target!.match(/Review PR/g);
+			expect(taskMatches).toHaveLength(1);
+			expect(result.target).toContain('- Existing note');
+			expect(result.target).toContain('- Check tests');
+		});
+
+		it('should reopen scheduled task and merge children', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] Urgent task
+  - New subtask
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: `
+## Log
+- [<] Urgent task
+  - Old subtask
+`,
+				today: new Date(2026, 0, 22),
+				cursorLine: 0
+			});
+
+			// Target: scheduled task reopened as [ ]
+			expect(result.target).toContain('- [ ] Urgent task');
+			expect(result.target).not.toContain('- [<] Urgent task');
+
+			// Children merged
+			expect(result.target).toContain('- Old subtask');
+			expect(result.target).toContain('- New subtask');
+		});
+
+		it('should insert as new when no duplicate found', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] New task
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: `
+## Log
+- [ ] Different task
+`,
+				today: new Date(2026, 0, 22),
+				cursorLine: 0
+			});
+
+			// Both tasks present
+			expect(result.target).toContain('- [ ] New task');
+			expect(result.target).toContain('- [ ] Different task');
+		});
+
+		it('should not match completed tasks for deduplication', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] Same name task
+  - New child
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: `
+## Log
+- [x] Same name task
+  - Old child
+`,
+				today: new Date(2026, 0, 22),
+				cursorLine: 0
+			});
+
+			// Should insert as new since the existing one is completed
+			expect(result.target).toContain('- [x] Same name task');
+			expect(result.target).toContain('- [ ] Same name task');
+		});
+
+		it('should handle mix of duplicates and new tasks in multi-select', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] Existing task
+  - New child
+- [ ] New task
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: `
+## Log
+- [ ] Existing task
+  - Old child
+`,
+				today: new Date(2026, 0, 22),
+				selectionStartLine: 0,
+				selectionEndLine: 2
+			});
+
+			// Source tasks marked as scheduled
+			expect(result.source).toContain('- [<] Existing task');
+			expect(result.source).toContain('- [<] New task');
+
+			// Existing task merged (not duplicated)
+			const existingMatches = result.target!.match(/Existing task/g);
+			expect(existingMatches).toHaveLength(1);
+
+			// Children merged
+			expect(result.target).toContain('- Old child');
+			expect(result.target).toContain('- New child');
+
+			// New task added
+			expect(result.target).toContain('- [ ] New task');
+		});
+	});
 });
