@@ -25,6 +25,11 @@ export const MIGRATE_TASK_PATTERN = /^(\s*- )\[[ /]\]/;
 export const MIGRATED_MARKER = '[>]';
 
 /**
+ * The marker used for scheduled tasks (pushed down to lower-level note).
+ */
+export const SCHEDULED_MARKER = '[<]';
+
+/**
  * Regex pattern to convert started tasks to open in target note.
  * Captures "- " prefix to preserve it.
  */

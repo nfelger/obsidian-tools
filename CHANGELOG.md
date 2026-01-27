@@ -5,6 +5,17 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-01-27
+
+### Added
+
+**Push Task Down**
+- New command to schedule tasks to lower-level periodic notes
+- Push from yearly → current month, monthly → current week, weekly → today
+- Marks source tasks with `[<]` (scheduled marker)
+- Supports multi-select: push multiple tasks at once
+- Children move with their parent task
+
 ## [0.3.2] - 2026-01-26
 
 ### Fixed

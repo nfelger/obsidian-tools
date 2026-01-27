@@ -21,15 +21,16 @@ function getFilenamePattern(pattern: string): string {
 
 /**
  * Normalize settings input - accepts either a BulletFlowSettings object or a diary folder string.
+ * Merges with defaults to ensure all properties are present.
  */
-function normalizeSettings(settingsOrFolder?: BulletFlowSettings | string): BulletFlowSettings {
+function normalizeSettings(settingsOrFolder?: Partial<BulletFlowSettings> | string): BulletFlowSettings {
 	if (!settingsOrFolder) {
 		return DEFAULT_SETTINGS;
 	}
 	if (typeof settingsOrFolder === 'string') {
 		return { ...DEFAULT_SETTINGS, diaryFolder: settingsOrFolder };
 	}
-	return settingsOrFolder;
+	return { ...DEFAULT_SETTINGS, ...settingsOrFolder };
 }
 
 // === Note Type Detection ===
@@ -271,6 +272,94 @@ export function formatYearlyPath(
  * @param settingsOrFolder - Plugin settings or diary folder string
  * @returns Full path to target note (without .md extension)
  */
+/**
+ * Check if a date falls within a periodic note's range.
+ *
+ * @param date - The date to check
+ * @param noteInfo - The note info to check against
+ * @returns true if the date is within the note's period
+ */
+export function dateIsInPeriod(date: Date, noteInfo: NoteInfo): boolean {
+	const { type, year, month, day, week } = noteInfo;
+
+	switch (type) {
+		case 'daily':
+			return (
+				date.getFullYear() === year &&
+				date.getMonth() + 1 === month &&
+				date.getDate() === day
+			);
+
+		case 'weekly': {
+			if (week === undefined) return false;
+			// Get ISO week year - use moment for consistency
+			const m = moment(date);
+			const dateWeek = m.isoWeek();
+			const dateWeekYear = m.isoWeekYear();
+			// The year in noteInfo is the display year, but for comparison
+			// we need to use the ISO week year
+			const noteWeekYear = moment()
+				.isoWeekYear(year)
+				.isoWeek(week)
+				.isoWeekYear();
+			return dateWeek === week && dateWeekYear === noteWeekYear;
+		}
+
+		case 'monthly':
+			return date.getFullYear() === year && date.getMonth() + 1 === month;
+
+		case 'yearly':
+			return date.getFullYear() === year;
+
+		default:
+			return false;
+	}
+}
+
+/**
+ * Get the path to the lower-level periodic note for the current date.
+ *
+ * @param sourceNoteInfo - The current note's info
+ * @param today - The current date
+ * @param settingsOrFolder - Plugin settings or diary folder string
+ * @returns Path to target note, or null if at lowest level (daily)
+ * @throws Error if source period doesn't contain today
+ */
+export function getLowerNotePath(
+	sourceNoteInfo: NoteInfo,
+	today: Date,
+	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS
+): string | null {
+	const settings = normalizeSettings(settingsOrFolder);
+
+	// Validate that today is within the source period
+	if (!dateIsInPeriod(today, sourceNoteInfo)) {
+		throw new Error('Current date is not within the source period');
+	}
+
+	switch (sourceNoteInfo.type) {
+		case 'yearly':
+			// Yearly → current month
+			return formatMonthlyPath(today.getFullYear(), today.getMonth() + 1, settings);
+
+		case 'monthly':
+			// Monthly → current week
+			const week = getISOWeekNumber(today);
+			return formatWeeklyPath(today, week, settings);
+
+		case 'weekly':
+			// Weekly → current day
+			return formatDailyPath(today, settings);
+
+		case 'daily':
+			// Already at lowest level
+			return null;
+
+		default:
+			return null;
+	}
+}
+
 export function getNextNotePath(
 	noteInfo: NoteInfo,
 	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS

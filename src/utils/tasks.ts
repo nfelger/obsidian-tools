@@ -3,7 +3,7 @@
  */
 
 import { countIndent } from './indent';
-import { INCOMPLETE_TASK_PATTERN } from '../config';
+import { INCOMPLETE_TASK_PATTERN, MIGRATE_TASK_PATTERN, SCHEDULED_MARKER } from '../config';
 import { DEFAULT_SETTINGS } from '../types';
 
 /**
@@ -18,6 +18,19 @@ import { DEFAULT_SETTINGS } from '../types';
  */
 export function isIncompleteTask(line: string): boolean {
 	return INCOMPLETE_TASK_PATTERN.test(line);
+}
+
+/**
+ * Mark a task as scheduled by replacing checkbox with [<].
+ *
+ * @param line - The task line to mark
+ * @returns The line with [<] marker, or unchanged if not an incomplete task
+ */
+export function markTaskAsScheduled(line: string): string {
+	if (!INCOMPLETE_TASK_PATTERN.test(line)) {
+		return line;
+	}
+	return line.replace(MIGRATE_TASK_PATTERN, `$1${SCHEDULED_MARKER}`);
 }
 
 /**

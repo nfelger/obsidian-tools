@@ -1,12 +1,20 @@
 import { Plugin } from 'obsidian';
 import { extractLog } from './commands/extractLog';
 import { migrateTask } from './commands/migrateTask';
+import { pushTaskDown } from './commands/pushTaskDown';
 import { BulletFlowSettingTab } from './settings';
 import type { BulletFlowSettings } from './types';
 import { DEFAULT_SETTINGS } from './types';
 
 export default class BulletFlowPlugin extends Plugin {
 	settings: BulletFlowSettings;
+
+	/**
+	 * Get today's date. Exposed as method for testability.
+	 */
+	getToday(): Date {
+		return new Date();
+	}
 
 	async onload() {
 		console.log('Loading Bullet Flow plugin');
@@ -29,6 +37,13 @@ export default class BulletFlowPlugin extends Plugin {
 			id: 'migrate-task',
 			name: 'Migrate task to next note',
 			callback: () => migrateTask(this)
+		});
+
+		// Push Task Down command
+		this.addCommand({
+			id: 'push-task-down',
+			name: 'Push task down to lower periodic note',
+			callback: () => pushTaskDown(this)
 		});
 	}
 
