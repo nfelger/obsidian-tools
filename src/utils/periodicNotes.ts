@@ -360,6 +360,70 @@ export function getLowerNotePath(
 	}
 }
 
+/**
+ * Get the path to the higher-level periodic note.
+ *
+ * Hierarchy:
+ * - Daily → Weekly (week containing that day)
+ * - Weekly → Monthly (month containing Thursday of that week)
+ * - Monthly → Yearly
+ * - Yearly → null (already at highest)
+ *
+ * @param sourceNoteInfo - The current note's info
+ * @param settingsOrFolder - Plugin settings or diary folder string
+ * @returns Path to target note, or null if at highest level (yearly)
+ */
+export function getHigherNotePath(
+	sourceNoteInfo: NoteInfo,
+	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS
+): string | null {
+	const settings = normalizeSettings(settingsOrFolder);
+
+	switch (sourceNoteInfo.type) {
+		case 'daily': {
+			// Daily → Weekly (week containing that day)
+			const { year, month, day } = sourceNoteInfo;
+			if (year === undefined || month === undefined || day === undefined) {
+				return null;
+			}
+			const date = new Date(year, month - 1, day);
+			const m = moment(date);
+			// Get Thursday of this week (determines ISO week year and month)
+			const thursday = m.clone().isoWeekday(4);
+			// Format using the weekly pattern directly - moment handles week 53 correctly
+			const path = thursday.format(settings.weeklyNotePattern);
+			return `${settings.diaryFolder}/${path}`;
+		}
+
+		case 'weekly': {
+			// Weekly → Monthly (month containing Thursday of that week)
+			const { year, week } = sourceNoteInfo;
+			if (year === undefined || week === undefined) {
+				return null;
+			}
+			// Use moment to get Thursday of this specific ISO week
+			const thursday = moment().isoWeekYear(year).isoWeek(week).isoWeekday(4);
+			return formatMonthlyPath(thursday.year(), thursday.month() + 1, settings);
+		}
+
+		case 'monthly': {
+			// Monthly → Yearly
+			const { year } = sourceNoteInfo;
+			if (year === undefined) {
+				return null;
+			}
+			return formatYearlyPath(year, settings);
+		}
+
+		case 'yearly':
+			// Already at highest level
+			return null;
+
+		default:
+			return null;
+	}
+}
+
 export function getNextNotePath(
 	noteInfo: NoteInfo,
 	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS

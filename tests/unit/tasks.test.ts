@@ -4,7 +4,12 @@ import {
 	dedentLinesByAmount,
 	insertUnderTargetHeading,
 	findTopLevelTasksInRange,
-	markTaskAsScheduled
+	markTaskAsScheduled,
+	isScheduledTask,
+	markScheduledAsOpen,
+	extractTaskText,
+	findMatchingTask,
+	insertChildrenUnderTask
 } from '../../src/utils/tasks';
 import { parseMarkdownToListItems } from '../helpers/markdownParser.js';
 import { createMockEditor } from '../mocks/obsidian.js';
@@ -284,5 +289,264 @@ describe('markTaskAsScheduled', () => {
 		expect(markTaskAsScheduled('- [>] Migrated')).toBe('- [>] Migrated');
 		expect(markTaskAsScheduled('- Regular bullet')).toBe('- Regular bullet');
 		expect(markTaskAsScheduled('Just text')).toBe('Just text');
+	});
+});
+
+// === Deduplication Helpers for pullUp ===
+
+describe('isScheduledTask', () => {
+	it('detects scheduled tasks', () => {
+		expect(isScheduledTask('- [<] Scheduled task')).toBe(true);
+		expect(isScheduledTask('  - [<] Indented scheduled')).toBe(true);
+		expect(isScheduledTask('\t- [<] Tab-indented')).toBe(true);
+	});
+
+	it('rejects open tasks', () => {
+		expect(isScheduledTask('- [ ] Open task')).toBe(false);
+	});
+
+	it('rejects started tasks', () => {
+		expect(isScheduledTask('- [/] Started task')).toBe(false);
+	});
+
+	it('rejects completed tasks', () => {
+		expect(isScheduledTask('- [x] Completed task')).toBe(false);
+	});
+
+	it('rejects migrated tasks', () => {
+		expect(isScheduledTask('- [>] Migrated task')).toBe(false);
+	});
+
+	it('rejects non-task items', () => {
+		expect(isScheduledTask('- Regular bullet')).toBe(false);
+		expect(isScheduledTask('Just text')).toBe(false);
+	});
+});
+
+describe('markScheduledAsOpen', () => {
+	it('marks scheduled task as open', () => {
+		expect(markScheduledAsOpen('- [<] Scheduled task')).toBe('- [ ] Scheduled task');
+	});
+
+	it('preserves indentation', () => {
+		expect(markScheduledAsOpen('  - [<] Indented')).toBe('  - [ ] Indented');
+		expect(markScheduledAsOpen('\t- [<] Tab indented')).toBe('\t- [ ] Tab indented');
+		expect(markScheduledAsOpen('    - [<] Deep indent')).toBe('    - [ ] Deep indent');
+	});
+
+	it('preserves task content with special characters', () => {
+		expect(markScheduledAsOpen('- [<] Task with [[link]] and #tag'))
+			.toBe('- [ ] Task with [[link]] and #tag');
+	});
+
+	it('returns line unchanged if not a scheduled task', () => {
+		expect(markScheduledAsOpen('- [ ] Open')).toBe('- [ ] Open');
+		expect(markScheduledAsOpen('- [/] Started')).toBe('- [/] Started');
+		expect(markScheduledAsOpen('- [x] Completed')).toBe('- [x] Completed');
+		expect(markScheduledAsOpen('- [>] Migrated')).toBe('- [>] Migrated');
+		expect(markScheduledAsOpen('- Regular bullet')).toBe('- Regular bullet');
+	});
+});
+
+describe('extractTaskText', () => {
+	it('extracts text from open task', () => {
+		expect(extractTaskText('- [ ] Buy groceries')).toBe('Buy groceries');
+	});
+
+	it('extracts text from scheduled task', () => {
+		expect(extractTaskText('- [<] Review PR')).toBe('Review PR');
+	});
+
+	it('extracts text from started task', () => {
+		expect(extractTaskText('- [/] In progress task')).toBe('In progress task');
+	});
+
+	it('extracts text from completed task', () => {
+		expect(extractTaskText('- [x] Done task')).toBe('Done task');
+	});
+
+	it('extracts text from migrated task', () => {
+		expect(extractTaskText('- [>] Migrated task')).toBe('Migrated task');
+	});
+
+	it('handles indented tasks', () => {
+		expect(extractTaskText('  - [ ] Indented task')).toBe('Indented task');
+		expect(extractTaskText('\t- [<] Tab indented')).toBe('Tab indented');
+		expect(extractTaskText('    - [/] Deep indent')).toBe('Deep indent');
+	});
+
+	it('trims whitespace from task text', () => {
+		expect(extractTaskText('- [ ]   Padded text  ')).toBe('Padded text');
+	});
+
+	it('preserves special characters in text', () => {
+		expect(extractTaskText('- [ ] Task with [[link]] and #tag'))
+			.toBe('Task with [[link]] and #tag');
+	});
+
+	it('returns empty string for non-task items', () => {
+		expect(extractTaskText('- Regular bullet')).toBe('');
+		expect(extractTaskText('Just text')).toBe('');
+		expect(extractTaskText('# Heading')).toBe('');
+	});
+});
+
+describe('findMatchingTask', () => {
+	it('finds incomplete task by text', () => {
+		const content = `## Log
+- [ ] Buy groceries
+- [ ] Walk dog`;
+		const result = findMatchingTask(content, 'Buy groceries');
+		expect(result).toEqual({ lineNumber: 1, isScheduled: false });
+	});
+
+	it('finds scheduled task by text', () => {
+		const content = `## Log
+- [<] Scheduled task
+- [ ] Other task`;
+		const result = findMatchingTask(content, 'Scheduled task');
+		expect(result).toEqual({ lineNumber: 1, isScheduled: true });
+	});
+
+	it('finds started task by text', () => {
+		const content = `## Log
+- [/] Started task`;
+		const result = findMatchingTask(content, 'Started task');
+		expect(result).toEqual({ lineNumber: 1, isScheduled: false });
+	});
+
+	it('returns null when task not found', () => {
+		const content = `## Log
+- [ ] Other task`;
+		expect(findMatchingTask(content, 'Missing task')).toBeNull();
+	});
+
+	it('returns null for empty task text', () => {
+		const content = `## Log
+- [ ] Task`;
+		expect(findMatchingTask(content, '')).toBeNull();
+	});
+
+	it('ignores completed tasks', () => {
+		const content = `## Log
+- [x] Completed task
+- [ ] Other task`;
+		// Should not match the completed task
+		expect(findMatchingTask(content, 'Completed task')).toBeNull();
+	});
+
+	it('ignores migrated tasks', () => {
+		const content = `## Log
+- [>] Migrated task`;
+		expect(findMatchingTask(content, 'Migrated task')).toBeNull();
+	});
+
+	it('finds first matching task when duplicates exist', () => {
+		const content = `## Log
+- [ ] Duplicate task
+- Some note
+- [ ] Duplicate task`;
+		const result = findMatchingTask(content, 'Duplicate task');
+		expect(result).toEqual({ lineNumber: 1, isScheduled: false });
+	});
+
+	it('finds task regardless of indentation', () => {
+		const content = `## Log
+- [ ] Parent
+  - [ ] Indented task`;
+		const result = findMatchingTask(content, 'Indented task');
+		expect(result).toEqual({ lineNumber: 2, isScheduled: false });
+	});
+});
+
+describe('insertChildrenUnderTask', () => {
+	it('inserts children after task with no existing children', () => {
+		const content = `## Log
+- [ ] Parent task
+- [ ] Other task`;
+		const result = insertChildrenUnderTask(content, 1, '  - Child item');
+		expect(result).toBe(`## Log
+- [ ] Parent task
+  - Child item
+- [ ] Other task`);
+	});
+
+	it('inserts children after existing children', () => {
+		const content = `## Log
+- [ ] Parent task
+  - Existing child
+- [ ] Other task`;
+		const result = insertChildrenUnderTask(content, 1, '  - New child');
+		expect(result).toBe(`## Log
+- [ ] Parent task
+  - Existing child
+  - New child
+- [ ] Other task`);
+	});
+
+	it('inserts multiple children lines', () => {
+		const content = `## Log
+- [ ] Parent task
+- [ ] Other task`;
+		const result = insertChildrenUnderTask(content, 1, '  - Child 1\n  - Child 2');
+		expect(result).toBe(`## Log
+- [ ] Parent task
+  - Child 1
+  - Child 2
+- [ ] Other task`);
+	});
+
+	it('handles task at end of file', () => {
+		const content = `## Log
+- [ ] Parent task`;
+		const result = insertChildrenUnderTask(content, 1, '  - Child item');
+		expect(result).toBe(`## Log
+- [ ] Parent task
+  - Child item`);
+	});
+
+	it('handles deeply nested existing children', () => {
+		const content = `## Log
+- [ ] Parent task
+  - Child
+    - Grandchild
+- [ ] Other task`;
+		const result = insertChildrenUnderTask(content, 1, '  - New child');
+		expect(result).toBe(`## Log
+- [ ] Parent task
+  - Child
+    - Grandchild
+  - New child
+- [ ] Other task`);
+	});
+
+	it('returns content unchanged for empty children', () => {
+		const content = `## Log
+- [ ] Parent task`;
+		expect(insertChildrenUnderTask(content, 1, '')).toBe(content);
+	});
+
+	it('returns content unchanged for invalid line number', () => {
+		const content = `## Log
+- [ ] Parent task`;
+		expect(insertChildrenUnderTask(content, -1, '  - Child')).toBe(content);
+		expect(insertChildrenUnderTask(content, 10, '  - Child')).toBe(content);
+	});
+
+	it('handles empty lines within children block', () => {
+		const content = `## Log
+- [ ] Parent task
+  - Existing child
+
+  - Child after empty
+- [ ] Other task`;
+		const result = insertChildrenUnderTask(content, 1, '  - New child');
+		expect(result).toBe(`## Log
+- [ ] Parent task
+  - Existing child
+
+  - Child after empty
+  - New child
+- [ ] Other task`);
 	});
 });

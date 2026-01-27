@@ -3,7 +3,14 @@
  */
 
 import { countIndent } from './indent';
-import { INCOMPLETE_TASK_PATTERN, MIGRATE_TASK_PATTERN, SCHEDULED_MARKER } from '../config';
+import {
+	INCOMPLETE_TASK_PATTERN,
+	MIGRATE_TASK_PATTERN,
+	SCHEDULED_MARKER,
+	SCHEDULED_TASK_PATTERN,
+	SCHEDULED_TO_OPEN_PATTERN,
+	OPEN_TASK_MARKER
+} from '../config';
 import { DEFAULT_SETTINGS } from '../types';
 
 /**
@@ -190,5 +197,128 @@ export function insertUnderTargetHeading(
 	// Insert target heading and task
 	const newContent = [targetHeading, taskContent];
 	lines.splice(insertIdx, 0, ...newContent);
+	return lines.join('\n');
+}
+
+// === Deduplication Helpers for pullUp ===
+
+/**
+ * Check if a line is a scheduled task (marked with [<]).
+ *
+ * @param line - The line to check
+ * @returns true if the line is a scheduled task
+ */
+export function isScheduledTask(line: string): boolean {
+	return SCHEDULED_TASK_PATTERN.test(line);
+}
+
+/**
+ * Mark a scheduled task as open by replacing [<] with [ ].
+ *
+ * @param line - The task line to mark
+ * @returns The line with [ ] marker, or unchanged if not a scheduled task
+ */
+export function markScheduledAsOpen(line: string): string {
+	if (!SCHEDULED_TASK_PATTERN.test(line)) {
+		return line;
+	}
+	return line.replace(SCHEDULED_TO_OPEN_PATTERN, `$1${OPEN_TASK_MARKER}`);
+}
+
+/**
+ * Extract task text without checkbox and leading whitespace.
+ * Used for deduplication comparison.
+ *
+ * Examples:
+ * - "- [ ] Buy groceries" → "Buy groceries"
+ * - "  - [<] Review PR" → "Review PR"
+ * - "- [/] In progress task" → "In progress task"
+ *
+ * @param line - The task line
+ * @returns The task text without checkbox, or empty string if not a task
+ */
+export function extractTaskText(line: string): string {
+	// Match any task checkbox: [ ], [/], [<], [>], [x], etc.
+	const match = line.match(/^\s*- \[.\]\s*(.*)$/);
+	return match ? match[1].trim() : '';
+}
+
+/**
+ * Find a matching task in content by task text.
+ * Searches for tasks that are either incomplete ([ ] or [/]) or scheduled ([<]).
+ *
+ * @param content - The file content to search
+ * @param taskText - The task text to find (without checkbox)
+ * @returns Object with line number and scheduled status, or null if not found
+ */
+export function findMatchingTask(
+	content: string,
+	taskText: string
+): { lineNumber: number; isScheduled: boolean } | null {
+	if (!taskText) return null;
+
+	const lines = content.split('\n');
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		const lineText = extractTaskText(line);
+
+		if (lineText === taskText) {
+			// Check if it's an incomplete or scheduled task (not completed)
+			if (isIncompleteTask(line) || isScheduledTask(line)) {
+				return {
+					lineNumber: i,
+					isScheduled: isScheduledTask(line)
+				};
+			}
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Insert children content under an existing task line.
+ * Children are inserted after the task and any existing children.
+ *
+ * @param content - The file content
+ * @param taskLineNumber - The line number of the parent task
+ * @param childrenContent - The children content to insert (already properly indented)
+ * @returns Updated file content
+ */
+export function insertChildrenUnderTask(
+	content: string,
+	taskLineNumber: number,
+	childrenContent: string
+): string {
+	if (!childrenContent) return content;
+
+	const lines = content.split('\n');
+	if (taskLineNumber < 0 || taskLineNumber >= lines.length) return content;
+
+	const taskLine = lines[taskLineNumber];
+	const taskIndent = countIndent(taskLine);
+
+	// Find the end of the task's children block
+	let insertLineNumber = taskLineNumber + 1;
+	while (insertLineNumber < lines.length) {
+		const currentLine = lines[insertLineNumber];
+		// Empty lines are part of the block
+		if (currentLine.trim() === '') {
+			insertLineNumber++;
+			continue;
+		}
+		// Check if this line is still a child (more indented than task)
+		const currentIndent = countIndent(currentLine);
+		if (currentIndent > taskIndent) {
+			insertLineNumber++;
+		} else {
+			break;
+		}
+	}
+
+	// Insert the children content
+	const childrenLines = childrenContent.split('\n');
+	lines.splice(insertLineNumber, 0, ...childrenLines);
+
 	return lines.join('\n');
 }

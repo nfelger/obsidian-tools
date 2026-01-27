@@ -30,6 +30,18 @@ export const MIGRATED_MARKER = '[>]';
 export const SCHEDULED_MARKER = '[<]';
 
 /**
+ * Regex pattern for scheduled tasks.
+ * Matches: "- [<]" with optional leading whitespace.
+ */
+export const SCHEDULED_TASK_PATTERN = /^\s*- \[<\]/;
+
+/**
+ * Regex pattern to replace scheduled marker with open.
+ * Captures leading whitespace and "- " prefix.
+ */
+export const SCHEDULED_TO_OPEN_PATTERN = /^(\s*- )\[<\]/;
+
+/**
  * Regex pattern to convert started tasks to open in target note.
  * Captures "- " prefix to preserve it.
  */
