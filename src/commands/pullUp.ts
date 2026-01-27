@@ -1,6 +1,6 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
-import { parseNoteType, getLowerNotePath, dateIsInPeriod } from '../utils/periodicNotes';
+import { parseNoteType, getHigherNotePath } from '../utils/periodicNotes';
 import {
 	isIncompleteTask,
 	dedentLinesByAmount,
@@ -12,32 +12,34 @@ import {
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
-import {
-	NOTICE_TIMEOUT_ERROR,
-	STARTED_TO_OPEN_PATTERN,
-	OPEN_TASK_MARKER
-} from '../config';
+import { NOTICE_TIMEOUT_ERROR } from '../config';
 
 /**
- * Push incomplete tasks from the current periodic note to the lower-level note.
+ * Pull incomplete tasks from the current periodic note to the higher-level note.
  *
  * Behavior:
  * 1. Check cursor/selection contains incomplete tasks
- * 2. Determine note type and target note (lower level for today)
+ * 2. Determine note type and target note (higher level)
  * 3. Check target note exists
- * 4. Copy task(s) (and children) to target under target heading
+ * 4. For each task:
+ *    - If task text already exists in target (incomplete or scheduled):
+ *      - If scheduled, reopen it as [ ]
+ *      - Merge children under existing task
+ *    - If task doesn't exist in target:
+ *      - Copy task (and children) to target under target heading
  * 5. Mark source task(s) as scheduled [<] and remove children
  *
  * Supports:
- * - Yearly → Monthly (current month)
- * - Monthly → Weekly (current week)
- * - Weekly → Daily (current day)
- * - Multi-select (pushes all top-level incomplete tasks in selection)
- * - Single cursor (pushes task at cursor position)
+ * - Daily → Weekly
+ * - Weekly → Monthly
+ * - Monthly → Yearly
+ * - Multi-select (pulls all top-level incomplete tasks in selection)
+ * - Single cursor (pulls task at cursor position)
+ * - Deduplication (merges children if task already exists in target)
  *
  * @param plugin - BulletFlow plugin instance
  */
-export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
+export async function pullUp(plugin: BulletFlowPlugin): Promise<void> {
 	try {
 		const context = getActiveMarkdownFile(plugin);
 		if (!context) return;
@@ -46,42 +48,27 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 
 		const noteInfo = parseNoteType(file.basename, plugin.settings);
 		if (!noteInfo) {
-			new Notice('pushTaskDown: This is not a periodic note.');
+			new Notice('pullUp: This is not a periodic note.');
 			return;
 		}
 
-		// Check if already at daily level
-		if (noteInfo.type === 'daily') {
-			new Notice('pushTaskDown: Cannot push down from daily note (already at lowest level).');
+		// Check if already at yearly level
+		if (noteInfo.type === 'yearly') {
+			new Notice('pullUp: Cannot pull up from yearly note (already at highest level).');
 			return;
 		}
 
-		// Get today's date (use plugin method for testability)
-		const today = plugin.getToday ? plugin.getToday() : new Date();
-
-		// Check if today is within the source period
-		if (!dateIsInPeriod(today, noteInfo)) {
-			new Notice('pushTaskDown: Current date is not in this period. Use Migrate Task to move forward.');
+		// Calculate target path (higher level note)
+		const higherPath = getHigherNotePath(noteInfo, plugin.settings);
+		if (!higherPath) {
+			new Notice('pullUp: Cannot determine target note.');
 			return;
 		}
 
-		// Calculate target path (lower level note)
-		let targetPath: string;
-		try {
-			const lowerPath = getLowerNotePath(noteInfo, today, plugin.settings);
-			if (!lowerPath) {
-				new Notice('pushTaskDown: Cannot determine target note.');
-				return;
-			}
-			targetPath = lowerPath + '.md';
-		} catch (e: any) {
-			new Notice(`pushTaskDown: ${e.message}`);
-			return;
-		}
-
+		const targetPath = higherPath + '.md';
 		const targetFile = plugin.app.vault.getAbstractFileByPath(targetPath) as TFile;
 		if (!targetFile) {
-			new Notice(`pushTaskDown: Target note does not exist: ${targetPath}`);
+			new Notice(`pullUp: Target note does not exist: ${targetPath}`);
 			return;
 		}
 
@@ -99,7 +86,7 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 			taskLines = findTopLevelTasksInRange(editor, listItems || [], startLine, endLine);
 
 			if (taskLines.length === 0) {
-				new Notice('pushTaskDown: No incomplete tasks in selection.');
+				new Notice('pullUp: No incomplete tasks in selection.');
 				return;
 			}
 		} else {
@@ -108,7 +95,7 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 			const lineText = editor.getLine(currentLine);
 
 			if (!isIncompleteTask(lineText)) {
-				new Notice('pushTaskDown: Cursor is not on an incomplete task.');
+				new Notice('pullUp: Cursor is not on an incomplete task.');
 				return;
 			}
 
@@ -129,13 +116,8 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 			// Extract task text for deduplication
 			const taskText = extractTaskText(lineText);
 
-			// Build content to push (parent line + children)
-			const parentIndent = countIndent(lineText);
-			const parentLineStripped = lineText.slice(parentIndent);
-			// Convert started [/] to open [ ] in target
-			const parentLineForTarget = parentLineStripped.replace(STARTED_TO_OPEN_PATTERN, '$1' + OPEN_TASK_MARKER);
-
 			// Prepare children content (dedented)
+			const parentIndent = countIndent(lineText);
 			let childrenContent = '';
 			if (children && children.lines.length > 0) {
 				const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
@@ -143,7 +125,8 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 			}
 
 			// Build full task content for new insertions
-			let taskContent = parentLineForTarget;
+			const parentLineStripped = lineText.slice(parentIndent);
+			let taskContent = parentLineStripped;
 			if (childrenContent) {
 				const indentedChildren = childrenContent.split('\n').map(line =>
 					line ? '  ' + line : line
@@ -187,17 +170,17 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 		let message: string;
 		if (taskCount === 1) {
 			message = mergedCount > 0
-				? 'pushTaskDown: Task merged with existing in lower note.'
-				: 'pushTaskDown: Task pushed to lower note.';
+				? 'pullUp: Task merged with existing in higher note.'
+				: 'pullUp: Task pulled to higher note.';
 		} else {
 			const parts: string[] = [];
 			if (newCount > 0) parts.push(`${newCount} new`);
 			if (mergedCount > 0) parts.push(`${mergedCount} merged`);
-			message = `pushTaskDown: ${taskCount} tasks pushed to lower note (${parts.join(', ')}).`;
+			message = `pullUp: ${taskCount} tasks pulled to higher note (${parts.join(', ')}).`;
 		}
 		new Notice(message);
 	} catch (e: any) {
-		new Notice(`pushTaskDown ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
-		console.log('pushTaskDown ERROR', e);
+		new Notice(`pullUp ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		console.log('pullUp ERROR', e);
 	}
 }

@@ -10,7 +10,8 @@ import {
 	formatDailyPath,
 	getNextNotePath,
 	dateIsInPeriod,
-	getLowerNotePath
+	getLowerNotePath,
+	getHigherNotePath
 } from '../../src/utils/periodicNotes';
 
 describe('parseNoteType', () => {
@@ -519,6 +520,120 @@ describe('getLowerNotePath', () => {
 			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
 			const result = getLowerNotePath(noteInfo, today, { diaryFolder: 'Journal' });
 			expect(result).toBe('Journal/2026/01/2026-01-22 Thu');
+		});
+	});
+});
+
+describe('getHigherNotePath', () => {
+	describe('from daily', () => {
+		it('returns weekly note path for daily note', () => {
+			const noteInfo = { type: 'daily' as const, year: 2026, month: 1, day: 22 }; // Thu Jan 22
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2026/01/2026-01-W04');
+		});
+
+		it('returns correct weekly note for Monday', () => {
+			const noteInfo = { type: 'daily' as const, year: 2026, month: 1, day: 19 }; // Mon Jan 19
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2026/01/2026-01-W04');
+		});
+
+		it('returns correct weekly note for Sunday', () => {
+			const noteInfo = { type: 'daily' as const, year: 2026, month: 1, day: 25 }; // Sun Jan 25
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2026/01/2026-01-W04');
+		});
+
+		it('handles daily at year boundary (ISO week in new year)', () => {
+			// Dec 29, 2025 is Monday of ISO week 1 of 2026
+			const noteInfo = { type: 'daily' as const, year: 2025, month: 12, day: 29 };
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2026/01/2026-01-W01');
+		});
+
+		it('handles daily in week 53', () => {
+			// Dec 28, 2026 is Monday of ISO week 53 of 2026
+			// Note: The pattern uses gggg (locale week year) which returns 2027 for Dec 31
+			// This is consistent with how formatWeeklyPath works with the default pattern
+			const noteInfo = { type: 'daily' as const, year: 2026, month: 12, day: 28 };
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2027/12/2027-12-W53');
+		});
+	});
+
+	describe('from weekly', () => {
+		it('returns monthly note path for weekly note', () => {
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2026/2026-01 Jan');
+		});
+
+		it('returns correct month based on Thursday of week', () => {
+			// Week 5 of 2026: Mon Jan 26 - Sun Feb 1
+			// Thursday is Jan 29, so month should be January
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 5 };
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2026/2026-01 Jan');
+		});
+
+		it('handles week spanning month boundary where Thursday is in new month', () => {
+			// Week 6 of 2026: Mon Feb 2 - Sun Feb 8
+			// Thursday is Feb 5, so month should be February
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 2, week: 6 };
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2026/2026-02 Feb');
+		});
+
+		it('handles week 1 at year boundary', () => {
+			// Week 1 of 2026: Mon Dec 29, 2025 - Sun Jan 4, 2026
+			// Thursday is Jan 1, 2026
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 1 };
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2026/2026-01 Jan');
+		});
+
+		it('handles week 53', () => {
+			// Week 53 of 2026: Mon Dec 28 - Sun Jan 3, 2027
+			// Thursday is Dec 31, 2026
+			const noteInfo = { type: 'weekly' as const, year: 2026, month: 12, week: 53 };
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2026/2026-12 Dec');
+		});
+	});
+
+	describe('from monthly', () => {
+		it('returns yearly note path for monthly note', () => {
+			const noteInfo = { type: 'monthly' as const, year: 2026, month: 1 };
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2026/2026');
+		});
+
+		it('returns correct yearly for December', () => {
+			const noteInfo = { type: 'monthly' as const, year: 2026, month: 12 };
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2026/2026');
+		});
+
+		it('returns correct yearly for mid-year month', () => {
+			const noteInfo = { type: 'monthly' as const, year: 2026, month: 6 };
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBe('+Diary/2026/2026');
+		});
+	});
+
+	describe('from yearly', () => {
+		it('returns null (already at highest level)', () => {
+			const noteInfo = { type: 'yearly' as const, year: 2026 };
+			const result = getHigherNotePath(noteInfo);
+			expect(result).toBeNull();
+		});
+	});
+
+	describe('custom settings', () => {
+		it('uses custom diary folder', () => {
+			const noteInfo = { type: 'daily' as const, year: 2026, month: 1, day: 22 };
+			const result = getHigherNotePath(noteInfo, { diaryFolder: 'Journal' });
+			expect(result).toBe('Journal/2026/01/2026-01-W04');
 		});
 	});
 });

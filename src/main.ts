@@ -2,6 +2,7 @@ import { Plugin } from 'obsidian';
 import { extractLog } from './commands/extractLog';
 import { migrateTask } from './commands/migrateTask';
 import { pushTaskDown } from './commands/pushTaskDown';
+import { pullUp } from './commands/pullUp';
 import { BulletFlowSettingTab } from './settings';
 import type { BulletFlowSettings } from './types';
 import { DEFAULT_SETTINGS } from './types';
@@ -44,6 +45,13 @@ export default class BulletFlowPlugin extends Plugin {
 			id: 'push-task-down',
 			name: 'Push task down to lower periodic note',
 			callback: () => pushTaskDown(this)
+		});
+
+		// Pull Task Up command
+		this.addCommand({
+			id: 'pull-task-up',
+			name: 'Pull task up to higher periodic note',
+			callback: () => pullUp(this)
 		});
 	}
 
