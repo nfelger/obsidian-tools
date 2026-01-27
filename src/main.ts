@@ -8,6 +8,13 @@ import { DEFAULT_SETTINGS } from './types';
 export default class BulletFlowPlugin extends Plugin {
 	settings: BulletFlowSettings;
 
+	/**
+	 * Get today's date. Exposed as method for testability.
+	 */
+	getToday(): Date {
+		return new Date();
+	}
+
 	async onload() {
 		console.log('Loading Bullet Flow plugin');
 
