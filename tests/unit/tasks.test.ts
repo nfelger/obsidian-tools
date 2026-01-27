@@ -3,7 +3,8 @@ import {
 	isIncompleteTask,
 	dedentLinesByAmount,
 	insertUnderTargetHeading,
-	findTopLevelTasksInRange
+	findTopLevelTasksInRange,
+	markTaskAsScheduled
 } from '../../src/utils/tasks';
 import { parseMarkdownToListItems } from '../helpers/markdownParser.js';
 import { createMockEditor } from '../mocks/obsidian.js';
@@ -253,5 +254,35 @@ describe('findTopLevelTasksInRange', () => {
 		// but it's still a child so should NOT be included as top-level
 		// Only Task B should be included
 		expect(result).toEqual([2]);
+	});
+});
+
+describe('markTaskAsScheduled', () => {
+	it('marks open task as scheduled', () => {
+		const result = markTaskAsScheduled('- [ ] My task');
+		expect(result).toBe('- [<] My task');
+	});
+
+	it('marks started task as scheduled', () => {
+		const result = markTaskAsScheduled('- [/] Started task');
+		expect(result).toBe('- [<] Started task');
+	});
+
+	it('preserves indentation', () => {
+		expect(markTaskAsScheduled('  - [ ] Indented task')).toBe('  - [<] Indented task');
+		expect(markTaskAsScheduled('\t- [ ] Tab indented')).toBe('\t- [<] Tab indented');
+		expect(markTaskAsScheduled('    - [/] Deep indent')).toBe('    - [<] Deep indent');
+	});
+
+	it('preserves task content with special characters', () => {
+		const result = markTaskAsScheduled('- [ ] Task with [[link]] and #tag');
+		expect(result).toBe('- [<] Task with [[link]] and #tag');
+	});
+
+	it('returns line unchanged if not an incomplete task', () => {
+		expect(markTaskAsScheduled('- [x] Completed')).toBe('- [x] Completed');
+		expect(markTaskAsScheduled('- [>] Migrated')).toBe('- [>] Migrated');
+		expect(markTaskAsScheduled('- Regular bullet')).toBe('- Regular bullet');
+		expect(markTaskAsScheduled('Just text')).toBe('Just text');
 	});
 });
