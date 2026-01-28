@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { testHandleNewNote } from '../helpers/handleNewNoteTestHelper.js';
+import { testHandleNewNote } from './handleNewNoteTestHelper.js';
 
 describe('handleNewNote', () => {
   beforeEach(() => {

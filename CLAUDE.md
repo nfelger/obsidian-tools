@@ -36,7 +36,7 @@ obsidian-tools/
 │   │   ├── extractLog.ts
 │   │   ├── migrateTask.ts
 │   │   ├── pushTaskDown.ts
-│   │   └── pullUp.ts
+│   │   └── pullTaskUp.ts
 │   └── utils/                    # Domain services & utilities
 │       ├── commandSetup.ts       # Common command setup
 │       ├── indent.ts             # Indentation utilities
