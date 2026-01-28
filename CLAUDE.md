@@ -31,7 +31,7 @@ obsidian-tools/
 ├── src/                          # TypeScript plugin source
 │   ├── main.ts                   # Plugin entry point
 │   ├── types.ts                  # Domain types & result types
-│   ├── config.ts                 # TaskState enum & TaskMarker class
+│   ├── config.ts                 # Task marker patterns & constants
 │   ├── commands/                 # Command implementations
 │   │   ├── extractLog.ts
 │   │   ├── migrateTask.ts
@@ -42,7 +42,7 @@ obsidian-tools/
 │       ├── indent.ts             # Indentation utilities
 │       ├── listItems.ts          # List item operations
 │       ├── periodicNotes.ts      # PeriodicNoteService + functions
-│       ├── tasks.ts              # Task operations
+│       ├── tasks.ts              # TaskState, TaskMarker & task operations
 │       └── wikilinks.ts          # LinkResolver + wikilink parsing
 │
 ├── tests/                        # Test suite
@@ -123,15 +123,15 @@ Traditional productivity systems struggle with:
 
 The codebase follows DDD principles with clear separation of concerns:
 
-**Domain Model (`src/types.ts`, `src/config.ts`):**
+**Domain Model (`src/types.ts`):**
 - `NoteInfo` - Value object for periodic note identification
-- `TaskState` - Enum for explicit task state machine
-- `TaskMarker` - Value object with state transition methods
 - `CommandResult` - Result types separating business logic from UI
+- `LinkResolver` - Interface abstracting Obsidian's MetadataCache
 
 **Domain Services (`src/utils/*.ts`):**
 - `PeriodicNoteService` - Encapsulates settings for periodic note operations
-- `LinkResolver` interface - Abstracts Obsidian's MetadataCache
+- `TaskState` enum + `TaskMarker` class - Explicit task state machine
+- `ObsidianLinkResolver` - Infrastructure adapter for link resolution
 - Pure functions for markdown transformation
 
 **Task State Machine:**
@@ -144,7 +144,7 @@ The codebase follows DDD principles with clear separation of concerns:
 
 Use `TaskMarker` for type-safe state transitions:
 ```typescript
-import { TaskMarker, TaskState } from '../config';
+import { TaskMarker, TaskState } from '../utils/tasks';
 
 const marker = TaskMarker.fromLine('- [ ] My task');
 if (marker?.canMigrate()) {
