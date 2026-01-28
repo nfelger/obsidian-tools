@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { testPullUpPlugin } from '../helpers/pullUpPluginTestHelper';
+import { testPullUpPlugin } from '../helpers/pullTaskUpPluginTestHelper';
 
-describe('pullUp command', () => {
+describe('pullTaskUp command', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
@@ -299,7 +299,7 @@ describe('pullUp command', () => {
 
 			// Source should be scheduled (not started)
 			expect(result.source).toContain('- [<] Started task');
-			// Target should have the task as-is (started marker preserved since pullUp doesn't convert)
+			// Target should have the task as-is (started marker preserved since pullTaskUp doesn't convert)
 			expect(result.target).toContain('- [/] Started task');
 		});
 

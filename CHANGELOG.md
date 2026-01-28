@@ -5,6 +5,26 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-01-28
+
+### Improved
+
+- Internal code architecture following Domain-Driven Design patterns
+- Better separation between domain logic and Obsidian integration
+- Type-safe task state transitions
+
+## [0.5.0] - 2026-01-27
+
+### Added
+
+**Pull Up**
+- New command to move tasks to higher-level periodic notes
+- Pull from daily → weekly, weekly → monthly, monthly → yearly
+- Smart deduplication: merges with existing tasks instead of creating duplicates
+- Reopens scheduled `[<]` tasks when pulling up
+- Marks source tasks with `[<]` (scheduled marker)
+- Supports multi-select: pull multiple tasks at once
+
 ## [0.4.0] - 2026-01-27
 
 ### Added

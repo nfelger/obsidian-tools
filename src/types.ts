@@ -19,6 +19,43 @@ export interface ChildrenBlock {
 
 // === Wikilinks ===
 
+/**
+ * A resolved link with file information.
+ * Domain type that doesn't depend on Obsidian's TFile.
+ */
+export interface ResolvedLink {
+	/** Full path to the resolved file */
+	path: string;
+	/** File basename without extension */
+	basename: string;
+	/** File extension (e.g., 'md') */
+	extension: string;
+	/** Position where the link was found in the line */
+	index: number;
+	/** Original link text including brackets (e.g., "[[Note]]") */
+	matchText: string;
+	/** Content inside the brackets (e.g., "Note|Alias") */
+	inner: string;
+}
+
+/**
+ * Interface for resolving wikilinks to files.
+ * Abstracts the Obsidian MetadataCache dependency.
+ */
+export interface LinkResolver {
+	/**
+	 * Resolve a link path to a file.
+	 * @param linkPath - The link path (note name)
+	 * @param sourcePath - The path of the source file for relative resolution
+	 * @returns The resolved link info, or null if not found
+	 */
+	resolve(linkPath: string, sourcePath: string): ResolvedLink | null;
+}
+
+/**
+ * Legacy WikiLink type that includes Obsidian's TFile.
+ * @deprecated Use ResolvedLink for new code
+ */
 export interface WikiLink {
 	tfile: TFile;
 	index: number;
@@ -94,3 +131,81 @@ export const DEFAULT_SETTINGS: BulletFlowSettings = {
 	monthlyNotePattern: 'YYYY/YYYY-MM MMM',
 	yearlyNotePattern: 'YYYY/YYYY'
 };
+
+// === Command Results ===
+
+/**
+ * Base result type for all commands.
+ */
+export interface CommandResult {
+	success: boolean;
+	message: string;
+}
+
+/**
+ * Result of task migration operations (migrateTask, pushTaskDown, pullUp).
+ */
+export interface TaskTransferResult extends CommandResult {
+	tasksProcessed: number;
+	tasksMerged: number;
+	tasksNew: number;
+}
+
+/**
+ * Result of extract log operation.
+ */
+export interface ExtractLogResult extends CommandResult {
+	targetNoteName: string;
+	targetSection: string;
+}
+
+/**
+ * Create a success result for task transfer operations.
+ */
+export function createTaskTransferResult(
+	commandName: string,
+	processed: number,
+	merged: number,
+	isNew: number
+): TaskTransferResult {
+	let message: string;
+	if (processed === 0) {
+		message = `${commandName}: No tasks processed.`;
+	} else if (processed === 1) {
+		message = merged > 0
+			? `${commandName}: Task merged with existing.`
+			: `${commandName}: Task transferred successfully.`;
+	} else {
+		const parts: string[] = [];
+		if (isNew > 0) parts.push(`${isNew} new`);
+		if (merged > 0) parts.push(`${merged} merged`);
+		message = `${commandName}: ${processed} tasks transferred (${parts.join(', ')}).`;
+	}
+	return {
+		success: true,
+		message,
+		tasksProcessed: processed,
+		tasksMerged: merged,
+		tasksNew: isNew
+	};
+}
+
+/**
+ * Create an error result.
+ */
+export function createErrorResult(commandName: string, error: string): CommandResult {
+	return {
+		success: false,
+		message: `${commandName} ERROR: ${error}`
+	};
+}
+
+/**
+ * Create a validation failure result (not an error, just can't proceed).
+ */
+export function createValidationResult(commandName: string, reason: string): CommandResult {
+	return {
+		success: false,
+		message: `${commandName}: ${reason}`
+	};
+}

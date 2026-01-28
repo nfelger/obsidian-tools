@@ -30,17 +30,20 @@ This document provides comprehensive guidance for AI assistants working on the *
 obsidian-tools/
 ├── src/                          # TypeScript plugin source
 │   ├── main.ts                   # Plugin entry point
-│   ├── types.ts                  # Shared type definitions
+│   ├── types.ts                  # Domain types & result types
+│   ├── config.ts                 # Task marker patterns & constants
 │   ├── commands/                 # Command implementations
 │   │   ├── extractLog.ts
-│   │   └── migrateTask.ts
-│   └── utils/                    # Shared utilities
+│   │   ├── migrateTask.ts
+│   │   ├── pushTaskDown.ts
+│   │   └── pullTaskUp.ts
+│   └── utils/                    # Domain services & utilities
 │       ├── commandSetup.ts       # Common command setup
 │       ├── indent.ts             # Indentation utilities
 │       ├── listItems.ts          # List item operations
-│       ├── periodicNotes.ts      # Date/note type calculations
-│       ├── tasks.ts              # Task operations
-│       └── wikilinks.ts          # Wikilink parsing
+│       ├── periodicNotes.ts      # PeriodicNoteService + functions
+│       ├── tasks.ts              # TaskState, TaskMarker & task operations
+│       └── wikilinks.ts          # LinkResolver + wikilink parsing
 │
 ├── tests/                        # Test suite
 │   ├── unit/                     # Pure function tests
@@ -115,6 +118,64 @@ Traditional productivity systems struggle with:
 **Plugin Lifecycle:**
 - `onload()` - Register commands, inject CSS
 - `onunload()` - Cleanup
+
+### Domain-Driven Design Patterns
+
+The codebase follows DDD principles with clear separation of concerns:
+
+**Domain Model (`src/types.ts`):**
+- `NoteInfo` - Value object for periodic note identification
+- `CommandResult` - Result types separating business logic from UI
+- `LinkResolver` - Interface abstracting Obsidian's MetadataCache
+
+**Domain Services (`src/utils/*.ts`):**
+- `PeriodicNoteService` - Encapsulates settings for periodic note operations
+- `TaskState` enum + `TaskMarker` class - Explicit task state machine
+- `ObsidianLinkResolver` - Infrastructure adapter for link resolution
+- Pure functions for markdown transformation
+
+**Task State Machine:**
+```
+[ ] (Open)  ─┬─ migrateTask ─→ [>] (Migrated) [terminal]
+[/] (Started)│
+             ├─ pushDown/pullUp ─→ [<] (Scheduled) ─→ merge ─→ [ ] (Open)
+             └─ complete ─→ [x] (Completed) [terminal]
+```
+
+Use `TaskMarker` for type-safe state transitions:
+```typescript
+import { TaskMarker, TaskState } from '../utils/tasks';
+
+const marker = TaskMarker.fromLine('- [ ] My task');
+if (marker?.canMigrate()) {
+  const newLine = marker.toMigrated().applyToLine(line);
+}
+```
+
+**Using PeriodicNoteService:**
+```typescript
+import { PeriodicNoteService } from '../utils/periodicNotes';
+
+// Encapsulates settings - no parameter threading
+const noteService = new PeriodicNoteService(plugin.settings);
+const noteInfo = noteService.parseNoteType(file.basename);
+const targetPath = noteService.getNextNotePath(noteInfo);
+```
+
+**Using LinkResolver:**
+```typescript
+import { ObsidianLinkResolver } from '../utils/wikilinks';
+import type { LinkResolver } from '../types';
+
+// Infrastructure adapter
+const resolver: LinkResolver = new ObsidianLinkResolver(
+  plugin.app.metadataCache,
+  plugin.app.vault
+);
+
+// Domain-friendly function (no Obsidian types)
+const link = findFirstResolvedLink(lineText, sourcePath, resolver);
+```
 
 ### Tech Stack
 
@@ -514,6 +575,8 @@ When working on this codebase:
 ✅ **Always:**
 - Use TypeScript with ES6 imports/exports
 - Add types to `src/types.ts` for shared definitions
+- Use `TaskMarker` for task state transitions (type-safe)
+- Use `PeriodicNoteService` for periodic note operations (cleaner API)
 - Write tests first (TDD)
 - Use multi-line template strings for markdown test cases
 - Focus user documentation on user-visible changes
@@ -526,6 +589,7 @@ When working on this codebase:
 - Write inside-baseball CHANGELOG entries
 - Test Obsidian internals (trust the framework)
 - Skip type definitions for shared interfaces
+- Expose Obsidian types (`TFile`) in domain interfaces (use `LinkResolver`)
 
 ⚠️ **When in doubt:**
 - Read [WORKFLOW.md](WORKFLOW.md) to understand "why"
@@ -534,5 +598,5 @@ When working on this codebase:
 
 ---
 
-**Last Updated:** 2026-01-26
+**Last Updated:** 2026-01-27
 **Repository:** [nfelger/obsidian-tools](https://github.com/nfelger/obsidian-tools)

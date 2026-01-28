@@ -13,6 +13,117 @@ import {
 } from '../config';
 import { DEFAULT_SETTINGS } from '../types';
 
+// === Task State Machine ===
+
+/**
+ * Explicit task states following BuJo conventions.
+ *
+ * State transitions:
+ * - Open/Started → Migrated (terminal) via migrateTask
+ * - Open/Started → Scheduled via pushTaskDown/pullTaskUp
+ * - Scheduled → Open via merge in target note
+ * - Open/Started → Completed (terminal) via user action
+ */
+export enum TaskState {
+	Open = ' ',
+	Started = '/',
+	Completed = 'x',
+	Migrated = '>',
+	Scheduled = '<',
+}
+
+/**
+ * Task marker value object with state transition methods.
+ */
+export class TaskMarker {
+	constructor(public readonly state: TaskState) {}
+
+	/**
+	 * Parse a task marker from a line of text.
+	 * Returns null if the line is not a task.
+	 */
+	static fromLine(line: string): TaskMarker | null {
+		const match = line.match(/^\s*- \[(.)\]/);
+		if (!match) return null;
+
+		const char = match[1];
+		switch (char) {
+			case ' ': return new TaskMarker(TaskState.Open);
+			case '/': return new TaskMarker(TaskState.Started);
+			case 'x':
+			case 'X': return new TaskMarker(TaskState.Completed);
+			case '>': return new TaskMarker(TaskState.Migrated);
+			case '<': return new TaskMarker(TaskState.Scheduled);
+			default: return null;
+		}
+	}
+
+	/**
+	 * Check if this task can be migrated (open or started).
+	 */
+	canMigrate(): boolean {
+		return this.state === TaskState.Open || this.state === TaskState.Started;
+	}
+
+	/**
+	 * Check if this task can be reopened (scheduled only).
+	 */
+	canReopen(): boolean {
+		return this.state === TaskState.Scheduled;
+	}
+
+	/**
+	 * Check if this task is incomplete (open or started).
+	 */
+	isIncomplete(): boolean {
+		return this.state === TaskState.Open || this.state === TaskState.Started;
+	}
+
+	/**
+	 * Check if this task is in a terminal state (completed or migrated).
+	 */
+	isTerminal(): boolean {
+		return this.state === TaskState.Completed || this.state === TaskState.Migrated;
+	}
+
+	/**
+	 * Create a migrated marker.
+	 */
+	toMigrated(): TaskMarker {
+		return new TaskMarker(TaskState.Migrated);
+	}
+
+	/**
+	 * Create a scheduled marker.
+	 */
+	toScheduled(): TaskMarker {
+		return new TaskMarker(TaskState.Scheduled);
+	}
+
+	/**
+	 * Create an open marker.
+	 */
+	toOpen(): TaskMarker {
+		return new TaskMarker(TaskState.Open);
+	}
+
+	/**
+	 * Render the marker as a string (e.g., "[ ]", "[>]").
+	 */
+	render(): string {
+		return `[${this.state}]`;
+	}
+
+	/**
+	 * Apply this marker to a task line, replacing the existing marker.
+	 */
+	applyToLine(line: string): string {
+		return line.replace(/^(\s*- )\[.\]/, `$1${this.render()}`);
+	}
+}
+
+// === Task Utilities ===
+
 /**
  * Check if a line is an incomplete task.
  *

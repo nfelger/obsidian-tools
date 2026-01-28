@@ -33,7 +33,7 @@ interface TestPullUpResult {
 }
 
 /**
- * Test pullUp with markdown-first approach
+ * Test pullTaskUp with markdown-first approach
  *
  * @param options - Test configuration
  * @returns Result with source, target, notices
@@ -226,9 +226,9 @@ export async function testPullUpPlugin({
 		settings
 	} as unknown as BulletFlowPlugin;
 
-	// Import and run pullUp
-	const { pullUp } = await import('../../src/commands/pullUp');
-	await pullUp(mockPlugin);
+	// Import and run pullTaskUp
+	const { pullTaskUp } = await import('../../src/commands/pullTaskUp');
+	await pullTaskUp(mockPlugin);
 
 	// Cleanup
 	NoticeSpy.mockRestore();

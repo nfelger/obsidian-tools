@@ -39,7 +39,7 @@ import { NOTICE_TIMEOUT_ERROR } from '../config';
  *
  * @param plugin - BulletFlow plugin instance
  */
-export async function pullUp(plugin: BulletFlowPlugin): Promise<void> {
+export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 	try {
 		const context = getActiveMarkdownFile(plugin);
 		if (!context) return;
@@ -48,27 +48,27 @@ export async function pullUp(plugin: BulletFlowPlugin): Promise<void> {
 
 		const noteInfo = parseNoteType(file.basename, plugin.settings);
 		if (!noteInfo) {
-			new Notice('pullUp: This is not a periodic note.');
+			new Notice('pullTaskUp: This is not a periodic note.');
 			return;
 		}
 
 		// Check if already at yearly level
 		if (noteInfo.type === 'yearly') {
-			new Notice('pullUp: Cannot pull up from yearly note (already at highest level).');
+			new Notice('pullTaskUp: Cannot pull up from yearly note (already at highest level).');
 			return;
 		}
 
 		// Calculate target path (higher level note)
 		const higherPath = getHigherNotePath(noteInfo, plugin.settings);
 		if (!higherPath) {
-			new Notice('pullUp: Cannot determine target note.');
+			new Notice('pullTaskUp: Cannot determine target note.');
 			return;
 		}
 
 		const targetPath = higherPath + '.md';
 		const targetFile = plugin.app.vault.getAbstractFileByPath(targetPath) as TFile;
 		if (!targetFile) {
-			new Notice(`pullUp: Target note does not exist: ${targetPath}`);
+			new Notice(`pullTaskUp: Target note does not exist: ${targetPath}`);
 			return;
 		}
 
@@ -86,7 +86,7 @@ export async function pullUp(plugin: BulletFlowPlugin): Promise<void> {
 			taskLines = findTopLevelTasksInRange(editor, listItems || [], startLine, endLine);
 
 			if (taskLines.length === 0) {
-				new Notice('pullUp: No incomplete tasks in selection.');
+				new Notice('pullTaskUp: No incomplete tasks in selection.');
 				return;
 			}
 		} else {
@@ -95,7 +95,7 @@ export async function pullUp(plugin: BulletFlowPlugin): Promise<void> {
 			const lineText = editor.getLine(currentLine);
 
 			if (!isIncompleteTask(lineText)) {
-				new Notice('pullUp: Cursor is not on an incomplete task.');
+				new Notice('pullTaskUp: Cursor is not on an incomplete task.');
 				return;
 			}
 
@@ -170,17 +170,17 @@ export async function pullUp(plugin: BulletFlowPlugin): Promise<void> {
 		let message: string;
 		if (taskCount === 1) {
 			message = mergedCount > 0
-				? 'pullUp: Task merged with existing in higher note.'
-				: 'pullUp: Task pulled to higher note.';
+				? 'pullTaskUp: Task merged with existing in higher note.'
+				: 'pullTaskUp: Task pulled to higher note.';
 		} else {
 			const parts: string[] = [];
 			if (newCount > 0) parts.push(`${newCount} new`);
 			if (mergedCount > 0) parts.push(`${mergedCount} merged`);
-			message = `pullUp: ${taskCount} tasks pulled to higher note (${parts.join(', ')}).`;
+			message = `pullTaskUp: ${taskCount} tasks pulled to higher note (${parts.join(', ')}).`;
 		}
 		new Notice(message);
 	} catch (e: any) {
-		new Notice(`pullUp ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
-		console.log('pullUp ERROR', e);
+		new Notice(`pullTaskUp ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		console.log('pullTaskUp ERROR', e);
 	}
 }

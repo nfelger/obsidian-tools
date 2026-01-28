@@ -33,6 +33,80 @@ function normalizeSettings(settingsOrFolder?: Partial<BulletFlowSettings> | stri
 	return { ...DEFAULT_SETTINGS, ...settingsOrFolder };
 }
 
+// === Periodic Note Service ===
+
+/**
+ * Service for periodic note operations with encapsulated settings.
+ *
+ * Provides a cleaner API by eliminating settings threading through method calls.
+ */
+export class PeriodicNoteService {
+	constructor(private readonly settings: BulletFlowSettings) {}
+
+	/**
+	 * Parse a periodic note filename to determine its type and date info.
+	 */
+	parseNoteType(filename: string): NoteInfo | null {
+		return parseNoteType(filename, this.settings);
+	}
+
+	/**
+	 * Calculate the path to the next periodic note.
+	 */
+	getNextNotePath(noteInfo: NoteInfo): string {
+		return getNextNotePath(noteInfo, this.settings);
+	}
+
+	/**
+	 * Get the path to the higher-level periodic note.
+	 */
+	getHigherNotePath(noteInfo: NoteInfo): string | null {
+		return getHigherNotePath(noteInfo, this.settings);
+	}
+
+	/**
+	 * Get the path to the lower-level periodic note for the current date.
+	 */
+	getLowerNotePath(noteInfo: NoteInfo, today: Date): string | null {
+		return getLowerNotePath(noteInfo, today, this.settings);
+	}
+
+	/**
+	 * Check if a date falls within a periodic note's range.
+	 */
+	dateIsInPeriod(date: Date, noteInfo: NoteInfo): boolean {
+		return dateIsInPeriod(date, noteInfo);
+	}
+
+	/**
+	 * Format a date as a daily note path.
+	 */
+	formatDailyPath(date: Date): string {
+		return formatDailyPath(date, this.settings);
+	}
+
+	/**
+	 * Format a weekly note path.
+	 */
+	formatWeeklyPath(date: Date, week: number): string {
+		return formatWeeklyPath(date, week, this.settings);
+	}
+
+	/**
+	 * Format a monthly note path.
+	 */
+	formatMonthlyPath(year: number, month: number): string {
+		return formatMonthlyPath(year, month, this.settings);
+	}
+
+	/**
+	 * Format a yearly note path.
+	 */
+	formatYearlyPath(year: number): string {
+		return formatYearlyPath(year, this.settings);
+	}
+}
+
 // === Note Type Detection ===
 
 interface ParseResult {
@@ -319,25 +393,25 @@ export function dateIsInPeriod(date: Date, noteInfo: NoteInfo): boolean {
 /**
  * Get the path to the lower-level periodic note for the current date.
  *
- * @param sourceNoteInfo - The current note's info
+ * @param noteInfo - The current note's info
  * @param today - The current date
  * @param settingsOrFolder - Plugin settings or diary folder string
  * @returns Path to target note, or null if at lowest level (daily)
  * @throws Error if source period doesn't contain today
  */
 export function getLowerNotePath(
-	sourceNoteInfo: NoteInfo,
+	noteInfo: NoteInfo,
 	today: Date,
 	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS
 ): string | null {
 	const settings = normalizeSettings(settingsOrFolder);
 
 	// Validate that today is within the source period
-	if (!dateIsInPeriod(today, sourceNoteInfo)) {
+	if (!dateIsInPeriod(today, noteInfo)) {
 		throw new Error('Current date is not within the source period');
 	}
 
-	switch (sourceNoteInfo.type) {
+	switch (noteInfo.type) {
 		case 'yearly':
 			// Yearly → current month
 			return formatMonthlyPath(today.getFullYear(), today.getMonth() + 1, settings);
@@ -369,20 +443,20 @@ export function getLowerNotePath(
  * - Monthly → Yearly
  * - Yearly → null (already at highest)
  *
- * @param sourceNoteInfo - The current note's info
+ * @param noteInfo - The current note's info
  * @param settingsOrFolder - Plugin settings or diary folder string
  * @returns Path to target note, or null if at highest level (yearly)
  */
 export function getHigherNotePath(
-	sourceNoteInfo: NoteInfo,
+	noteInfo: NoteInfo,
 	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS
 ): string | null {
 	const settings = normalizeSettings(settingsOrFolder);
 
-	switch (sourceNoteInfo.type) {
+	switch (noteInfo.type) {
 		case 'daily': {
 			// Daily → Weekly (week containing that day)
-			const { year, month, day } = sourceNoteInfo;
+			const { year, month, day } = noteInfo;
 			if (year === undefined || month === undefined || day === undefined) {
 				return null;
 			}
@@ -397,7 +471,7 @@ export function getHigherNotePath(
 
 		case 'weekly': {
 			// Weekly → Monthly (month containing Thursday of that week)
-			const { year, week } = sourceNoteInfo;
+			const { year, week } = noteInfo;
 			if (year === undefined || week === undefined) {
 				return null;
 			}
@@ -408,7 +482,7 @@ export function getHigherNotePath(
 
 		case 'monthly': {
 			// Monthly → Yearly
-			const { year } = sourceNoteInfo;
+			const { year } = noteInfo;
 			if (year === undefined) {
 				return null;
 			}

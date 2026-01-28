@@ -201,7 +201,7 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 			NOTICE_TIMEOUT_SUCCESS
 		);
 
-	} catch (e) {
+	} catch (e: any) {
 		new Notice(`extractLog ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.log('extractLog ERROR', e);
 	}

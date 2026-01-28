@@ -5,7 +5,7 @@
  * for maintainability and potential future configuration.
  */
 
-// === Task Markers ===
+// === Task Marker Patterns ===
 
 /**
  * Regex pattern for incomplete tasks (open or started).
