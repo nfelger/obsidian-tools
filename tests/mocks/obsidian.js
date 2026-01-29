@@ -232,3 +232,63 @@ export class Plugin {
   onunload() {}
   addCommand() {}
 }
+
+// Mock Scope class for keyboard handling in modals
+export class Scope {
+  constructor() {
+    this.keys = [];
+  }
+
+  register(modifiers, key, callback) {
+    const handler = { modifiers, key, callback };
+    this.keys.push(handler);
+    return handler;
+  }
+
+  unregister(handler) {
+    const index = this.keys.indexOf(handler);
+    if (index > -1) {
+      this.keys.splice(index, 1);
+    }
+  }
+}
+
+// Helper to create mock HTML elements
+function createMockElement() {
+  const element = {
+    addClass: vi.fn(() => element),
+    removeClass: vi.fn(() => element),
+    createDiv: vi.fn(() => createMockElement()),
+    createSpan: vi.fn(() => createMockElement()),
+    createEl: vi.fn(() => createMockElement()),
+    empty: vi.fn(() => element),
+    setText: vi.fn(() => element),
+    textContent: '',
+    children: []
+  };
+  return element;
+}
+
+// Mock Modal class
+export class Modal {
+  constructor(app) {
+    this.app = app;
+    this.contentEl = createMockElement();
+    this.modalEl = createMockElement();
+    this.scope = new Scope();
+    this.isOpen = false;
+  }
+
+  open() {
+    this.isOpen = true;
+    this.onOpen();
+  }
+
+  close() {
+    this.isOpen = false;
+    this.onClose();
+  }
+
+  onOpen() {}
+  onClose() {}
+}

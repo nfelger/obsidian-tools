@@ -3,6 +3,7 @@ import { extractLog } from './commands/extractLog';
 import { migrateTask } from './commands/migrateTask';
 import { pushTaskDown } from './commands/pushTaskDown';
 import { pullTaskUp } from './commands/pullTaskUp';
+import { HotkeyModal } from './ui/HotkeyModal';
 import { BulletFlowSettingTab } from './settings';
 import type { BulletFlowSettings } from './types';
 import { DEFAULT_SETTINGS } from './types';
@@ -52,6 +53,14 @@ export default class BulletFlowPlugin extends Plugin {
 			id: 'pull-task-up',
 			name: 'Pull task up to higher periodic note',
 			callback: () => pullTaskUp(this)
+		});
+
+		// Hotkey Modal command (leader key)
+		this.addCommand({
+			id: 'hotkey-modal',
+			name: 'Show hotkey menu',
+			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'b' }],
+			callback: () => new HotkeyModal(this.app, this).open()
 		});
 	}
 

@@ -26,3 +26,43 @@ li[data-task="o"] > p > input:checked {
 /* ============================================
  * Add additional custom markers below
  * ============================================ */
+
+/* ============================================
+ * Hotkey Modal (Which-Key style)
+ * ============================================ */
+
+.bullet-flow-hotkey-modal {
+	padding: var(--size-4-2);
+}
+
+.bullet-flow-hotkey-modal .hotkey-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+}
+
+.bullet-flow-hotkey-modal .hotkey-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+}
+
+.bullet-flow-hotkey-modal .hotkey-key {
+	font-family: var(--font-monospace);
+	background-color: var(--background-modifier-hover);
+	padding: var(--size-2-1) var(--size-4-2);
+	border-radius: var(--radius-s);
+	min-width: 1.5em;
+	text-align: center;
+	font-weight: 600;
+}
+
+.bullet-flow-hotkey-modal .hotkey-label {
+	color: var(--text-normal);
+}
+
+/* Make modal compact */
+.modal:has(.bullet-flow-hotkey-modal) {
+	width: auto;
+	max-width: 300px;
+}
