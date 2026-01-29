@@ -255,6 +255,7 @@ export class Scope {
 
 // Helper to create mock HTML elements
 function createMockElement() {
+  const listeners = {};
   const element = {
     addClass: vi.fn(() => element),
     removeClass: vi.fn(() => element),
@@ -263,6 +264,14 @@ function createMockElement() {
     createEl: vi.fn(() => createMockElement()),
     empty: vi.fn(() => element),
     setText: vi.fn(() => element),
+    addEventListener: vi.fn((event, handler) => {
+      if (!listeners[event]) listeners[event] = [];
+      listeners[event].push(handler);
+    }),
+    dispatchEvent: vi.fn((event) => {
+      const handlers = listeners[event.type] || [];
+      handlers.forEach(h => h(event));
+    }),
     textContent: '',
     children: []
   };

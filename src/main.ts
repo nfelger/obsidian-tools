@@ -58,7 +58,7 @@ export default class BulletFlowPlugin extends Plugin {
 		// Hotkey Modal command (leader key)
 		this.addCommand({
 			id: 'hotkey-modal',
-			name: 'Show hotkey menu',
+			name: 'Command menu',
 			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'b' }],
 			callback: () => new HotkeyModal(this.app, this).open()
 		});
