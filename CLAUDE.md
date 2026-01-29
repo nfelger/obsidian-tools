@@ -213,6 +213,28 @@ export async function extractLog(plugin: BulletFlowPlugin) {
 
 ## Development Guidelines
 
+### Core Design Principle: Text Transformation
+
+This plugin adheres to Workflow Principle #8 (**Text over Logic**) and Obsidian's foundational promise that *your knowledge should last*.
+
+**The principle:** Every operation is a direct text transformation. The markdown file *is* the state—no hidden metadata, no query layers, no computed views.
+
+**What this means in practice:**
+
+✅ **DO:**
+- Move or copy text between files (migration, extraction)
+- Leave visible markers that encode state (`[>]` migrated, `[<]` scheduled, `[x]` done)
+- Use wikilinks as the paper trail for where content came from or went
+- Ensure a user could understand the file's history using only a plain text editor
+
+❌ **DON'T:**
+- Add frontmatter/metadata that requires interpretation
+- Create query-based views (like Dataview blocks) as part of plugin operations
+- Store state outside the markdown (databases, JSON files, plugin data)
+- Rely on Obsidian-specific rendering to convey meaning
+
+**When reviewing feature suggestions:** If a proposed change stores state outside the visible markdown or requires Obsidian/plugin to interpret the file correctly, flag it as a potential violation of this principle and discuss alternatives.
+
 ### Code Organization
 
 **Type Definitions:**
