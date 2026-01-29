@@ -63,3 +63,17 @@ export const NOTICE_TIMEOUT_SUCCESS = 4000;
  * Duration for error notices (milliseconds).
  */
 export const NOTICE_TIMEOUT_ERROR = 8000;
+
+// === Hotkey Modal Bindings ===
+
+export interface HotkeyBindingConfig {
+	key: string;
+	label: string;
+}
+
+export const HOTKEY_BINDINGS: readonly HotkeyBindingConfig[] = [
+	{ key: 'm', label: 'Migrate task' },
+	{ key: 'd', label: 'Push task down' },
+	{ key: 'u', label: 'Pull task up' },
+	{ key: 'e', label: 'Extract log' },
+];
