@@ -45,6 +45,13 @@ li[data-task="o"] > p > input:checked {
 	display: flex;
 	align-items: center;
 	gap: var(--size-4-3);
+	cursor: pointer;
+	padding: var(--size-2-1) var(--size-4-1);
+	border-radius: var(--radius-s);
+}
+
+.bullet-flow-hotkey-modal .hotkey-row:active {
+	background-color: var(--background-modifier-hover);
 }
 
 .bullet-flow-hotkey-modal .hotkey-key {
@@ -61,8 +68,8 @@ li[data-task="o"] > p > input:checked {
 	color: var(--text-normal);
 }
 
-/* Make modal compact */
+/* Make modal compact on desktop, let it breathe on mobile */
 .modal:has(.bullet-flow-hotkey-modal) {
 	width: auto;
-	max-width: 300px;
+	min-width: 250px;
 }

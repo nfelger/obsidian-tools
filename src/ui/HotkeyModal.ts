@@ -45,6 +45,10 @@ export class HotkeyModal extends Modal {
 			const row = container.createDiv({ cls: 'hotkey-row' });
 			row.createSpan({ cls: 'hotkey-key', text: binding.key });
 			row.createSpan({ cls: 'hotkey-label', text: binding.label });
+			row.addEventListener('click', () => {
+				this.close();
+				binding.command();
+			});
 		}
 	}
 
