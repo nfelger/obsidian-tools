@@ -1,5 +1,6 @@
 import { App, Modal } from 'obsidian';
 import type BulletFlowPlugin from '../main';
+import { HOTKEY_BINDINGS } from '../config';
 import { extractLog } from '../commands/extractLog';
 import { migrateTask } from '../commands/migrateTask';
 import { pushTaskDown } from '../commands/pushTaskDown';
@@ -11,6 +12,15 @@ interface HotkeyBinding {
 	command: () => void | Promise<void>;
 }
 
+type CommandFn = (plugin: BulletFlowPlugin) => void | Promise<void>;
+
+const COMMAND_MAP: Record<string, CommandFn> = {
+	'm': migrateTask,
+	'd': pushTaskDown,
+	'u': pullTaskUp,
+	'e': extractLog,
+};
+
 export class HotkeyModal extends Modal {
 	private plugin: BulletFlowPlugin;
 	private bindings: HotkeyBinding[];
@@ -18,16 +28,11 @@ export class HotkeyModal extends Modal {
 	constructor(app: App, plugin: BulletFlowPlugin) {
 		super(app);
 		this.plugin = plugin;
-		this.bindings = this.buildBindings();
-	}
-
-	private buildBindings(): HotkeyBinding[] {
-		return [
-			{ key: 'm', label: 'Migrate task', command: () => migrateTask(this.plugin) },
-			{ key: 'd', label: 'Push task down', command: () => pushTaskDown(this.plugin) },
-			{ key: 'u', label: 'Pull task up', command: () => pullTaskUp(this.plugin) },
-			{ key: 'e', label: 'Extract log', command: () => extractLog(this.plugin) },
-		];
+		this.bindings = HOTKEY_BINDINGS.map(({ key, label }) => ({
+			key,
+			label,
+			command: () => COMMAND_MAP[key](this.plugin),
+		}));
 	}
 
 	onOpen() {
