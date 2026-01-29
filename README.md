@@ -97,6 +97,12 @@ After migrating from Sunday (2026-01-25):
 
 The system is built on these principles: frictionless capture, continuous reflection, resilience under stress, and findability without maintenance. Everything starts in the daily note as a rapid log; reflection passes transform messy logs into durable knowledge through extraction and migration.
 
+### Design Philosophy
+
+Bullet Flow aligns with Obsidian's principle that *your knowledge should last*. Every operation transforms your markdown directly—there are no queries, no computed views, no hidden metadata. When you migrate a task, the text moves. When you extract a log, the content relocates.
+
+This follows Workflow Principle #8: **Text over Logic**. If you opened these files in any text editor ten years from now, you'd understand exactly what happened—no Obsidian required.
+
 **For the full workflow documentation**, see [WORKFLOW.md](WORKFLOW.md).
 
 Key concepts:
