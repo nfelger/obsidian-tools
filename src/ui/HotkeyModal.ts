@@ -14,11 +14,11 @@ interface HotkeyBinding {
 
 type CommandFn = (plugin: BulletFlowPlugin) => void | Promise<void>;
 
-const COMMAND_MAP: Record<string, CommandFn> = {
-	'm': migrateTask,
-	'd': pushTaskDown,
-	'u': pullTaskUp,
-	'e': extractLog,
+const COMMAND_REGISTRY: Record<string, CommandFn> = {
+	'migrateTask': migrateTask,
+	'pushTaskDown': pushTaskDown,
+	'pullTaskUp': pullTaskUp,
+	'extractLog': extractLog,
 };
 
 export class HotkeyModal extends Modal {
@@ -28,10 +28,10 @@ export class HotkeyModal extends Modal {
 	constructor(app: App, plugin: BulletFlowPlugin) {
 		super(app);
 		this.plugin = plugin;
-		this.bindings = HOTKEY_BINDINGS.map(({ key, label }) => ({
+		this.bindings = HOTKEY_BINDINGS.map(({ key, label, commandId }) => ({
 			key,
 			label,
-			command: () => COMMAND_MAP[key](this.plugin),
+			command: () => COMMAND_REGISTRY[commandId](this.plugin),
 		}));
 	}
 
