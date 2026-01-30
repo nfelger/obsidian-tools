@@ -66,15 +66,11 @@ export const NOTICE_TIMEOUT_ERROR = 8000;
 
 // === Hotkey Modal Bindings ===
 
-export interface HotkeyBindingConfig {
-	key: string;
-	label: string;
-	commandId: string;
-}
-
-export const HOTKEY_BINDINGS: readonly HotkeyBindingConfig[] = [
+export const HOTKEY_BINDINGS = [
 	{ key: 'm', label: 'Migrate task', commandId: 'migrateTask' },
 	{ key: 'd', label: 'Push task down', commandId: 'pushTaskDown' },
 	{ key: 'u', label: 'Pull task up', commandId: 'pullTaskUp' },
 	{ key: 'e', label: 'Extract log', commandId: 'extractLog' },
-];
+] as const;
+
+export type CommandId = typeof HOTKEY_BINDINGS[number]['commandId'];

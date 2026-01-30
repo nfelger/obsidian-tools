@@ -1,6 +1,6 @@
 import { App, Modal } from 'obsidian';
 import type BulletFlowPlugin from '../main';
-import { HOTKEY_BINDINGS } from '../config';
+import { HOTKEY_BINDINGS, type CommandId } from '../config';
 import { extractLog } from '../commands/extractLog';
 import { migrateTask } from '../commands/migrateTask';
 import { pushTaskDown } from '../commands/pushTaskDown';
@@ -14,7 +14,7 @@ interface HotkeyBinding {
 
 type CommandFn = (plugin: BulletFlowPlugin) => void | Promise<void>;
 
-const COMMAND_REGISTRY: Record<string, CommandFn> = {
+const COMMAND_REGISTRY: Record<CommandId, CommandFn> = {
 	'migrateTask': migrateTask,
 	'pushTaskDown': pushTaskDown,
 	'pullTaskUp': pullTaskUp,
