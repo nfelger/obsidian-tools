@@ -129,7 +129,7 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 			let taskContent = parentLineWithLink;
 			if (childrenContent) {
 				const indentedChildren = childrenContent.split('\n').map(line =>
-					line ? '  ' + line : line
+					line ? '    ' + line : line
 				).join('\n');
 				taskContent += '\n' + indentedChildren;
 			}

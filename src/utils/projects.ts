@@ -203,7 +203,7 @@ export function insertUnderCollectorTask(
 	}
 
 	// Indent the task content to be a child of the collector
-	const childIndent = '  '.repeat((collectorIndent / 2) + 1) || '  ';
+	const childIndent = ' '.repeat(collectorIndent + 4);
 	const indentedContent = taskContent.split('\n').map(line =>
 		line ? childIndent + line : line
 	).join('\n');
