@@ -69,9 +69,9 @@ describe('HotkeyModal', () => {
 			expect(extractBinding?.label).toBe('Extract log');
 		});
 
-		it('should have exactly 4 bindings', () => {
+		it('should have exactly 6 bindings', () => {
 			const bindings = modal.getBindings();
-			expect(bindings).toHaveLength(4);
+			expect(bindings).toHaveLength(6);
 		});
 	});
 
@@ -80,8 +80,8 @@ describe('HotkeyModal', () => {
 			modal.open();
 
 			// Check that scope.register was called for each binding
-			expect(modal.scope.keys).toHaveLength(4);
-			expect(modal.scope.keys.map((k: any) => k.key)).toEqual(['m', 'd', 'u', 'e']);
+			expect(modal.scope.keys).toHaveLength(6);
+			expect(modal.scope.keys.map((k: any) => k.key)).toEqual(['m', 'd', 'u', 'e', 't', 'p']);
 		});
 
 		it('should execute migrateTask when m is pressed', () => {

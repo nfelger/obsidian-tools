@@ -1,7 +1,7 @@
 {
 	"id": "bullet-flow",
 	"name": "Bullet Flow",
-	"version": "0.6.0",
+	"version": "0.7.0",
 	"minAppVersion": "1.0.0",
 	"description": "BuJo-inspired workflow: extract logs and migrate tasks from daily notes",
 	"author": "nfelger",
