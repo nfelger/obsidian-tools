@@ -15,6 +15,20 @@ export function countIndent(line: string): number {
 }
 
 /**
+ * Add a fixed amount of leading whitespace to all non-blank lines.
+ *
+ * @param lines - Lines to indent
+ * @param amount - Number of spaces to prepend
+ * @returns Indented lines
+ */
+export function indentLines(lines: string[], amount: number): string[] {
+	if (!lines || lines.length === 0 || amount <= 0) return lines.slice();
+
+	const prefix = ' '.repeat(amount);
+	return lines.map(line => line.trim() === '' ? '' : prefix + line);
+}
+
+/**
  * Remove the minimal common leading indent from all non-blank lines,
  * preserving relative indentation.
  */

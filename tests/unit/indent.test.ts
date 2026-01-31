@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { countIndent, dedentLines } from '../../src/utils/indent';
+import { countIndent, indentLines, dedentLines } from '../../src/utils/indent';
 
 describe('countIndent', () => {
 	it('should return 0 for non-indented line', () => {
@@ -24,6 +24,32 @@ describe('countIndent', () => {
 	it('should return line length for blank lines', () => {
 		expect(countIndent('   ')).toBe(3);
 		expect(countIndent('')).toBe(0);
+	});
+});
+
+describe('indentLines', () => {
+	it('should add spaces to each line', () => {
+		const lines = ['Line 1', 'Line 2'];
+		expect(indentLines(lines, 4)).toEqual(['    Line 1', '    Line 2']);
+	});
+
+	it('should preserve existing indentation', () => {
+		const lines = ['Line 1', '  Indented'];
+		expect(indentLines(lines, 4)).toEqual(['    Line 1', '      Indented']);
+	});
+
+	it('should skip blank lines', () => {
+		const lines = ['Line 1', '', 'Line 2'];
+		expect(indentLines(lines, 4)).toEqual(['    Line 1', '', '    Line 2']);
+	});
+
+	it('should return copy for zero amount', () => {
+		const lines = ['Line 1'];
+		expect(indentLines(lines, 0)).toEqual(['Line 1']);
+	});
+
+	it('should handle empty input', () => {
+		expect(indentLines([], 4)).toEqual([]);
 	});
 });
 
