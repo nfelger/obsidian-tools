@@ -7,6 +7,7 @@
 import type { ListItem, BulletFlowSettings, ResolvedLink, LinkResolver } from '../types';
 import { DEFAULT_SETTINGS } from '../types';
 import { getListItemAtLine } from './listItems';
+import { countIndent, indentLines } from './indent';
 import { findFirstResolvedLink } from './wikilinks';
 
 /**
@@ -186,7 +187,7 @@ export function insertUnderCollectorTask(
 
 	// Find the end of existing subtasks under the collector
 	let insertLine = collectorLine + 1;
-	const collectorIndent = lines[collectorLine].match(/^\s*/)?.[0].length ?? 0;
+	const collectorIndent = countIndent(lines[collectorLine]);
 
 	while (insertLine < lines.length) {
 		const currentLine = lines[insertLine];
@@ -194,8 +195,7 @@ export function insertUnderCollectorTask(
 			insertLine++;
 			continue;
 		}
-		const currentIndent = currentLine.match(/^\s*/)?.[0].length ?? 0;
-		if (currentIndent > collectorIndent) {
+		if (countIndent(currentLine) > collectorIndent) {
 			insertLine++;
 		} else {
 			break;
@@ -203,10 +203,7 @@ export function insertUnderCollectorTask(
 	}
 
 	// Indent the task content to be a child of the collector
-	const childIndent = ' '.repeat(collectorIndent + 4);
-	const indentedContent = taskContent.split('\n').map(line =>
-		line ? childIndent + line : line
-	).join('\n');
+	const indentedContent = indentLines(taskContent.split('\n'), collectorIndent + 4).join('\n');
 
 	lines.splice(insertLine, 0, indentedContent);
 	return lines.join('\n');

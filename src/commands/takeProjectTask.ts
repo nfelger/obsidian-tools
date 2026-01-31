@@ -9,7 +9,7 @@ import {
 	insertTaskWithDeduplication
 } from '../utils/tasks';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
-import { countIndent } from '../utils/indent';
+import { countIndent, indentLines } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
 import { isProjectNote, getProjectName, parseProjectKeywords, findCollectorTask, insertUnderCollectorTask } from '../utils/projects';
 import { formatDailyPath } from '../utils/periodicNotes';
@@ -128,9 +128,7 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 			// Build full task content for new insertions
 			let taskContent = parentLineWithLink;
 			if (childrenContent) {
-				const indentedChildren = childrenContent.split('\n').map(line =>
-					line ? '    ' + line : line
-				).join('\n');
+				const indentedChildren = indentLines(childrenContent.split('\n'), 4).join('\n');
 				taskContent += '\n' + indentedChildren;
 			}
 
