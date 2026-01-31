@@ -268,7 +268,7 @@ export function findTopLevelTasksInRange(
 export function insertUnderTargetHeading(
 	content: string,
 	taskContent: string,
-	targetHeading: string = DEFAULT_SETTINGS.targetSectionHeading
+	targetHeading: string = DEFAULT_SETTINGS.periodicNoteTaskTargetHeading
 ): string {
 	const lines = content.split('\n');
 	const { level, text } = parseTargetHeading(targetHeading);

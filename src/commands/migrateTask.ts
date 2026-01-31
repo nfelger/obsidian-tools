@@ -123,7 +123,7 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 		allContentToMigrate.reverse();
 
 		// Add all content to target note under target heading
-		const targetHeading = plugin.settings.targetSectionHeading;
+		const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
 		await plugin.app.vault.process(targetFile, (data: string) => {
 			let result = data;
 			for (const content of allContentToMigrate) {

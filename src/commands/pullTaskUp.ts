@@ -135,7 +135,7 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 			}
 
 			// Process target with deduplication
-			const targetHeading = plugin.settings.targetSectionHeading;
+			const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
 			await plugin.app.vault.process(targetFile, (data: string) => {
 				const result = insertTaskWithDeduplication(
 					data,

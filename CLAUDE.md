@@ -36,12 +36,15 @@ obsidian-tools/
 │   │   ├── extractLog.ts
 │   │   ├── migrateTask.ts
 │   │   ├── pushTaskDown.ts
-│   │   └── pullTaskUp.ts
+│   │   ├── pullTaskUp.ts
+│   │   ├── takeProjectTask.ts
+│   │   └── dropTaskToProject.ts
 │   └── utils/                    # Domain services & utilities
 │       ├── commandSetup.ts       # Common command setup
 │       ├── indent.ts             # Indentation utilities
 │       ├── listItems.ts          # List item operations
 │       ├── periodicNotes.ts      # PeriodicNoteService + functions
+│       ├── projects.ts           # Project note detection & utilities
 │       ├── tasks.ts              # TaskState, TaskMarker & task operations
 │       └── wikilinks.ts          # LinkResolver + wikilink parsing
 │

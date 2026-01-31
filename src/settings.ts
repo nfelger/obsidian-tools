@@ -76,13 +76,52 @@ export class BulletFlowSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
-			.setName('Target section heading')
-			.setDesc('Heading for the target section when extracting/migrating (include # symbols)')
+			.setName('Periodic note task heading')
+			.setDesc('Heading in periodic notes where tasks are inserted (include # symbols)')
 			.addText(text => text
-				.setPlaceholder(DEFAULT_SETTINGS.targetSectionHeading)
-				.setValue(this.plugin.settings.targetSectionHeading)
+				.setPlaceholder(DEFAULT_SETTINGS.periodicNoteTaskTargetHeading)
+				.setValue(this.plugin.settings.periodicNoteTaskTargetHeading)
 				.onChange(async (value) => {
-					this.plugin.settings.targetSectionHeading = value;
+					this.plugin.settings.periodicNoteTaskTargetHeading = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// === Project Settings ===
+		containerEl.createEl('h2', { text: 'Projects' });
+
+		new Setting(containerEl)
+			.setName('Projects folder')
+			.setDesc('Folder containing project notes')
+			.addText(text => {
+				text
+					.setPlaceholder(DEFAULT_SETTINGS.projectsFolder)
+					.setValue(this.plugin.settings.projectsFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.projectsFolder = value;
+						await this.plugin.saveSettings();
+					});
+				new FolderSuggest(this.app, text.inputEl);
+			});
+
+		new Setting(containerEl)
+			.setName('Project note task heading')
+			.setDesc('Heading in project notes where tasks live (include # symbols)')
+			.addText(text => text
+				.setPlaceholder(DEFAULT_SETTINGS.projectNoteTaskTargetHeading)
+				.setValue(this.plugin.settings.projectNoteTaskTargetHeading)
+				.onChange(async (value) => {
+					this.plugin.settings.projectNoteTaskTargetHeading = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Project keywords')
+			.setDesc('Keywords for collector tasks in daily notes (comma-separated, quote-enclosed)')
+			.addText(text => text
+				.setPlaceholder(DEFAULT_SETTINGS.projectKeywords)
+				.setValue(this.plugin.settings.projectKeywords)
+				.onChange(async (value) => {
+					this.plugin.settings.projectKeywords = value;
 					await this.plugin.saveSettings();
 				}));
 
