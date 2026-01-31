@@ -89,7 +89,7 @@ describe('takeProjectTask', () => {
 			// Next line should be the indented taken task
 			const nextLine = lines[collectorIdx + 1];
 			expect(nextLine).toContain('[[Migration Initiative]] Define rollback strategy');
-			expect(nextLine).toMatch(/^\s{2}/); // indented
+			expect(nextLine).toMatch(/^\s{4}/); // indented 4 spaces
 		});
 
 		it('matches "Finish" keyword as collector', async () => {

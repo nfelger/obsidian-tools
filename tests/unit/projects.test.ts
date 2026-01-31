@@ -119,29 +119,29 @@ describe('insertUnderCollectorTask', () => {
 - [ ] Other task`;
 		const result = insertUnderCollectorTask(content, 0, '- [ ] [[Migration Initiative]] Define rollback');
 		expect(result).toBe(`- [ ] Push [[Migration Initiative]]
-  - [ ] [[Migration Initiative]] Define rollback
+    - [ ] [[Migration Initiative]] Define rollback
 - [ ] Other task`);
 	});
 
 	it('inserts after existing subtasks', () => {
 		const content = `- [ ] Push [[Migration Initiative]]
-  - [ ] Existing subtask
+    - [ ] Existing subtask
 - [ ] Other task`;
 		const result = insertUnderCollectorTask(content, 0, '- [ ] [[Migration Initiative]] New task');
 		expect(result).toBe(`- [ ] Push [[Migration Initiative]]
-  - [ ] Existing subtask
-  - [ ] [[Migration Initiative]] New task
+    - [ ] Existing subtask
+    - [ ] [[Migration Initiative]] New task
 - [ ] Other task`);
 	});
 
 	it('handles indented collector task', () => {
 		const content = `- Parent
-  - [ ] Push [[Migration Initiative]]
-  - [ ] Other`;
+    - [ ] Push [[Migration Initiative]]
+    - [ ] Other`;
 		const result = insertUnderCollectorTask(content, 1, '- [ ] [[Migration Initiative]] Task');
 		expect(result).toBe(`- Parent
-  - [ ] Push [[Migration Initiative]]
-    - [ ] [[Migration Initiative]] Task
-  - [ ] Other`);
+    - [ ] Push [[Migration Initiative]]
+        - [ ] [[Migration Initiative]] Task
+    - [ ] Other`);
 	});
 });
