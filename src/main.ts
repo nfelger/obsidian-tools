@@ -3,6 +3,8 @@ import { extractLog } from './commands/extractLog';
 import { migrateTask } from './commands/migrateTask';
 import { pushTaskDown } from './commands/pushTaskDown';
 import { pullTaskUp } from './commands/pullTaskUp';
+import { takeProjectTask } from './commands/takeProjectTask';
+import { dropTaskToProject } from './commands/dropTaskToProject';
 import { HotkeyModal } from './ui/HotkeyModal';
 import { BulletFlowSettingTab } from './settings';
 import type { BulletFlowSettings } from './types';
@@ -53,6 +55,20 @@ export default class BulletFlowPlugin extends Plugin {
 			id: 'pull-task-up',
 			name: 'Pull task up to higher periodic note',
 			callback: () => pullTaskUp(this)
+		});
+
+		// Take Project Task command
+		this.addCommand({
+			id: 'take-project-task',
+			name: 'Take project task to daily note',
+			callback: () => takeProjectTask(this)
+		});
+
+		// Drop Task to Project command
+		this.addCommand({
+			id: 'drop-task-to-project',
+			name: 'Drop task to project note',
+			callback: () => dropTaskToProject(this)
 		});
 
 		// Hotkey Modal command (leader key)

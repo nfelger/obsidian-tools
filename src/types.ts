@@ -107,8 +107,8 @@ export interface BulletFlowSettings {
 	/** Base folder for periodic notes (e.g., '+Diary') */
 	diaryFolder: string;
 
-	/** Target section heading with level (e.g., '## Log', '### Inbox') */
-	targetSectionHeading: string;
+	/** Target section heading in periodic notes (e.g., '## Log', '### Inbox') */
+	periodicNoteTaskTargetHeading: string;
 
 	/** Daily note path pattern using moment.js format (e.g., 'YYYY/MM/YYYY-MM-DD ddd') */
 	dailyNotePattern: string;
@@ -121,15 +121,27 @@ export interface BulletFlowSettings {
 
 	/** Yearly note path pattern using moment.js format (e.g., 'YYYY/YYYY') */
 	yearlyNotePattern: string;
+
+	/** Target section heading in project notes (e.g., '## Todo') */
+	projectNoteTaskTargetHeading: string;
+
+	/** Folder containing project notes (e.g., '1 Projekte') */
+	projectsFolder: string;
+
+	/** Keywords that identify collector tasks in daily notes (e.g., '"Push", "Finish"') */
+	projectKeywords: string;
 }
 
 export const DEFAULT_SETTINGS: BulletFlowSettings = {
 	diaryFolder: '+Diary',
-	targetSectionHeading: '## Log',
+	periodicNoteTaskTargetHeading: '## Log',
 	dailyNotePattern: 'YYYY/MM/YYYY-MM-DD ddd',
 	weeklyNotePattern: 'gggg/MM/gggg-MM-[W]WW',
 	monthlyNotePattern: 'YYYY/YYYY-MM MMM',
-	yearlyNotePattern: 'YYYY/YYYY'
+	yearlyNotePattern: 'YYYY/YYYY',
+	projectNoteTaskTargetHeading: '## Todo',
+	projectsFolder: '1 Projekte',
+	projectKeywords: '"Push", "Finish"'
 };
 
 // === Command Results ===
