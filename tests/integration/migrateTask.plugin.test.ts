@@ -346,6 +346,58 @@ title: Note
 			expect(result.target).not.toContain('Task C');
 		});
 
+		it('should preserve original order of tasks in target', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] First task
+- [ ] Second task
+- [ ] Third task
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				selectionStartLine: 0,
+				selectionEndLine: 2
+			});
+
+			// Tasks should appear in original order (First, Second, Third)
+			const firstIdx = result.target!.indexOf('First task');
+			const secondIdx = result.target!.indexOf('Second task');
+			const thirdIdx = result.target!.indexOf('Third task');
+
+			expect(firstIdx).toBeGreaterThan(-1);
+			expect(secondIdx).toBeGreaterThan(firstIdx);
+			expect(thirdIdx).toBeGreaterThan(secondIdx);
+		});
+
+		it('should preserve original order with children in target', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] First task
+  - First child
+- [ ] Second task
+  - Second child
+- [ ] Third task
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				selectionStartLine: 0,
+				selectionEndLine: 4
+			});
+
+			// Tasks and children should appear in original order
+			const firstIdx = result.target!.indexOf('First task');
+			const firstChildIdx = result.target!.indexOf('First child');
+			const secondIdx = result.target!.indexOf('Second task');
+			const secondChildIdx = result.target!.indexOf('Second child');
+			const thirdIdx = result.target!.indexOf('Third task');
+
+			expect(firstIdx).toBeGreaterThan(-1);
+			expect(firstChildIdx).toBeGreaterThan(firstIdx);
+			expect(secondIdx).toBeGreaterThan(firstChildIdx);
+			expect(secondChildIdx).toBeGreaterThan(secondIdx);
+			expect(thirdIdx).toBeGreaterThan(secondChildIdx);
+		});
+
 		it('should fall back to single task when no selection', async () => {
 			// No selectionStartLine/selectionEndLine = use cursorLine behavior
 			const result = await testMigrateTaskPlugin({

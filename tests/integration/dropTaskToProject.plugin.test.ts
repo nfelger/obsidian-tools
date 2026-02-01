@@ -178,5 +178,33 @@ describe('dropTaskToProject', () => {
 			expect(project).toContain('First task');
 			expect(project).toContain('Second task');
 		});
+
+		it('preserves original order of tasks in project', async () => {
+			const result = await testDropTaskToProjectPlugin({
+				source: `
+- [ ] [[Migration Initiative]] First task
+- [ ] [[Migration Initiative]] Second task
+- [ ] [[Migration Initiative]] Third task
+`,
+				sourceFileName: '2026-01-30 Fri',
+				sourcePath: '+Diary/2026/01/2026-01-30 Fri.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+`
+				},
+				selectionStartLine: 0,
+				selectionEndLine: 2
+			});
+
+			const project = result.project('Migration Initiative')!;
+			const firstIdx = project.indexOf('First task');
+			const secondIdx = project.indexOf('Second task');
+			const thirdIdx = project.indexOf('Third task');
+
+			expect(firstIdx).toBeGreaterThan(-1);
+			expect(secondIdx).toBeGreaterThan(firstIdx);
+			expect(thirdIdx).toBeGreaterThan(secondIdx);
+		});
 	});
 });

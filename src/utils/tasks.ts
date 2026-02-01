@@ -494,3 +494,89 @@ export function insertTaskWithDeduplication(
 		return { content: result, wasMerged: false, reopenedScheduled: false };
 	}
 }
+
+// === Batch Insertion (order-preserving) ===
+
+/**
+ * Data for a task to be inserted into a target note.
+ */
+export interface TaskInsertItem {
+	taskText: string;
+	taskContent: string;
+	childrenContent: string;
+}
+
+/**
+ * Insert multiple tasks under a target heading as a single block.
+ *
+ * Tasks are joined and inserted in one operation, preserving their
+ * relative order. The block appears directly after the heading.
+ *
+ * @param content - Full file content
+ * @param taskContents - Task content strings in desired order
+ * @param targetHeading - The target heading to insert under
+ * @returns Updated file content
+ */
+export function insertMultipleUnderTargetHeading(
+	content: string,
+	taskContents: string[],
+	targetHeading: string = DEFAULT_SETTINGS.periodicNoteTaskTargetHeading
+): string {
+	if (taskContents.length === 0) return content;
+	const block = taskContents.join('\n');
+	return insertUnderTargetHeading(content, block, targetHeading);
+}
+
+/**
+ * Insert multiple tasks with deduplication, preserving original order.
+ *
+ * For each task (processed in the provided order):
+ * - If a matching task exists: merge children under it (reopen if scheduled)
+ * - If no match: collect for batch insertion
+ *
+ * New (non-merged) tasks are inserted as a single block under the target
+ * heading, preserving their relative order.
+ *
+ * @param content - The target file content
+ * @param tasks - Tasks in desired insertion order
+ * @param targetHeading - The heading to insert under for new tasks
+ * @returns Result with updated content and counts
+ */
+export function insertMultipleTasksWithDeduplication(
+	content: string,
+	tasks: TaskInsertItem[],
+	targetHeading: string
+): { content: string; mergedCount: number; newCount: number } {
+	let result = content;
+	let mergedCount = 0;
+	const newTaskContents: string[] = [];
+
+	for (const task of tasks) {
+		const match = findMatchingTask(result, task.taskText);
+
+		if (match) {
+			if (match.isScheduled) {
+				const lines = result.split('\n');
+				lines[match.lineNumber] = markScheduledAsOpen(lines[match.lineNumber]);
+				result = lines.join('\n');
+			}
+
+			if (task.childrenContent) {
+				const indentedChildren = task.childrenContent.split('\n').map(line =>
+					line ? '  ' + line : line
+				).join('\n');
+				result = insertChildrenUnderTask(result, match.lineNumber, indentedChildren);
+			}
+
+			mergedCount++;
+		} else {
+			newTaskContents.push(task.taskContent);
+		}
+	}
+
+	if (newTaskContents.length > 0) {
+		result = insertMultipleUnderTargetHeading(result, newTaskContents, targetHeading);
+	}
+
+	return { content: result, mergedCount, newCount: newTaskContents.length };
+}
