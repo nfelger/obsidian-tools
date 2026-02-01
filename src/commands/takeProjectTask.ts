@@ -1,16 +1,15 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import {
-	isIncompleteTask,
 	dedentLinesByAmount,
-	findTopLevelTasksInRange,
-	markTaskAsScheduled,
 	extractTaskText,
-	insertTaskWithDeduplication
+	insertMultipleTasksWithDeduplication,
+	markTaskAsScheduled
 } from '../utils/tasks';
+import type { TaskInsertItem } from '../utils/tasks';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent, indentLines } from '../utils/indent';
-import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
+import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
 import { isProjectNote, getProjectName, parseProjectKeywords, findCollectorTask, insertUnderCollectorTask } from '../utils/projects';
 import { formatDailyPath } from '../utils/periodicNotes';
 import {
@@ -63,41 +62,17 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		const listItems = getListItems(plugin, file);
 
-		// Find tasks to take (single cursor or multi-select)
-		let taskLines: number[];
-		if (editor.somethingSelected()) {
-			const selections = editor.listSelections();
-			const selection = selections[0];
-			const startLine = Math.min(selection.anchor.line, selection.head.line);
-			const endLine = Math.max(selection.anchor.line, selection.head.line);
+		const taskLines = findSelectedTaskLines(editor, listItems, 'takeProjectTask');
+		if (!taskLines) return;
 
-			taskLines = findTopLevelTasksInRange(editor, listItems || [], startLine, endLine);
-
-			if (taskLines.length === 0) {
-				new Notice('takeProjectTask: No incomplete tasks in selection.');
-				return;
-			}
-		} else {
-			const currentLine = editor.getCursor().line;
-			const lineText = editor.getLine(currentLine);
-
-			if (!isIncompleteTask(lineText)) {
-				new Notice('takeProjectTask: Cursor is not on an incomplete task.');
-				return;
-			}
-
-			taskLines = [currentLine];
-		}
-
-		// Process tasks from bottom to top to preserve line numbers
+		// Process tasks from bottom to top to preserve line numbers during source edits
 		taskLines.sort((a, b) => b - a);
 
 		// Parse collector keywords
 		const keywords = parseProjectKeywords(plugin.settings.projectKeywords);
 
-		// Track statistics
-		let mergedCount = 0;
-		let newCount = 0;
+		// Phase 1: Collect task data and modify source (bottom-to-top)
+		const collectedTasks: Array<TaskInsertItem & { taskContentForCollector: string }> = [];
 
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
@@ -125,7 +100,14 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 				childrenContent = dedentedChildren.join('\n');
 			}
 
-			// Build full task content for new insertions
+			// Build full task content for collector insertion (4-space children)
+			let taskContentForCollector = parentLineWithLink;
+			if (childrenContent) {
+				const indentedChildren = indentLines(childrenContent.split('\n'), 4).join('\n');
+				taskContentForCollector += '\n' + indentedChildren;
+			}
+
+			// Build full task content for heading insertion (4-space children)
 			let taskContent = parentLineWithLink;
 			if (childrenContent) {
 				const indentedChildren = indentLines(childrenContent.split('\n'), 4).join('\n');
@@ -135,33 +117,11 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 			// The task text for deduplication should include the project link
 			const taskTextWithLink = `[[${projectName}]] ${taskText}`;
 
-			// Process target (daily note)
-			await plugin.app.vault.process(dailyFile, (data: string) => {
-				// Check for collector task
-				const collectorLine = findCollectorTask(data, projectName, keywords);
-
-				if (collectorLine !== null) {
-					// Insert as subtask under collector
-					const result = insertUnderCollectorTask(data, collectorLine, taskContent);
-					newCount++;
-					return result;
-				} else {
-					// Insert under periodic note heading with deduplication
-					const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
-					const result = insertTaskWithDeduplication(
-						data,
-						taskTextWithLink,
-						taskContent,
-						childrenContent,
-						targetHeading
-					);
-					if (result.wasMerged) {
-						mergedCount++;
-					} else {
-						newCount++;
-					}
-					return result.content;
-				}
+			collectedTasks.push({
+				taskText: taskTextWithLink,
+				taskContent,
+				childrenContent,
+				taskContentForCollector
 			});
 
 			// Mark source line as scheduled
@@ -177,6 +137,36 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 				);
 			}
 		}
+
+		// Phase 2: Insert into target in original order
+		// Tasks were collected bottom-to-top, reverse to restore original order
+		collectedTasks.reverse();
+
+		let mergedCount = 0;
+		let newCount = 0;
+
+		await plugin.app.vault.process(dailyFile, (data: string) => {
+			// Check for collector task
+			const collectorLine = findCollectorTask(data, projectName, keywords);
+
+			if (collectorLine !== null) {
+				// Batch insert under collector as a single block (preserves order)
+				const block = collectedTasks.map(t => t.taskContentForCollector).join('\n');
+				newCount = collectedTasks.length;
+				return insertUnderCollectorTask(data, collectorLine, block);
+			} else {
+				// Batch insert with deduplication under heading (preserves order)
+				const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
+				const result = insertMultipleTasksWithDeduplication(
+					data,
+					collectedTasks,
+					targetHeading
+				);
+				mergedCount = result.mergedCount;
+				newCount = result.newCount;
+				return result.content;
+			}
+		});
 
 		const taskCount = taskLines.length;
 		let message: string;

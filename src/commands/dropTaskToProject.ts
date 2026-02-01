@@ -1,15 +1,14 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import {
-	isIncompleteTask,
 	dedentLinesByAmount,
-	findTopLevelTasksInRange,
 	extractTaskText,
-	insertTaskWithDeduplication
+	insertMultipleTasksWithDeduplication
 } from '../utils/tasks';
+import type { TaskInsertItem } from '../utils/tasks';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
-import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
+import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
 import { findProjectLinkInAncestors, isProjectNote } from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
@@ -42,37 +41,15 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 		const listItems = getListItems(plugin, file);
 		const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
 
-		// Find tasks to drop (single cursor or multi-select)
-		let taskLines: number[];
-		if (editor.somethingSelected()) {
-			const selections = editor.listSelections();
-			const selection = selections[0];
-			const startLine = Math.min(selection.anchor.line, selection.head.line);
-			const endLine = Math.max(selection.anchor.line, selection.head.line);
+		const taskLines = findSelectedTaskLines(editor, listItems, 'dropTaskToProject');
+		if (!taskLines) return;
 
-			taskLines = findTopLevelTasksInRange(editor, listItems || [], startLine, endLine);
-
-			if (taskLines.length === 0) {
-				new Notice('dropTaskToProject: No incomplete tasks in selection.');
-				return;
-			}
-		} else {
-			const currentLine = editor.getCursor().line;
-			const lineText = editor.getLine(currentLine);
-
-			if (!isIncompleteTask(lineText)) {
-				new Notice('dropTaskToProject: Cursor is not on an incomplete task.');
-				return;
-			}
-
-			taskLines = [currentLine];
-		}
-
-		// Process tasks from bottom to top to preserve line numbers
+		// Process tasks from bottom to top to preserve line numbers during source edits
 		taskLines.sort((a, b) => b - a);
 
-		let mergedCount = 0;
-		let newCount = 0;
+		// Phase 1: Collect task data and delete from source (bottom-to-top)
+		// Group by project file for batch insertion
+		const tasksByProject = new Map<string, { file: TFile; items: TaskInsertItem[] }>();
 		let droppedCount = 0;
 
 		for (const taskLine of taskLines) {
@@ -130,22 +107,15 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 				taskContent += '\n' + indentedChildren;
 			}
 
-			// Insert into project note with deduplication
-			const targetHeading = plugin.settings.projectNoteTaskTargetHeading;
-			await plugin.app.vault.process(projectFile, (data: string) => {
-				const result = insertTaskWithDeduplication(
-					data,
-					rawTaskText,
-					taskContent,
-					childrenContent,
-					targetHeading
-				);
-				if (result.wasMerged) {
-					mergedCount++;
-				} else {
-					newCount++;
-				}
-				return result.content;
+			// Group by project file path
+			const projectPath = projectLink.link.path;
+			if (!tasksByProject.has(projectPath)) {
+				tasksByProject.set(projectPath, { file: projectFile, items: [] });
+			}
+			tasksByProject.get(projectPath)!.items.push({
+				taskText: rawTaskText,
+				taskContent,
+				childrenContent
 			});
 
 			// Delete children from source first (higher line numbers)
@@ -169,6 +139,23 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 
 		if (droppedCount === 0) {
 			return;
+		}
+
+		// Phase 2: Batch insert into each project in original order
+		let mergedCount = 0;
+		let newCount = 0;
+
+		for (const [, { file: projectFile, items }] of tasksByProject) {
+			// Items were collected bottom-to-top, reverse to restore original order
+			items.reverse();
+
+			const targetHeading = plugin.settings.projectNoteTaskTargetHeading;
+			await plugin.app.vault.process(projectFile, (data: string) => {
+				const result = insertMultipleTasksWithDeduplication(data, items, targetHeading);
+				mergedCount += result.mergedCount;
+				newCount += result.newCount;
+				return result.content;
+			});
 		}
 
 		let message: string;

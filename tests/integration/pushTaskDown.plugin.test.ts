@@ -294,6 +294,29 @@ Some content
 			expect(result.target).toContain('Child of A');
 			expect(result.target).toContain('- [ ] Task B');
 		});
+
+		it('should preserve original order of tasks in target', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] First task
+- [ ] Second task
+- [ ] Third task
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: '',
+				today: new Date(2026, 0, 22),
+				selectionStartLine: 0,
+				selectionEndLine: 2
+			});
+
+			const firstIdx = result.target!.indexOf('First task');
+			const secondIdx = result.target!.indexOf('Second task');
+			const thirdIdx = result.target!.indexOf('Third task');
+
+			expect(firstIdx).toBeGreaterThan(-1);
+			expect(secondIdx).toBeGreaterThan(firstIdx);
+			expect(thirdIdx).toBeGreaterThan(secondIdx);
+		});
 	});
 
 	describe('deduplication', () => {

@@ -1,10 +1,10 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { parseNoteType, getNextNotePath } from '../utils/periodicNotes';
-import { isIncompleteTask, dedentLinesByAmount, insertUnderTargetHeading, findTopLevelTasksInRange } from '../utils/tasks';
+import { dedentLinesByAmount, insertMultipleUnderTargetHeading } from '../utils/tasks';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
-import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
+import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
 import {
 	NOTICE_TIMEOUT_ERROR,
 	STARTED_TO_OPEN_PATTERN,
@@ -54,40 +54,14 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		const listItems = getListItems(plugin, file);
 
-		// Check for selection vs single cursor
-		// Use somethingSelected() for more reliable detection on mobile
-		let taskLines: number[];
-		if (editor.somethingSelected()) {
-			// Multi-select: find all top-level tasks in range
-			const selections = editor.listSelections();
-			const selection = selections[0];
-			const startLine = Math.min(selection.anchor.line, selection.head.line);
-			const endLine = Math.max(selection.anchor.line, selection.head.line);
+		const taskLines = findSelectedTaskLines(editor, listItems, 'migrateTask');
+		if (!taskLines) return;
 
-			taskLines = findTopLevelTasksInRange(editor, listItems || [], startLine, endLine);
-
-			if (taskLines.length === 0) {
-				new Notice('migrateTask: No incomplete tasks in selection.');
-				return;
-			}
-		} else {
-			// Single cursor: use current line
-			const currentLine = editor.getCursor().line;
-			const lineText = editor.getLine(currentLine);
-
-			if (!isIncompleteTask(lineText)) {
-				new Notice('migrateTask: Cursor is not on an incomplete task.');
-				return;
-			}
-
-			taskLines = [currentLine];
-		}
-
-		// Process tasks from bottom to top to preserve line numbers
+		// Process tasks from bottom to top to preserve line numbers during source edits
 		taskLines.sort((a, b) => b - a);
 
-		// Collect all content to migrate
-		const allContentToMigrate: string[] = [];
+		// Phase 1: Collect content and modify source (bottom-to-top)
+		const collectedContent: string[] = [];
 
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
@@ -103,7 +77,7 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 				const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
 				taskContent += '\n' + dedentedChildren.join('\n');
 			}
-			allContentToMigrate.push(taskContent);
+			collectedContent.push(taskContent);
 
 			// Mark source line as migrated
 			const migratedLine = lineText.replace(MIGRATE_TASK_PATTERN, '$1' + MIGRATED_MARKER);
@@ -119,17 +93,13 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 			}
 		}
 
-		// Reverse to restore original order (we processed bottom-to-top)
-		allContentToMigrate.reverse();
+		// Phase 2: Insert into target in original order
+		// Content was collected bottom-to-top, reverse to restore original order
+		collectedContent.reverse();
 
-		// Add all content to target note under target heading
 		const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
 		await plugin.app.vault.process(targetFile, (data: string) => {
-			let result = data;
-			for (const content of allContentToMigrate) {
-				result = insertUnderTargetHeading(result, content, targetHeading);
-			}
-			return result;
+			return insertMultipleUnderTargetHeading(data, collectedContent, targetHeading);
 		});
 
 		const taskCount = taskLines.length;

@@ -252,6 +252,27 @@ describe('pullTaskUp command', () => {
 			expect(result.target).toContain('- [ ] New task');
 		});
 
+		it('preserves original order of tasks in target', async () => {
+			const result = await testPullUpPlugin({
+				source: `- [ ] First task
+- [ ] Second task
+- [ ] Third task`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: `## Log
+`,
+				selectionStartLine: 0,
+				selectionEndLine: 2
+			});
+
+			const firstIdx = result.target!.indexOf('First task');
+			const secondIdx = result.target!.indexOf('Second task');
+			const thirdIdx = result.target!.indexOf('Third task');
+
+			expect(firstIdx).toBeGreaterThan(-1);
+			expect(secondIdx).toBeGreaterThan(firstIdx);
+			expect(thirdIdx).toBeGreaterThan(secondIdx);
+		});
+
 		it('excludes child tasks from selection', async () => {
 			const result = await testPullUpPlugin({
 				source: `- [ ] Parent task

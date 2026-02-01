@@ -154,6 +154,61 @@ describe('takeProjectTask', () => {
 			expect(result.daily).toContain('[[Migration Initiative]] Second task');
 			expect(result.daily).toContain('[[Migration Initiative]] Third task');
 		});
+
+		it('preserves original order under heading', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] First task
+- [ ] Second task
+- [ ] Third task
+`,
+				sourceFileName: 'Migration Initiative',
+				dailyNoteContent: '',
+				today,
+				selectionStartLine: 0,
+				selectionEndLine: 2
+			});
+
+			const firstIdx = result.daily!.indexOf('First task');
+			const secondIdx = result.daily!.indexOf('Second task');
+			const thirdIdx = result.daily!.indexOf('Third task');
+
+			expect(firstIdx).toBeGreaterThan(-1);
+			expect(secondIdx).toBeGreaterThan(firstIdx);
+			expect(thirdIdx).toBeGreaterThan(secondIdx);
+		});
+
+		it('preserves original order under collector task', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] First task
+- [ ] Second task
+- [ ] Third task
+`,
+				sourceFileName: 'Migration Initiative',
+				dailyNoteContent: `
+- [ ] Push [[Migration Initiative]]
+- [ ] Some other task
+`,
+				today,
+				selectionStartLine: 0,
+				selectionEndLine: 2
+			});
+
+			const firstIdx = result.daily!.indexOf('First task');
+			const secondIdx = result.daily!.indexOf('Second task');
+			const thirdIdx = result.daily!.indexOf('Third task');
+
+			expect(firstIdx).toBeGreaterThan(-1);
+			expect(secondIdx).toBeGreaterThan(firstIdx);
+			expect(thirdIdx).toBeGreaterThan(secondIdx);
+
+			// All should be under the collector (indented)
+			const lines = result.daily!.split('\n');
+			const collectorIdx = lines.findIndex(l => l.includes('Push [[Migration Initiative]]'));
+			const firstTaskIdx = lines.findIndex(l => l.includes('First task'));
+			expect(firstTaskIdx).toBeGreaterThan(collectorIdx);
+		});
 	});
 
 	describe('validation', () => {
