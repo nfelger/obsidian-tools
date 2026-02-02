@@ -369,13 +369,13 @@ Some content`,
 				cursorLine: 0
 			});
 
-			// New task should be under Log heading
+			// New task should be appended after existing content in Log section
 			const logIndex = result.target!.indexOf('## Log');
-			const newTaskIndex = result.target!.indexOf('- [ ] New task');
 			const existingTaskIndex = result.target!.indexOf('- [ ] Existing task');
+			const newTaskIndex = result.target!.indexOf('- [ ] New task');
 
-			expect(logIndex).toBeLessThan(newTaskIndex);
-			expect(newTaskIndex).toBeLessThan(existingTaskIndex);
+			expect(logIndex).toBeLessThan(existingTaskIndex);
+			expect(existingTaskIndex).toBeLessThan(newTaskIndex);
 		});
 	});
 });
