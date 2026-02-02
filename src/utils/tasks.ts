@@ -286,8 +286,23 @@ export function insertUnderTargetHeading(
 	}
 
 	if (targetLineIdx >= 0) {
-		// Insert after the heading
-		lines.splice(targetLineIdx + 1, 0, taskContent);
+		// Find end of section (next heading at same or higher level, or end of file)
+		const headingPattern = /^(#{1,6})\s/;
+		let insertIdx = lines.length;
+		for (let i = targetLineIdx + 1; i < lines.length; i++) {
+			const match = lines[i].match(headingPattern);
+			if (match && match[1].length <= level) {
+				insertIdx = i;
+				break;
+			}
+		}
+
+		// Skip trailing blank lines before the next section
+		while (insertIdx > targetLineIdx + 1 && lines[insertIdx - 1].trim() === '') {
+			insertIdx--;
+		}
+
+		lines.splice(insertIdx, 0, taskContent);
 		return lines.join('\n');
 	}
 

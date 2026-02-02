@@ -114,14 +114,14 @@ describe('dedentLinesByAmount', () => {
 });
 
 describe('insertUnderTargetHeading', () => {
-	it('inserts after existing ## Log heading', () => {
+	it('appends at end of existing ## Log section', () => {
 		const content = `# Note
 
 ## Log
 
 Existing content`;
 		const result = insertUnderTargetHeading(content, '- New task');
-		expect(result).toContain('## Log\n- New task\n\nExisting content');
+		expect(result).toContain('## Log\n\nExisting content\n- New task');
 	});
 
 	it('creates ## Log heading if missing', () => {
@@ -153,15 +153,68 @@ Some content`;
 		expect(result.trim()).toBe('## Log\n- New task');
 	});
 
-	it('handles multiple insertions', () => {
+	it('handles multiple insertions in chronological order', () => {
 		let content = '# Note\n\nSome content';
 		content = insertUnderTargetHeading(content, '- Task 1');
 		content = insertUnderTargetHeading(content, '- Task 2');
 
 		const lines = content.split('\n');
 		const logIdx = lines.findIndex(l => l === '## Log');
-		expect(lines[logIdx + 1]).toBe('- Task 2'); // Most recent first
-		expect(lines[logIdx + 2]).toBe('- Task 1');
+		expect(lines[logIdx + 1]).toBe('- Task 1');
+		expect(lines[logIdx + 2]).toBe('- Task 2');
+	});
+
+	it('appends before the next same-level heading', () => {
+		const content = `## Log
+
+- Existing task
+
+## Other Section
+
+Other content`;
+		const result = insertUnderTargetHeading(content, '- New task');
+		const lines = result.split('\n');
+		const logIdx = lines.findIndex(l => l === '## Log');
+		const otherIdx = lines.findIndex(l => l === '## Other Section');
+
+		// New task should be between Log content and Other Section
+		const newTaskIdx = lines.findIndex(l => l === '- New task');
+		expect(newTaskIdx).toBeGreaterThan(logIdx);
+		expect(newTaskIdx).toBeLessThan(otherIdx);
+		// Existing task stays before new task
+		const existingIdx = lines.findIndex(l => l === '- Existing task');
+		expect(existingIdx).toBeLessThan(newTaskIdx);
+	});
+
+	it('appends before a higher-level heading', () => {
+		const content = `## Log
+
+- Existing task
+
+# Top Level Heading`;
+		const result = insertUnderTargetHeading(content, '- New task');
+		const lines = result.split('\n');
+		const topIdx = lines.findIndex(l => l === '# Top Level Heading');
+		const newTaskIdx = lines.findIndex(l => l === '- New task');
+
+		expect(newTaskIdx).toBeLessThan(topIdx);
+	});
+
+	it('does not stop at a deeper heading within the section', () => {
+		const content = `## Log
+
+- Existing task
+
+### Subsection
+
+Sub content`;
+		const result = insertUnderTargetHeading(content, '- New task');
+		const lines = result.split('\n');
+		const subIdx = lines.findIndex(l => l === '### Subsection');
+		const newTaskIdx = lines.findIndex(l => l === '- New task');
+
+		// New task should be appended after subsection content (end of ## Log section)
+		expect(newTaskIdx).toBeGreaterThan(subIdx);
 	});
 });
 
