@@ -177,22 +177,8 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 			const lines = data.split('\n');
 
 			if (targetHeadingLine !== null && targetHeadingLine < lines.length) {
-				// Target heading exists - find end of section
-				const headingPattern = /^(#{1,6})\s/;
-				let insertAt = lines.length;
-				for (let i = targetHeadingLine + 1; i < lines.length; i++) {
-					const match = lines[i].match(headingPattern);
-					if (match && match[1].length <= targetLevel2) {
-						insertAt = i;
-						break;
-					}
-				}
-
-				// Skip trailing blank lines before the next section
-				while (insertAt > targetHeadingLine + 1 && lines[insertAt - 1].trim() === '') {
-					insertAt--;
-				}
-
+				// Target heading exists - insert after it (reverse-chronological log)
+				const insertAt = targetHeadingLine + 1;
 				lines.splice(insertAt, 0, ...blockLines);
 				return lines.join('\n');
 			} else {
