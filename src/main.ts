@@ -1,4 +1,4 @@
-import { Plugin } from 'obsidian';
+import { Plugin, TFile } from 'obsidian';
 import { extractLog } from './commands/extractLog';
 import { migrateTask } from './commands/migrateTask';
 import { pushTaskDown } from './commands/pushTaskDown';
@@ -9,9 +9,12 @@ import { HotkeyModal } from './ui/HotkeyModal';
 import { BulletFlowSettingTab } from './settings';
 import type { BulletFlowSettings } from './types';
 import { DEFAULT_SETTINGS } from './types';
+import { PeriodicNoteService } from './utils/periodicNotes';
+import { moveAllCompletedTodosToLog } from './utils/todoCompletionTracker';
 
 export default class BulletFlowPlugin extends Plugin {
 	settings: BulletFlowSettings;
+	private isProcessingMove = false;
 
 	/**
 	 * Get today's date. Exposed as method for testability.
@@ -28,6 +31,13 @@ export default class BulletFlowPlugin extends Plugin {
 
 		// Register settings tab
 		this.addSettingTab(new BulletFlowSettingTab(this.app, this));
+
+		// Auto-move completed tasks from ## Todo to ## Log in daily notes
+		this.registerEvent(
+			this.app.metadataCache.on('changed', (file: TFile) => {
+				this.handleTodoCompletion(file);
+			})
+		);
 
 		// Extract Log command
 		this.addCommand({
@@ -78,6 +88,28 @@ export default class BulletFlowPlugin extends Plugin {
 			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'b' }],
 			callback: () => new HotkeyModal(this.app, this).open()
 		});
+	}
+
+	private async handleTodoCompletion(file: TFile) {
+		if (this.isProcessingMove) return;
+
+		const noteService = new PeriodicNoteService(this.settings);
+		const noteInfo = noteService.parseNoteType(file.basename);
+		if (!noteInfo || noteInfo.type !== 'daily') return;
+
+		this.isProcessingMove = true;
+		try {
+			await this.app.vault.process(file, (content) => {
+				const result = moveAllCompletedTodosToLog(
+					content,
+					'## Todo',
+					this.settings.periodicNoteTaskTargetHeading
+				);
+				return result ?? content;
+			});
+		} finally {
+			this.isProcessingMove = false;
+		}
 	}
 
 	onunload() {
