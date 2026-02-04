@@ -202,6 +202,90 @@ Some existing content
     expect(result.target('Target Note')).toContain('### [[daily]] discussed feature X');
   });
 
+  it('uses logExtractionTargetHeading, not periodicNoteTaskTargetHeading', async () => {
+    const result = await testExtractLogPlugin({
+      source: `
+- [[Target Note]]
+  - Child content
+      `,
+      targetNotes: {
+        'Target Note': `
+## Log
+        `
+      },
+      settings: {
+        periodicNoteTaskTargetHeading: '## Todo'
+      }
+    });
+
+    expect(result.target('Target Note')).toContain('## Log');
+    expect(result.target('Target Note')).toContain('- Child content');
+    expect(result.target('Target Note')).not.toContain('## Todo');
+  });
+
+  it('respects custom logExtractionTargetHeading', async () => {
+    const result = await testExtractLogPlugin({
+      source: `
+- [[Target Note]]
+  - Child content
+      `,
+      targetNotes: {
+        'Target Note': `
+## Journal
+        `
+      },
+      settings: {
+        logExtractionTargetHeading: '## Journal'
+      }
+    });
+
+    expect(result.target('Target Note')).toContain('## Journal');
+    expect(result.target('Target Note')).toContain('### [[daily]]');
+    expect(result.target('Target Note')).toContain('- Child content');
+  });
+
+  it('creates custom log section if missing in target', async () => {
+    const result = await testExtractLogPlugin({
+      source: `
+- [[Target Note]]
+  - Content
+      `,
+      targetNotes: {
+        'Target Note': `
+# Target Note
+
+Some existing content
+        `
+      },
+      settings: {
+        logExtractionTargetHeading: '## Journal'
+      }
+    });
+
+    expect(result.target('Target Note')).toContain('## Journal');
+    expect(result.target('Target Note')).toContain('### [[daily]]');
+    expect(result.target('Target Note')).toContain('- Content');
+  });
+
+  it('respects heading level from logExtractionTargetHeading', async () => {
+    const result = await testExtractLogPlugin({
+      source: `
+- [[Target Note]]
+  - Child content
+      `,
+      targetNotes: {
+        'Target Note': `
+### Notes
+        `
+      },
+      settings: {
+        logExtractionTargetHeading: '### Notes'
+      }
+    });
+
+    expect(result.target('Target Note')).toContain('#### [[daily]]');
+  });
+
   it('preserves indentation when dedenting children', async () => {
     const result = await testExtractLogPlugin({
       source: `

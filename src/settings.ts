@@ -86,6 +86,17 @@ export class BulletFlowSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		new Setting(containerEl)
+			.setName('Log extraction heading')
+			.setDesc('Heading where Extract Log places entries in target notes (include # symbols)')
+			.addText(text => text
+				.setPlaceholder(DEFAULT_SETTINGS.logExtractionTargetHeading)
+				.setValue(this.plugin.settings.logExtractionTargetHeading)
+				.onChange(async (value) => {
+					this.plugin.settings.logExtractionTargetHeading = value;
+					await this.plugin.saveSettings();
+				}));
+
 		// === Project Settings ===
 		containerEl.createEl('h2', { text: 'Projects' });
 

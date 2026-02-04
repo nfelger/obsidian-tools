@@ -122,6 +122,9 @@ export interface BulletFlowSettings {
 	/** Yearly note path pattern using moment.js format (e.g., 'YYYY/YYYY') */
 	yearlyNotePattern: string;
 
+	/** Target section heading for Extract Log (e.g., '## Log') */
+	logExtractionTargetHeading: string;
+
 	/** Target section heading in project notes (e.g., '## Todo') */
 	projectNoteTaskTargetHeading: string;
 
@@ -135,6 +138,7 @@ export interface BulletFlowSettings {
 export const DEFAULT_SETTINGS: BulletFlowSettings = {
 	diaryFolder: '+Diary',
 	periodicNoteTaskTargetHeading: '## Log',
+	logExtractionTargetHeading: '## Log',
 	dailyNotePattern: 'YYYY/MM/YYYY-MM-DD ddd',
 	weeklyNotePattern: 'gggg/MM/gggg-MM-[W]WW',
 	monthlyNotePattern: 'YYYY/YYYY-MM MMM',

@@ -10,7 +10,7 @@ import {
   createMockNotice,
   createMockClipboard
 } from '../mocks/obsidian.js';
-import type { ListItem } from '../../src/types';
+import type { ListItem, BulletFlowSettings } from '../../src/types';
 import { DEFAULT_SETTINGS } from '../../src/types';
 import type BulletFlowPlugin from '../../src/main';
 
@@ -19,6 +19,7 @@ interface TestExtractLogOptions {
   targetNotes?: Record<string, string>;
   cursorLine?: number;
   fileName?: string;
+  settings?: Partial<BulletFlowSettings>;
 }
 
 interface TestExtractLogResult {
@@ -43,7 +44,8 @@ export async function testExtractLogPlugin({
   source,
   targetNotes = {},
   cursorLine = 0,
-  fileName = 'daily.md'
+  fileName = 'daily.md',
+  settings: settingsOverride = {}
 }: TestExtractLogOptions): Promise<TestExtractLogResult> {
   // Normalize markdown
   const normalizedSource = normalizeMarkdown(source);
@@ -177,7 +179,7 @@ export async function testExtractLogPlugin({
   // Create mock plugin
   const mockPlugin = {
     app: mockApp,
-    settings: DEFAULT_SETTINGS
+    settings: { ...DEFAULT_SETTINGS, ...settingsOverride }
   } as BulletFlowPlugin;
 
   // Import and run extractLog

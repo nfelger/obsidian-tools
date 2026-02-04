@@ -115,7 +115,7 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 
 		// Build heading line (can contain wikilinks)
 		// Use one level deeper than the target heading
-		const { level: targetLevel } = parseTargetHeading(plugin.settings.periodicNoteTaskTargetHeading);
+		const { level: targetLevel } = parseTargetHeading(plugin.settings.logExtractionTargetHeading);
 		const subHeadingPrefix = '#'.repeat(targetLevel + 1);
 		const rawHeadingLineSuffix = headingSuffix ? ` ${headingSuffix}` : '';
 		const headingLine = `${subHeadingPrefix} [[${dailyNoteName}]]${rawHeadingLineSuffix}`;
@@ -156,7 +156,7 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 		}
 
 		// Find target heading in target via metadataCache
-		const { level: targetLevel2, text: targetText } = parseTargetHeading(plugin.settings.periodicNoteTaskTargetHeading);
+		const { level: targetLevel2, text: targetText } = parseTargetHeading(plugin.settings.logExtractionTargetHeading);
 		const targetCache = plugin.app.metadataCache.getFileCache(targetFile);
 		let targetHeadingLine: number | null = null;
 
@@ -190,7 +190,7 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 				) {
 					newLines.push('');
 				}
-				newLines.push(plugin.settings.periodicNoteTaskTargetHeading);
+				newLines.push(plugin.settings.logExtractionTargetHeading);
 				newLines.push(...blockLines);
 				return newLines.join('\n');
 			}
