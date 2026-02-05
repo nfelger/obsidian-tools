@@ -180,6 +180,16 @@ const resolver: LinkResolver = new ObsidianLinkResolver(
 const link = findFirstResolvedLink(lineText, sourcePath, resolver);
 ```
 
+**Target Heading Settings:**
+
+Three settings control where content is inserted into notes. They are intentionally independent -- changing one does not affect the others.
+
+| Setting | Used by | Target note type | Default |
+|---|---|---|---|
+| `periodicNoteTaskTargetHeading` | migrateTask, pushTaskDown, pullTaskUp, takeProjectTask | Periodic notes | `## Log` |
+| `logExtractionTargetHeading` | extractLog | Project/Area notes (log entries) | `## Log` |
+| `projectNoteTaskTargetHeading` | dropTaskToProject | Project notes (tasks) | `## Todo` |
+
 ### Tech Stack
 
 **Plugin:**
