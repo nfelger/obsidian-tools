@@ -246,10 +246,13 @@ describe('Cross-Validation: getISOWeekNumber and getMondayOfISOWeek', () => {
 				const weekNum = getISOWeekNumber(date);
 				const reconstructed = getMondayOfISOWeek(2026, weekNum);
 
-				expect(reconstructed.getTime()).toBe(date.getTime());
+				// Compare by date components to avoid DST timestamp issues
+				expect(reconstructed.getFullYear()).toBe(date.getFullYear());
+				expect(reconstructed.getMonth()).toBe(date.getMonth());
+				expect(reconstructed.getDate()).toBe(date.getDate());
 
-				// Move to next Monday
-				date = new Date(date.getTime() + 7 * 24 * 60 * 60 * 1000);
+				// Move to next Monday (add 7 days, not 7*24h of milliseconds)
+				date = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 7);
 			}
 		});
 	});
