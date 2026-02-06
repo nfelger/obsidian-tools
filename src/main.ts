@@ -9,6 +9,7 @@ import { HotkeyModal } from './ui/HotkeyModal';
 import { BulletFlowSettingTab } from './settings';
 import type { BulletFlowSettings } from './types';
 import { DEFAULT_SETTINGS } from './types';
+import { createAutoMoveExtension } from './events/autoMoveCompleted';
 
 export default class BulletFlowPlugin extends Plugin {
 	settings: BulletFlowSettings;
@@ -28,6 +29,9 @@ export default class BulletFlowPlugin extends Plugin {
 
 		// Register settings tab
 		this.addSettingTab(new BulletFlowSettingTab(this.app, this));
+
+		// Register auto-move extension for completed tasks
+		this.registerEditorExtension(createAutoMoveExtension(this));
 
 		// Extract Log command
 		this.addCommand({

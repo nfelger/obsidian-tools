@@ -9,6 +9,7 @@ This document provides comprehensive guidance for AI assistants working on the *
 **Core Features:**
 - **Extract Log** - Move nested content from daily notes to project/area notes
 - **Migrate Task** - BuJo-style task migration between periodic notes
+- **Auto-Move Completed** - Completed tasks in daily notes auto-move from Todo to Log
 - **Custom Checkboxes** - Visual task markers (e.g., `[o]` for meetings)
 
 **Architecture:**
@@ -39,6 +40,8 @@ obsidian-tools/
 │   │   ├── pullTaskUp.ts
 │   │   ├── takeProjectTask.ts
 │   │   └── dropTaskToProject.ts
+│   ├── events/                   # Editor event handlers
+│   │   └── autoMoveCompleted.ts  # CM6 extension for auto-move
 │   └── utils/                    # Domain services & utilities
 │       ├── commandSetup.ts       # Common command setup
 │       ├── indent.ts             # Indentation utilities
@@ -46,7 +49,8 @@ obsidian-tools/
 │       ├── periodicNotes.ts      # PeriodicNoteService + functions
 │       ├── projects.ts           # Project note detection & utilities
 │       ├── tasks.ts              # TaskState, TaskMarker & task operations
-│       └── wikilinks.ts          # LinkResolver + wikilink parsing
+│       ├── wikilinks.ts          # LinkResolver + wikilink parsing
+│       └── autoMove.ts           # Auto-move computation logic
 │
 ├── tests/                        # Test suite
 │   ├── unit/                     # Pure function tests
@@ -182,13 +186,14 @@ const link = findFirstResolvedLink(lineText, sourcePath, resolver);
 
 **Target Heading Settings:**
 
-Three settings control where content is inserted into notes. They are intentionally independent -- changing one does not affect the others.
+Four settings control where content is inserted into notes. They are intentionally independent -- changing one does not affect the others.
 
 | Setting | Used by | Target note type | Default |
 |---|---|---|---|
-| `periodicNoteTaskTargetHeading` | migrateTask, pushTaskDown, pullTaskUp, takeProjectTask | Periodic notes | `## Log` |
+| `periodicNoteTaskTargetHeading` | migrateTask, pushTaskDown, pullTaskUp, takeProjectTask, autoMove (source) | Periodic notes | `## Log` |
 | `logExtractionTargetHeading` | extractLog | Project/Area notes (log entries) | `## Log` |
 | `projectNoteTaskTargetHeading` | dropTaskToProject | Project notes (tasks) | `## Todo` |
+| `dailyNoteLogHeading` | autoMove (destination) | Daily notes (completed tasks) | `## Log` |
 
 ### Tech Stack
 
@@ -493,6 +498,29 @@ Ask yourself: **"Would a user care about this, or is it just development noise?"
 
 ## Common Development Tasks
 
+### Bumping Version
+
+**CRITICAL: Never bump a version without updating CHANGELOG.md first.**
+
+When releasing a new version:
+
+1. **Determine version type** (see [Semantic Versioning](https://semver.org/)):
+   - MAJOR (`1.0.0`): Breaking changes
+   - MINOR (`0.X.0`): New features (backwards compatible)
+   - PATCH (`0.0.X`): Bug fixes only
+
+2. **Update CHANGELOG.md FIRST** with user-focused description:
+   - What does the user see/experience differently?
+   - New settings or commands added?
+   - Bugs that were fixed?
+
+3. **Then bump version** in all three files:
+   - `manifest.json`
+   - `package.json`
+   - `versions.json`
+
+4. **Commit together** — changelog and version bump should be in the same commit
+
 ### Adding a New Command
 
 1. **Create command file** - `src/commands/newCommand.ts`
@@ -616,7 +644,7 @@ When working on this codebase:
 - Use multi-line template strings for markdown test cases
 - Focus user documentation on user-visible changes
 - Keep code comments focused on current behavior
-- Update CHANGELOG.md when bumping versions
+- **Update CHANGELOG.md BEFORE bumping versions** (see "Bumping Version" section)
 
 ❌ **Never:**
 - Add planning comments (TODO, MVP, Slice, etc.) to permanent code
@@ -625,6 +653,7 @@ When working on this codebase:
 - Test Obsidian internals (trust the framework)
 - Skip type definitions for shared interfaces
 - Expose Obsidian types (`TFile`) in domain interfaces (use `LinkResolver`)
+- Bump version without updating CHANGELOG.md first
 
 ⚠️ **When in doubt:**
 - Read [WORKFLOW.md](WORKFLOW.md) to understand "why"
@@ -633,5 +662,5 @@ When working on this codebase:
 
 ---
 
-**Last Updated:** 2026-01-27
+**Last Updated:** 2026-02-06
 **Repository:** [nfelger/obsidian-tools](https://github.com/nfelger/obsidian-tools)

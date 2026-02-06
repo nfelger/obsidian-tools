@@ -258,6 +258,43 @@ export function findTopLevelTasksInRange(
 }
 
 /**
+ * Find the line range of a section defined by a heading.
+ *
+ * @param lines - All lines of the document
+ * @param heading - The heading string (e.g., "## Log", "## Todo")
+ * @returns Object with start (heading line) and end (exclusive: next same/higher-level heading or lines.length), or null if heading not found
+ */
+export function findSectionRange(
+	lines: string[],
+	heading: string
+): { start: number; end: number } | null {
+	const { level, text } = parseTargetHeading(heading);
+	const headingRegex = new RegExp(`^${'#'.repeat(level)} ${text}\\s*$`);
+
+	let targetLineIdx = -1;
+	for (let i = 0; i < lines.length; i++) {
+		if (lines[i].match(headingRegex)) {
+			targetLineIdx = i;
+			break;
+		}
+	}
+
+	if (targetLineIdx < 0) return null;
+
+	const headingPattern = /^(#{1,6})\s/;
+	let endIdx = lines.length;
+	for (let i = targetLineIdx + 1; i < lines.length; i++) {
+		const match = lines[i].match(headingPattern);
+		if (match && match[1].length <= level) {
+			endIdx = i;
+			break;
+		}
+	}
+
+	return { start: targetLineIdx, end: endIdx };
+}
+
+/**
  * Insert content under target heading, creating it if necessary.
  *
  * @param content - Full file content
@@ -271,34 +308,12 @@ export function insertUnderTargetHeading(
 	targetHeading: string = DEFAULT_SETTINGS.periodicNoteTaskTargetHeading
 ): string {
 	const lines = content.split('\n');
-	const { level, text } = parseTargetHeading(targetHeading);
+	const range = findSectionRange(lines, targetHeading);
 
-	// Build regex to find the heading
-	const headingRegex = new RegExp(`^${'#'.repeat(level)} ${text}\\s*$`);
-
-	// Find target heading
-	let targetLineIdx = -1;
-	for (let i = 0; i < lines.length; i++) {
-		if (lines[i].match(headingRegex)) {
-			targetLineIdx = i;
-			break;
-		}
-	}
-
-	if (targetLineIdx >= 0) {
-		// Find end of section (next heading at same or higher level, or end of file)
-		const headingPattern = /^(#{1,6})\s/;
-		let insertIdx = lines.length;
-		for (let i = targetLineIdx + 1; i < lines.length; i++) {
-			const match = lines[i].match(headingPattern);
-			if (match && match[1].length <= level) {
-				insertIdx = i;
-				break;
-			}
-		}
-
+	if (range) {
 		// Skip trailing blank lines before the next section
-		while (insertIdx > targetLineIdx + 1 && lines[insertIdx - 1].trim() === '') {
+		let insertIdx = range.end;
+		while (insertIdx > range.start + 1 && lines[insertIdx - 1].trim() === '') {
 			insertIdx--;
 		}
 

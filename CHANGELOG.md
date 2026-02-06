@@ -5,6 +5,51 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-02-06
+
+### Added
+
+**Auto-Move Completed Tasks**
+- Completed tasks in daily notes automatically move from Todo to Log section
+- Triggers when you mark a task as done `[x]` in the Todo section
+- New setting: `dailyNoteLogHeading` to configure the destination section
+
+## [0.8.1] - 2026-02-04
+
+### Added
+
+- New setting: `logExtractionTargetHeading` for Extract Log destination (decoupled from periodic note setting)
+
+### Fixed
+
+- Extract Log now prepends entries (reverse-chronological order restored)
+
+## [0.8.0] - 2026-02-03
+
+### Changed
+
+- Tasks now append to end of target section instead of prepending
+
+## [0.7.1] - 2026-02-03
+
+### Fixed
+
+- Preserve task order when moving multiple tasks across commands
+- Use consistent 4-space indentation for taken project tasks
+
+## [0.7.0] - 2026-01-30
+
+### Added
+
+**Project Commands**
+- **Take Project Task** — Pull a task from a project note into today's daily note
+- **Drop Task to Project** — Send a task from daily note to a project's Todo section
+- New hotkey bindings: `t` for take, `p` for drop (in hotkey modal)
+
+### Improved
+
+- Hotkey modal now includes all task movement commands
+
 ## [0.6.0] - 2026-01-29
 
 ### Added

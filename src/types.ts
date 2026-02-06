@@ -133,6 +133,9 @@ export interface BulletFlowSettings {
 
 	/** Keywords that identify collector tasks in daily notes (e.g., '"Push", "Finish"') */
 	projectKeywords: string;
+
+	/** Section heading in daily notes where completed tasks are moved to (e.g., '## Log') */
+	dailyNoteLogHeading: string;
 }
 
 export const DEFAULT_SETTINGS: BulletFlowSettings = {
@@ -145,7 +148,8 @@ export const DEFAULT_SETTINGS: BulletFlowSettings = {
 	yearlyNotePattern: 'YYYY/YYYY',
 	projectNoteTaskTargetHeading: '## Todo',
 	projectsFolder: '1 Projekte',
-	projectKeywords: '"Push", "Finish"'
+	projectKeywords: '"Push", "Finish"',
+	dailyNoteLogHeading: '## Log'
 };
 
 // === Command Results ===

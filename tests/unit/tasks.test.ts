@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	isIncompleteTask,
 	dedentLinesByAmount,
+	findSectionRange,
 	insertUnderTargetHeading,
 	findTopLevelTasksInRange,
 	markTaskAsScheduled,
@@ -110,6 +111,99 @@ describe('dedentLinesByAmount', () => {
 
 	it('returns copy when lines are empty', () => {
 		expect(dedentLinesByAmount([], 4)).toEqual([]);
+	});
+});
+
+describe('findSectionRange', () => {
+	it('finds a section and returns start and end', () => {
+		const lines = [
+			'# Note',
+			'',
+			'## Log',
+			'',
+			'- Item 1',
+			'',
+			'## Other',
+			'',
+			'Content'
+		];
+		const result = findSectionRange(lines, '## Log');
+		expect(result).toEqual({ start: 2, end: 6 });
+	});
+
+	it('returns null when heading not found', () => {
+		const lines = ['# Note', '', 'Content'];
+		expect(findSectionRange(lines, '## Log')).toBeNull();
+	});
+
+	it('extends to end of file when no subsequent heading', () => {
+		const lines = [
+			'## Log',
+			'',
+			'- Item 1',
+			'- Item 2'
+		];
+		const result = findSectionRange(lines, '## Log');
+		expect(result).toEqual({ start: 0, end: 4 });
+	});
+
+	it('stops at same-level heading', () => {
+		const lines = [
+			'## Log',
+			'- Item',
+			'## Todo',
+			'- Task'
+		];
+		const result = findSectionRange(lines, '## Log');
+		expect(result).toEqual({ start: 0, end: 2 });
+	});
+
+	it('stops at higher-level heading', () => {
+		const lines = [
+			'## Log',
+			'- Item',
+			'# Top Level'
+		];
+		const result = findSectionRange(lines, '## Log');
+		expect(result).toEqual({ start: 0, end: 2 });
+	});
+
+	it('does not stop at deeper heading within section', () => {
+		const lines = [
+			'## Log',
+			'- Item',
+			'### Subsection',
+			'Sub content',
+			'## Next'
+		];
+		const result = findSectionRange(lines, '## Log');
+		expect(result).toEqual({ start: 0, end: 4 });
+	});
+
+	it('handles heading with trailing whitespace', () => {
+		const lines = ['## Log   ', '- Item'];
+		const result = findSectionRange(lines, '## Log');
+		expect(result).toEqual({ start: 0, end: 2 });
+	});
+
+	it('handles empty section (just heading)', () => {
+		const lines = [
+			'## Log',
+			'## Next'
+		];
+		const result = findSectionRange(lines, '## Log');
+		expect(result).toEqual({ start: 0, end: 1 });
+	});
+
+	it('works with different heading levels', () => {
+		const lines = [
+			'# Title',
+			'### Deep',
+			'Content',
+			'### Another'
+		];
+		const result = findSectionRange(lines, '### Deep');
+		expect(result).toEqual({ start: 1, end: 3 });
 	});
 });
 

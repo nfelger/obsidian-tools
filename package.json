@@ -1,6 +1,6 @@
 {
   "name": "bullet-flow",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "BuJo-inspired workflow: extract logs and migrate tasks from daily notes",
   "main": "main.js",
   "scripts": {
@@ -22,6 +22,8 @@
   "author": "nfelger",
   "license": "MIT",
   "devDependencies": {
+    "@codemirror/state": "^6.5.4",
+    "@codemirror/view": "^6.39.12",
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
