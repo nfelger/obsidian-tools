@@ -76,6 +76,17 @@ export class BulletFlowSettingTab extends PluginSettingTab {
 			});
 
 		new Setting(containerEl)
+			.setName('Daily note log heading')
+			.setDesc('Heading in daily notes where completed tasks are moved to')
+			.addText(text => text
+				.setPlaceholder(DEFAULT_SETTINGS.dailyNoteLogHeading)
+				.setValue(this.plugin.settings.dailyNoteLogHeading)
+				.onChange(async (value) => {
+					this.plugin.settings.dailyNoteLogHeading = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
 			.setName('Periodic note task heading')
 			.setDesc('Heading in periodic notes where tasks are inserted (include # symbols)')
 			.addText(text => text
@@ -133,17 +144,6 @@ export class BulletFlowSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.projectKeywords)
 				.onChange(async (value) => {
 					this.plugin.settings.projectKeywords = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Daily note log heading')
-			.setDesc('Heading in daily notes where completed tasks are moved to')
-			.addText(text => text
-				.setPlaceholder(DEFAULT_SETTINGS.dailyNoteLogHeading)
-				.setValue(this.plugin.settings.dailyNoteLogHeading)
-				.onChange(async (value) => {
-					this.plugin.settings.dailyNoteLogHeading = value;
 					await this.plugin.saveSettings();
 				}));
 
