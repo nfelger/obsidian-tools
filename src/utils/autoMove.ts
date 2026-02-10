@@ -1,13 +1,12 @@
 /**
- * Pure functions for auto-moving completed tasks from Todo to Log.
+ * Pure functions for auto-moving completed and started tasks from Todo to Log.
  *
  * All functions operate on plain strings/arrays — no Obsidian or CM6 dependencies.
  */
 
-import { findSectionRange, parseTargetHeading } from './tasks';
+import { findSectionRange, TaskMarker, TaskState } from './tasks';
 import { countIndent } from './indent';
 
-const COMPLETED_TASK_PATTERN = /^\s*- \[x\]/i;
 const LIST_ITEM_PATTERN = /^\s*[-*+]\s/;
 
 /**
@@ -131,33 +130,34 @@ export function findLogInsertionLine(
 }
 
 /**
- * Compute the changes needed to move a completed task from Todo to Log.
+ * Compute the changes needed to move a completed or started task from Todo to Log.
  *
  * @param docText - Full document text
- * @param completedLine - Line number of the just-completed task
+ * @param triggerLine - Line number of the just-completed or just-started task
  * @param todoHeading - The Todo section heading (e.g., "## Todo")
  * @param logHeading - The Log section heading (e.g., "## Log")
  * @returns Array of CM6-compatible changes (sorted by position), or null if no move needed
  */
 export function computeAutoMove(
 	docText: string,
-	completedLine: number,
+	triggerLine: number,
 	todoHeading: string,
 	logHeading: string
 ): { changes: Array<{ from: number; to: number; insert: string }> } | null {
 	const lines = docText.split('\n');
 
-	// Check that the completed line is a completed task
-	if (completedLine < 0 || completedLine >= lines.length) return null;
-	if (!COMPLETED_TASK_PATTERN.test(lines[completedLine])) return null;
+	// Check that the line is a completed or started task
+	if (triggerLine < 0 || triggerLine >= lines.length) return null;
+	const marker = TaskMarker.fromLine(lines[triggerLine]);
+	if (!marker || (marker.state !== TaskState.Completed && marker.state !== TaskState.Started)) return null;
 
 	// Find Todo section and verify the line is in it
 	const todoRange = findSectionRange(lines, todoHeading);
 	if (!todoRange) return null;
-	if (completedLine <= todoRange.start || completedLine >= todoRange.end) return null;
+	if (triggerLine <= todoRange.start || triggerLine >= todoRange.end) return null;
 
 	// Find root ancestor and collect the block
-	const rootLine = findRootAncestorLine(lines, completedLine, todoRange.start);
+	const rootLine = findRootAncestorLine(lines, triggerLine, todoRange.start);
 	const block = collectBlock(lines, rootLine, todoRange.end);
 	const blockText = lines.slice(block.startLine, block.endLine).join('\n');
 

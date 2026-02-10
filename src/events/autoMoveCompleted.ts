@@ -1,5 +1,5 @@
 /**
- * CM6 extension that auto-moves completed tasks from ## Todo to ## Log in daily notes.
+ * CM6 extension that auto-moves completed and started tasks from ## Todo to ## Log in daily notes.
  */
 
 import { EditorView, ViewUpdate } from '@codemirror/view';
@@ -7,9 +7,8 @@ import { Annotation, Extension } from '@codemirror/state';
 import { MarkdownView } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
+import { TaskMarker, TaskState } from '../utils/tasks';
 import { computeAutoMove } from '../utils/autoMove';
-
-const COMPLETED_TASK_RE = /^\s*- \[x\]/i;
 
 /**
  * Annotation used to mark our programmatic transactions.
@@ -19,7 +18,7 @@ const COMPLETED_TASK_RE = /^\s*- \[x\]/i;
 const autoMoveAnnotation = Annotation.define<boolean>();
 
 /**
- * Create a CM6 extension that watches for task completions and moves them to Log.
+ * Create a CM6 extension that watches for task completions/starts and moves them to Log.
  */
 export function createAutoMoveExtension(plugin: BulletFlowPlugin): Extension {
 	return EditorView.updateListener.of((update: ViewUpdate) => {
@@ -28,15 +27,15 @@ export function createAutoMoveExtension(plugin: BulletFlowPlugin): Extension {
 		// Skip our own programmatic transactions
 		if (update.transactions.some(tr => tr.annotation(autoMoveAnnotation))) return;
 
-		// Check if any change created a new [x] task
-		const completedLine = detectNewCompletion(update);
-		if (completedLine === null) return;
+		// Check if any change created a new [x] or [/] task
+		const triggerLine = detectAutoMoveTrigger(update);
+		if (triggerLine === null) return;
 
 		// Schedule the move asynchronously to avoid recursive dispatch
 		const view = update.view;
 		setTimeout(() => {
 			try {
-				performAutoMove(plugin, view, completedLine);
+				performAutoMove(plugin, view, triggerLine);
 			} catch (e: any) {
 				console.error('autoMoveCompleted error:', e);
 			}
@@ -45,16 +44,16 @@ export function createAutoMoveExtension(plugin: BulletFlowPlugin): Extension {
 }
 
 /**
- * Detect if a change in the update created a new [x] completed task.
+ * Detect if a change in the update created a new [x] or [/] task.
  * Returns the line number (0-indexed) in the new document, or null.
  */
-function detectNewCompletion(update: ViewUpdate): number | null {
+function detectAutoMoveTrigger(update: ViewUpdate): number | null {
 	const newDoc = update.state.doc;
 	const oldDoc = update.startState.doc;
 
 	let foundLine: number | null = null;
 
-	update.changes.iterChanges((fromA, toA, fromB, toB) => {
+	update.changes.iterChanges((_fromA, _toA, fromB, toB) => {
 		if (foundLine !== null) return;
 
 		// Find the range of lines affected in the new document
@@ -63,15 +62,16 @@ function detectNewCompletion(update: ViewUpdate): number | null {
 
 		for (let lineNum = startLine; lineNum <= endLine; lineNum++) {
 			const newLine = newDoc.line(lineNum);
-			if (!COMPLETED_TASK_RE.test(newLine.text)) continue;
+			const newMarker = TaskMarker.fromLine(newLine.text);
+			if (!newMarker || (newMarker.state !== TaskState.Completed && newMarker.state !== TaskState.Started)) continue;
 
-			// Check if this line was NOT [x] in the old document
-			// Map the position back to the old document
+			// Check if this line already had the same state in the old document
 			const oldPos = update.changes.mapPos(newLine.from, -1);
 			if (oldPos >= 0 && oldPos <= oldDoc.length) {
 				const oldLine = oldDoc.lineAt(oldPos);
-				if (COMPLETED_TASK_RE.test(oldLine.text)) {
-					// Was already [x] — not a new completion
+				const oldMarker = TaskMarker.fromLine(oldLine.text);
+				if (oldMarker && oldMarker.state === newMarker.state) {
+					// Same state before — not a new trigger
 					continue;
 				}
 			}
@@ -90,7 +90,7 @@ function detectNewCompletion(update: ViewUpdate): number | null {
 function performAutoMove(
 	plugin: BulletFlowPlugin,
 	view: EditorView,
-	completedLine: number
+	triggerLine: number
 ): void {
 	// Verify we're in a daily note
 	const markdownView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
@@ -105,12 +105,13 @@ function performAutoMove(
 	const todoHeading = plugin.settings.periodicNoteTaskTargetHeading;
 	const logHeading = plugin.settings.dailyNoteLogHeading;
 
-	// Verify the line is still a completed task
+	// Verify the line is still a completed or started task
 	const lines = docText.split('\n');
-	if (completedLine < 0 || completedLine >= lines.length) return;
-	if (!COMPLETED_TASK_RE.test(lines[completedLine])) return;
+	if (triggerLine < 0 || triggerLine >= lines.length) return;
+	const marker = TaskMarker.fromLine(lines[triggerLine]);
+	if (!marker || (marker.state !== TaskState.Completed && marker.state !== TaskState.Started)) return;
 
-	const result = computeAutoMove(docText, completedLine, todoHeading, logHeading);
+	const result = computeAutoMove(docText, triggerLine, todoHeading, logHeading);
 	if (!result) return;
 
 	// Dispatch the move as a single transaction with our annotation

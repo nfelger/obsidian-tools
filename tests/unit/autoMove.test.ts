@@ -421,6 +421,69 @@ describe('computeAutoMove', () => {
 		expect(applied).toContain('    - Grandchild');
 		expect(applied).toContain('      - Great-grandchild');
 	});
+
+	it('moves a started root-level task from Todo to Log', () => {
+		const doc = [
+			'## Todo',
+			'- [/] Writing report',
+			'- [ ] Other task',
+			'',
+			'## Log',
+			'- Did something'
+		].join('\n');
+
+		const result = computeAutoMove(doc, 1, '## Todo', '## Log');
+		expect(result).not.toBeNull();
+
+		const applied = applyChanges(doc, result!.changes);
+		const lines = applied.split('\n');
+
+		// Task should be gone from Todo
+		expect(lines).toContain('- [ ] Other task');
+		expect(lines.filter(l => l.includes('Writing report'))).toHaveLength(1);
+
+		// Task should be in Log
+		const logIdx = lines.indexOf('## Log');
+		const taskIdx = lines.indexOf('- [/] Writing report');
+		expect(taskIdx).toBeGreaterThan(logIdx);
+	});
+
+	it('moves root ancestor when nested task is started', () => {
+		const doc = [
+			'## Todo',
+			'- [ ] Parent task',
+			'  - [/] Started child',
+			'  - [ ] Open sibling',
+			'',
+			'## Log',
+			'- Done thing'
+		].join('\n');
+
+		const result = computeAutoMove(doc, 2, '## Todo', '## Log');
+		expect(result).not.toBeNull();
+
+		const applied = applyChanges(doc, result!.changes);
+		const lines = applied.split('\n');
+
+		// Entire block should be in Log
+		const logIdx = lines.indexOf('## Log');
+		const parentIdx = lines.indexOf('- [ ] Parent task');
+		expect(parentIdx).toBeGreaterThan(logIdx);
+		expect(lines).toContain('  - [/] Started child');
+		expect(lines).toContain('  - [ ] Open sibling');
+	});
+
+	it('returns null if started task is not in Todo section', () => {
+		const doc = [
+			'## Log',
+			'- [/] Already in log',
+			'',
+			'## Todo',
+			'- [ ] Task'
+		].join('\n');
+
+		expect(computeAutoMove(doc, 1, '## Todo', '## Log')).toBeNull();
+	});
 });
 
 /**
