@@ -5,6 +5,12 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-02-11
+
+### Changed
+
+- Extract Log hotkey changed from `e` to `x` in the hotkey menu
+
 ## [0.10.0] - 2026-02-10
 
 ### Improved
