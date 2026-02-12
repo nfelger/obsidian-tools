@@ -86,9 +86,10 @@ describe('takeProjectTask', () => {
 			const collectorIdx = lines.findIndex(l => l.includes('Push [[Migration Initiative]]'));
 			expect(collectorIdx).toBeGreaterThanOrEqual(0);
 
-			// Next line should be the indented taken task
+			// Next line should be the indented taken task (no wikilink — collector provides project context)
 			const nextLine = lines[collectorIdx + 1];
-			expect(nextLine).toContain('[[Migration Initiative]] Define rollback strategy');
+			expect(nextLine).toContain('Define rollback strategy');
+			expect(nextLine).not.toContain('[[Migration Initiative]]');
 			expect(nextLine).toMatch(/^\s{4}/); // indented 4 spaces
 		});
 
@@ -106,7 +107,9 @@ describe('takeProjectTask', () => {
 			});
 
 			expect(result.daily).toContain('Finish [[Migration Initiative]]');
-			expect(result.daily).toContain('[[Migration Initiative]] Final review');
+			// No wikilink when nested under collector — collector already identifies the project
+			expect(result.daily).toContain('Final review');
+			expect(result.daily).not.toContain('[[Migration Initiative]] Final review');
 		});
 
 		it('does not match partial keyword prefix', async () => {

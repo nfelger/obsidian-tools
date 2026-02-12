@@ -100,8 +100,9 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 				childrenContent = dedentedChildren.join('\n');
 			}
 
-			// Build full task content for collector insertion (4-space children)
-			let taskContentForCollector = parentLineWithLink;
+			// Build full task content for collector insertion (4-space children, no project link)
+			// The collector task already identifies the project, so prepending [[Project]] is redundant noise
+			let taskContentForCollector = parentLineForTarget;
 			if (childrenContent) {
 				const indentedChildren = indentLines(childrenContent.split('\n'), 4).join('\n');
 				taskContentForCollector += '\n' + indentedChildren;
