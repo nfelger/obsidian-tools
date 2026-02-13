@@ -5,6 +5,12 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] - 2026-02-13
+
+### Fixed
+
+- "Take task from project" no longer prepends `[[Project]]` when nesting the task under a collector (e.g. `- [ ] Push [[Project]]`). The collector already identifies the project, so the extra link was noise.
+
 ## [0.10.1] - 2026-02-11
 
 ### Changed
