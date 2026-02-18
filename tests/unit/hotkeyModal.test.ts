@@ -61,9 +61,9 @@ describe('HotkeyModal', () => {
 			expect(pullBinding?.label).toBe('Pull task up');
 		});
 
-		it('should have binding for extract log (e)', () => {
+		it('should have binding for extract log (x)', () => {
 			const bindings = modal.getBindings();
-			const extractBinding = bindings.find(b => b.key === 'e');
+			const extractBinding = bindings.find(b => b.key === 'x');
 
 			expect(extractBinding).toBeDefined();
 			expect(extractBinding?.label).toBe('Extract log');
@@ -81,7 +81,7 @@ describe('HotkeyModal', () => {
 
 			// Check that scope.register was called for each binding
 			expect(modal.scope.keys).toHaveLength(6);
-			expect(modal.scope.keys.map((k: any) => k.key)).toEqual(['m', 'd', 'u', 'e', 't', 'p']);
+			expect(modal.scope.keys.map((k: any) => k.key)).toEqual(['m', 'd', 'u', 'x', 't', 'p']);
 		});
 
 		it('should execute migrateTask when m is pressed', () => {
@@ -117,10 +117,10 @@ describe('HotkeyModal', () => {
 			expect(pullTaskUp).toHaveBeenCalledWith(mockPlugin);
 		});
 
-		it('should execute extractLog when e is pressed', () => {
+		it('should execute extractLog when x is pressed', () => {
 			modal.open();
 
-			const handler = modal.scope.keys.find((k: any) => k.key === 'e');
+			const handler = modal.scope.keys.find((k: any) => k.key === 'x');
 			const mockEvent = { preventDefault: vi.fn() } as unknown as KeyboardEvent;
 
 			handler?.callback(mockEvent);
