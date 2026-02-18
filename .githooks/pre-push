@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Hook 3: Require a version bump if src/ has changed on this branch.
+# Fires only when no bump has been made anywhere on the current branch yet.
+BASE=$(git merge-base HEAD origin/main 2>/dev/null) || exit 0
+
+SRC_CHANGED=$(git diff "$BASE" HEAD --name-only -- src/)
+VERSION_CHANGED=$(git diff "$BASE" HEAD --name-only -- manifest.json package.json versions.json)
+
+if [ -n "$SRC_CHANGED" ] && [ -z "$VERSION_CHANGED" ]; then
+  echo "Error: src/ changed since main but no version bump found on this branch."
+  echo "Bump manifest.json, package.json, and versions.json before pushing."
+  exit 1
+fi
