@@ -1,5 +1,3 @@
-import type { TFile } from 'obsidian';
-
 // === List Items ===
 
 export interface ListItem {
@@ -50,17 +48,6 @@ export interface LinkResolver {
 	 * @returns The resolved link info, or null if not found
 	 */
 	resolve(linkPath: string, sourcePath: string): ResolvedLink | null;
-}
-
-/**
- * Legacy WikiLink type that includes Obsidian's TFile.
- * @deprecated Use ResolvedLink for new code
- */
-export interface WikiLink {
-	tfile: TFile;
-	index: number;
-	matchText: string;
-	wikiInner: string;
 }
 
 export interface ParsedWikilink {
@@ -151,6 +138,26 @@ export const DEFAULT_SETTINGS: BulletFlowSettings = {
 	projectKeywords: '"Push", "Finish"',
 	dailyNoteLogHeading: '## Log'
 };
+
+// === Task Insertion ===
+
+/**
+ * Result of inserting a task with deduplication.
+ */
+export interface InsertTaskResult {
+	content: string;
+	wasMerged: boolean;
+	reopenedScheduled: boolean;
+}
+
+/**
+ * Data for a task to be inserted into a target note.
+ */
+export interface TaskInsertItem {
+	taskText: string;
+	taskContent: string;
+	childrenContent: string;
+}
 
 // === Command Results ===
 

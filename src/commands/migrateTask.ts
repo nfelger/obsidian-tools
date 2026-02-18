@@ -1,17 +1,11 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { parseNoteType, getNextNotePath } from '../utils/periodicNotes';
-import { dedentLinesByAmount, insertMultipleUnderTargetHeading } from '../utils/tasks';
+import { dedentLinesByAmount, insertMultipleUnderTargetHeading, TaskMarker } from '../utils/tasks';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
-import {
-	NOTICE_TIMEOUT_ERROR,
-	STARTED_TO_OPEN_PATTERN,
-	OPEN_TASK_MARKER,
-	MIGRATE_TASK_PATTERN,
-	MIGRATED_MARKER
-} from '../config';
+import { NOTICE_TIMEOUT_ERROR } from '../config';
 
 /**
  * Migrate incomplete tasks from the current periodic note to the next note.
@@ -71,7 +65,8 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 			const parentIndent = countIndent(lineText);
 			const parentLineStripped = lineText.slice(parentIndent);
 			// Convert started [/] to open [ ] in target
-			const parentLineForTarget = parentLineStripped.replace(STARTED_TO_OPEN_PATTERN, '$1' + OPEN_TASK_MARKER);
+			const marker = TaskMarker.fromLine(parentLineStripped);
+			const parentLineForTarget = marker ? marker.toOpen().applyToLine(parentLineStripped) : parentLineStripped;
 			let taskContent = parentLineForTarget;
 			if (children && children.lines.length > 0) {
 				const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
@@ -80,7 +75,8 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 			collectedContent.push(taskContent);
 
 			// Mark source line as migrated
-			const migratedLine = lineText.replace(MIGRATE_TASK_PATTERN, '$1' + MIGRATED_MARKER);
+			const sourceMarker = TaskMarker.fromLine(lineText);
+			const migratedLine = sourceMarker ? sourceMarker.toMigrated().applyToLine(lineText) : lineText;
 			editor.setLine(taskLine, migratedLine);
 
 			// Remove children from source

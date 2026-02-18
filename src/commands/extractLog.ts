@@ -79,7 +79,7 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 		let headingSuffix = '';
 
 		if (firstLink) {
-			targetFile = firstLink.tfile;
+			targetFile = plugin.app.vault.getAbstractFileByPath(firstLink.path) as TFile;
 
 			// CASE 1: Pure link bullet - inherit parent context
 			if (isPureLinkBullet(parentText, firstLink)) {
@@ -127,7 +127,7 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 		// Update wikilink in parent bullet to point to this heading
 		// Keep visible text exactly as before using an alias
 		if (firstLink) {
-			const inner = firstLink.wikiInner;
+			const inner = firstLink.inner;
 			const p = inner.split('|');
 			const left = p[0]; // original link target (page[#section])
 			const aliasPart = p.length > 1 ? p.slice(1).join('|') : null;

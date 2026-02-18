@@ -1,5 +1,5 @@
 import type { TFile, MetadataCache, Vault } from 'obsidian';
-import type { WikiLink, ParsedWikilink, WikilinkMatch, ResolvedLink, LinkResolver } from '../types';
+import type { ParsedWikilink, WikilinkMatch, ResolvedLink, LinkResolver } from '../types';
 import { stripListPrefix } from './listItems';
 
 // === Link Resolver Implementation ===
@@ -167,7 +167,7 @@ export function findFirstWikiLink(
 	lineText: string,
 	sourcePath: string,
 	metadataCache: MetadataCache
-): WikiLink | null {
+): ResolvedLink | null {
 	const wikiRegex = /\[\[([^\]]+)\]\]/g;
 	let match;
 
@@ -189,10 +189,12 @@ export function findFirstWikiLink(
 		const tfile = metadataCache.getFirstLinkpathDest(linkPath, sourcePath);
 		if (tfile && tfile.extension === 'md') {
 			return {
-				tfile,
+				path: tfile.path,
+				basename: tfile.basename,
+				extension: tfile.extension,
 				index,
 				matchText: match[0],
-				wikiInner: inner
+				inner
 			};
 		}
 	}
@@ -208,7 +210,7 @@ export function findFirstWikiLink(
  *   "- [[Note]] with text" -> false
  *   "- Text with [[Note]]" -> false
  */
-export function isPureLinkBullet(parentText: string, firstLink: WikiLink | null): boolean {
+export function isPureLinkBullet(parentText: string, firstLink: ResolvedLink | null): boolean {
 	if (!firstLink) return false;
 
 	// Remove list prefix (bullet + optional checkbox)

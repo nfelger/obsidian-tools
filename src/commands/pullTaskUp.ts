@@ -7,7 +7,7 @@ import {
 	insertMultipleTasksWithDeduplication,
 	markTaskAsScheduled
 } from '../utils/tasks';
-import type { TaskInsertItem } from '../utils/tasks';
+import type { TaskInsertItem } from '../types';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';

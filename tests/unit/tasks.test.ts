@@ -10,7 +10,9 @@ import {
 	markScheduledAsOpen,
 	extractTaskText,
 	findMatchingTask,
-	insertChildrenUnderTask
+	insertChildrenUnderTask,
+	TaskMarker,
+	TaskState
 } from '../../src/utils/tasks';
 import { parseMarkdownToListItems } from '../helpers/markdownParser.js';
 import { createMockEditor } from '../mocks/obsidian.js';
@@ -695,5 +697,105 @@ describe('insertChildrenUnderTask', () => {
   - Child after empty
   - New child
 - [ ] Other task`);
+	});
+});
+
+// === TaskMarker ===
+
+describe('TaskMarker', () => {
+	describe('fromLine', () => {
+		it('parses open task', () => {
+			const marker = TaskMarker.fromLine('- [ ] Task');
+			expect(marker?.state).toBe(TaskState.Open);
+		});
+
+		it('parses started task', () => {
+			const marker = TaskMarker.fromLine('- [/] Task');
+			expect(marker?.state).toBe(TaskState.Started);
+		});
+
+		it('parses completed task', () => {
+			const marker = TaskMarker.fromLine('- [x] Task');
+			expect(marker?.state).toBe(TaskState.Completed);
+		});
+
+		it('parses migrated task', () => {
+			const marker = TaskMarker.fromLine('- [>] Task');
+			expect(marker?.state).toBe(TaskState.Migrated);
+		});
+
+		it('parses scheduled task', () => {
+			const marker = TaskMarker.fromLine('- [<] Task');
+			expect(marker?.state).toBe(TaskState.Scheduled);
+		});
+
+		it('handles indented tasks', () => {
+			const marker = TaskMarker.fromLine('  - [ ] Task');
+			expect(marker?.state).toBe(TaskState.Open);
+		});
+
+		it('returns null for non-tasks', () => {
+			expect(TaskMarker.fromLine('- Regular bullet')).toBeNull();
+			expect(TaskMarker.fromLine('Just text')).toBeNull();
+			expect(TaskMarker.fromLine('# Heading')).toBeNull();
+		});
+	});
+
+	describe('applyToLine', () => {
+		it('replaces marker on open task', () => {
+			const marker = new TaskMarker(TaskState.Migrated);
+			expect(marker.applyToLine('- [ ] Task')).toBe('- [>] Task');
+		});
+
+		it('replaces marker on started task', () => {
+			const marker = new TaskMarker(TaskState.Open);
+			expect(marker.applyToLine('- [/] Task')).toBe('- [ ] Task');
+		});
+
+		it('preserves indentation', () => {
+			const marker = new TaskMarker(TaskState.Scheduled);
+			expect(marker.applyToLine('  - [ ] Task')).toBe('  - [<] Task');
+		});
+	});
+
+	describe('prependToContent', () => {
+		it('prepends text after the checkbox', () => {
+			const result = TaskMarker.prependToContent('- [ ] Task text', '[[Project]]');
+			expect(result).toBe('- [ ] [[Project]] Task text');
+		});
+
+		it('works with started tasks', () => {
+			const result = TaskMarker.prependToContent('- [/] Task text', '[[Project]]');
+			expect(result).toBe('- [/] [[Project]] Task text');
+		});
+
+		it('works with indented tasks', () => {
+			const result = TaskMarker.prependToContent('  - [ ] Task text', '[[Project]]');
+			expect(result).toBe('  - [ ] [[Project]] Task text');
+		});
+	});
+
+	describe('stripProjectLink', () => {
+		it('strips project link from task line', () => {
+			const result = TaskMarker.stripProjectLink('- [ ] [[MyProject]] Task text', 'MyProject');
+			expect(result).toBe('- [ ] Task text');
+		});
+
+		it('handles different task states', () => {
+			expect(TaskMarker.stripProjectLink('- [/] [[Proj]] Do thing', 'Proj'))
+				.toBe('- [/] Do thing');
+			expect(TaskMarker.stripProjectLink('- [<] [[Proj]] Do thing', 'Proj'))
+				.toBe('- [<] Do thing');
+		});
+
+		it('leaves line unchanged when no project link present', () => {
+			const result = TaskMarker.stripProjectLink('- [ ] Task without link', 'MyProject');
+			expect(result).toBe('- [ ] Task without link');
+		});
+
+		it('handles project names with special regex characters', () => {
+			const result = TaskMarker.stripProjectLink('- [ ] [[My (Project)]] Task', 'My (Project)');
+			expect(result).toBe('- [ ] Task');
+		});
 	});
 });
