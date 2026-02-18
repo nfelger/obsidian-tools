@@ -5,6 +5,7 @@ import { pushTaskDown } from './commands/pushTaskDown';
 import { pullTaskUp } from './commands/pullTaskUp';
 import { takeProjectTask } from './commands/takeProjectTask';
 import { dropTaskToProject } from './commands/dropTaskToProject';
+import { finishProject } from './commands/finishProject';
 import { HotkeyModal } from './ui/HotkeyModal';
 import { BulletFlowSettingTab } from './settings';
 import type { BulletFlowSettings } from './types';
@@ -73,6 +74,13 @@ export default class BulletFlowPlugin extends Plugin {
 			id: 'drop-task-to-project',
 			name: 'Drop task to project note',
 			callback: () => dropTaskToProject(this)
+		});
+
+		// Finish Project command
+		this.addCommand({
+			id: 'finish-project',
+			name: 'Finish project',
+			callback: () => finishProject(this)
 		});
 
 		// Hotkey Modal command (leader key)

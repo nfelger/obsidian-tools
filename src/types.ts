@@ -123,6 +123,9 @@ export interface BulletFlowSettings {
 
 	/** Section heading in daily notes where completed tasks are moved to (e.g., '## Log') */
 	dailyNoteLogHeading: string;
+
+	/** Folder where finished projects are moved to (e.g., '4 Archive') */
+	projectArchiveFolder: string;
 }
 
 export const DEFAULT_SETTINGS: BulletFlowSettings = {
@@ -136,7 +139,8 @@ export const DEFAULT_SETTINGS: BulletFlowSettings = {
 	projectNoteTaskTargetHeading: '## Todo',
 	projectsFolder: '1 Projekte',
 	projectKeywords: '"Push", "Finish"',
-	dailyNoteLogHeading: '## Log'
+	dailyNoteLogHeading: '## Log',
+	projectArchiveFolder: '4 Archive'
 };
 
 // === Task Insertion ===

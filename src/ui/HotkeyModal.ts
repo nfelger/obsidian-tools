@@ -7,6 +7,7 @@ import { pushTaskDown } from '../commands/pushTaskDown';
 import { pullTaskUp } from '../commands/pullTaskUp';
 import { takeProjectTask } from '../commands/takeProjectTask';
 import { dropTaskToProject } from '../commands/dropTaskToProject';
+import { finishProject } from '../commands/finishProject';
 
 interface HotkeyBinding {
 	key: string;
@@ -23,6 +24,7 @@ const COMMAND_REGISTRY: Record<CommandId, CommandFn> = {
 	'extractLog': extractLog,
 	'takeProjectTask': takeProjectTask,
 	'dropTaskToProject': dropTaskToProject,
+	'finishProject': finishProject,
 };
 
 export class HotkeyModal extends Modal {
