@@ -172,7 +172,7 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 		new Notice(message);
 	} catch (e: any) {
 		new Notice(`dropTaskToProject ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
-		console.log('dropTaskToProject ERROR', e);
+		console.error('dropTaskToProject error:', e);
 	}
 }
 

@@ -152,6 +152,6 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 		new Notice(message);
 	} catch (e: any) {
 		new Notice(`pullTaskUp ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
-		console.log('pullTaskUp ERROR', e);
+		console.error('pullTaskUp error:', e);
 	}
 }

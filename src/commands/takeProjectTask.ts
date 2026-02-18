@@ -184,6 +184,6 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 		new Notice(message);
 	} catch (e: any) {
 		new Notice(`takeProjectTask ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
-		console.log('takeProjectTask ERROR', e);
+		console.error('takeProjectTask error:', e);
 	}
 }

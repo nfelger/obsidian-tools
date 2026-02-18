@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { testMigrateTaskPlugin } from '../helpers/migrateTaskPluginTestHelper';
 
-describe('migrateTask (plugin) - MVP integration', () => {
+describe('migrateTask (plugin)', () => {
 	beforeEach(() => {
 		vi.resetModules();
 	});
@@ -70,7 +70,7 @@ describe('migrateTask (plugin) - MVP integration', () => {
 		});
 	});
 
-	describe('single line migration - daily notes only (MVP)', () => {
+	describe('single line migration - daily notes only', () => {
 		it('should migrate a single task to next daily note', async () => {
 			const result = await testMigrateTaskPlugin({
 				source: `
@@ -212,7 +212,7 @@ title: Note
 		});
 	});
 
-	describe('boundary transitions (Slice 6)', () => {
+	describe('boundary transitions', () => {
 		it('should migrate task from Sunday to next weekly note', async () => {
 			const result = await testMigrateTaskPlugin({
 				source: `
@@ -246,7 +246,7 @@ title: Note
 		});
 	});
 
-	describe('multi-select migration (Slice 6)', () => {
+	describe('multi-select migration', () => {
 		it('should migrate multiple top-level tasks when selected', async () => {
 			const result = await testMigrateTaskPlugin({
 				source: `
