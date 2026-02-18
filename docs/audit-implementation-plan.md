@@ -85,50 +85,6 @@ Findings from the CLAUDE.md audit, ordered by priority. Finding 4 of the origina
 
 ---
 
-## Finding 3 — Planning terms in test describe blocks (Medium)
-
-**Rule:** *"NEVER add planning comments to committed code. MVP, Slice references belong in
-GitHub issues — not in source files."*
-
-### File: `tests/integration/migrateTask.plugin.test.ts`
-
-| Line | Current | Replace with |
-|---|---|---|
-| 4 | `'migrateTask (plugin) - MVP integration'` | `'migrateTask (plugin)'` |
-| 73 | `'single line migration - daily notes only (MVP)'` | `'single line migration - daily notes only'` |
-| 215 | `'boundary transitions (Slice 6)'` | `'boundary transitions'` |
-| 249 | `'multi-select migration (Slice 6)'` | `'multi-select migration'` |
-
-### Implementation steps
-
-1. Rename the four `describe(…)` labels as shown above.
-2. Run `npm test` to confirm the test file is still valid.
-
----
-
-## Finding 4 — `console.log` in error paths (Medium)
-
-**Rule:** CLAUDE.md's command template uses `console.error('newCommand error:', e)`.
-
-### Affected lines
-
-| File | Line | Current |
-|---|---|---|
-| `src/commands/extractLog.ts` | 206 | `console.log('extractLog ERROR', e)` |
-| `src/commands/extractLog.ts` | 26 | `console.log('copyToClipboard error:', e)` |
-| `src/commands/migrateTask.ts` | 112 | `console.log('migrateTask ERROR', e)` |
-| `src/commands/pushTaskDown.ts` | 172 | `console.log('pushTaskDown ERROR', e)` |
-| `src/commands/pullTaskUp.ts` | 155 | `console.log('pullTaskUp ERROR', e)` |
-| `src/commands/takeProjectTask.ts` | 187 | `console.log('takeProjectTask ERROR', e)` |
-| `src/commands/dropTaskToProject.ts` | 175 | `console.log('dropTaskToProject ERROR', e)` |
-
-### Implementation steps
-
-1. Replace every `console.log(…ERROR…)` in the catch blocks above with `console.error(…)`.
-2. No logic change, no test update needed.
-
----
-
 ## Finding 5 — Stale CLAUDE.md structure diagram (Low)
 
 **Rule:** The structure section of CLAUDE.md must reflect the actual layout. Currently missing:
@@ -213,9 +169,7 @@ The migration path is clear but not tracked.
 
 ## Suggested work order
 
-1. Finding 3 — trivial rename, unblocks clean test run
-2. Finding 4 — mechanical find-replace, no risk
-3. Finding 2 — move types; run tests to confirm
-4. Finding 1 — most complex; extend `TaskMarker` first, then update commands one by one
-5. Finding 6 — check callers, delete or track
-6. Finding 5 — fix diagram, write and wire hook
+1. Finding 2 — move types; run tests to confirm
+2. Finding 1 — most complex; extend `TaskMarker` first, then update commands one by one
+3. Finding 6 — check callers, delete or track
+4. Finding 5 — fix diagram, write and wire hook
