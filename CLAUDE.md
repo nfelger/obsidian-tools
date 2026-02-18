@@ -58,7 +58,7 @@ correctly, flag it as a violation of this principle.
 
 ✅ Move/copy text between files, leave visible state markers (`[>]` migrated, `[<]` scheduled),
 use wikilinks as the paper trail
-❌ Add frontmatter, create Dataview blocks, store state outside markdown
+❌ Create Dataview blocks or tasks queries, store state outside markdown
 
 ## Key APIs and Architecture
 
@@ -66,6 +66,7 @@ use wikilinks as the paper trail
 - `this.app.vault` — file operations
 - `this.app.workspace` — navigate, get active view/editor
 - `this.app.metadataCache` — list item metadata
+- `this.app.fileManager` — rename/move files (updates wikilinks)
 - `Notice` — user notifications
 
 **Domain patterns — use these, don't bypass:**
