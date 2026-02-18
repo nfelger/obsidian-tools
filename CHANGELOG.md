@@ -5,6 +5,14 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-02-18
+
+### Added
+
+- New **Finish project** command: marks a project as completed by adding a `completed` date to frontmatter, renaming it with a checkmark prefix, and moving it to the archive folder
+- New **Project archive folder** setting to configure where finished projects are moved (default: `4 Archive`)
+- Finish project hotkey (`f`) in the command menu
+
 ## [0.10.4] - 2026-02-18
 
 ### Improved
