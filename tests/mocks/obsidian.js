@@ -301,3 +301,32 @@ export class Modal {
   onOpen() {}
   onClose() {}
 }
+
+// Mock SuggestModal class
+export class SuggestModal extends Modal {
+  constructor(app) {
+    super(app);
+    this.inputEl = createMockElement();
+    this.resultContainerEl = createMockElement();
+    this.emptyStateText = '';
+    this.limit = Infinity;
+  }
+
+  setPlaceholder() {}
+  setInstructions() {}
+  getSuggestions() { return []; }
+  renderSuggestion() {}
+  onChooseSuggestion() {}
+  onNoSuggestion() {}
+}
+
+// Mock FuzzySuggestModal class
+export class FuzzySuggestModal extends SuggestModal {
+  constructor(app) {
+    super(app);
+  }
+
+  getItems() { return []; }
+  getItemText() { return ''; }
+  onChooseItem() {}
+}

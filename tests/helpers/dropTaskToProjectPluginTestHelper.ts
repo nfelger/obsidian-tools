@@ -21,6 +21,8 @@ interface TestDropTaskToProjectOptions {
 	selectionStartLine?: number | null;
 	selectionEndLine?: number | null;
 	projectsFolder?: string;
+	/** Project name the user picks in the selection dialog, or null to simulate cancellation. */
+	pickerSelection?: string | null;
 }
 
 interface TestDropTaskToProjectResult {
@@ -39,7 +41,8 @@ export async function testDropTaskToProjectPlugin({
 	cursorLine = 0,
 	selectionStartLine = null,
 	selectionEndLine = null,
-	projectsFolder = '1 Projekte'
+	projectsFolder = '1 Projekte',
+	pickerSelection
 }: TestDropTaskToProjectOptions): Promise<TestDropTaskToProjectResult> {
 	const normalizedSource = normalizeMarkdown(source);
 	const listItems = parseMarkdownToListItems(normalizedSource) as ListItem[];
@@ -158,13 +161,30 @@ export async function testDropTaskToProjectPlugin({
 		return this;
 	} as any);
 
+	// Build mock picker function
+	const mockPickProject = vi.fn(async () => {
+		if (pickerSelection === undefined) {
+			// No pickerSelection provided — picker should not be needed.
+			// Return null to simulate "no selection" (shouldn't be called for linked tasks).
+			return null;
+		}
+		if (pickerSelection === null) {
+			// User cancelled the picker
+			return null;
+		}
+		// User selected a project — find it in the mock files
+		const projectPath = `${projectsFolder}/${pickerSelection}.md`;
+		const file = allFiles.find((f: any) => f.path === projectPath);
+		return file || null;
+	});
+
 	const mockPlugin = {
 		app: mockApp,
 		settings
 	} as unknown as BulletFlowPlugin;
 
 	const { dropTaskToProject } = await import('../../src/commands/dropTaskToProject');
-	await dropTaskToProject(mockPlugin);
+	await dropTaskToProject(mockPlugin, mockPickProject);
 
 	NoticeSpy.mockRestore();
 

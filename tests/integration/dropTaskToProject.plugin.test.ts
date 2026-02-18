@@ -136,18 +136,26 @@ describe('dropTaskToProject', () => {
 			expect(result.notice).toContain('Already in a project note');
 		});
 
-		it('shows error when no project link found', async () => {
+		it('silently does nothing when no project link and no picker selection', async () => {
 			const result = await testDropTaskToProjectPlugin({
 				source: `
 - [ ] Task without any link
 `,
 				sourceFileName: '2026-01-30 Fri',
 				sourcePath: '+Diary/2026/01/2026-01-30 Fri.md',
-				projectNotes: {},
-				cursorLine: 0
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+`
+				},
+				cursorLine: 0,
+				pickerSelection: null
 			});
 
-			expect(result.notice).toContain('No project link found');
+			// Source: task remains (picker was cancelled)
+			expect(result.source).toContain('Task without any link');
+			// No error notice
+			expect(result.notices).toHaveLength(0);
 		});
 	});
 
@@ -205,6 +213,187 @@ describe('dropTaskToProject', () => {
 			expect(firstIdx).toBeGreaterThan(-1);
 			expect(secondIdx).toBeGreaterThan(firstIdx);
 			expect(thirdIdx).toBeGreaterThan(secondIdx);
+		});
+	});
+
+	describe('project selection dialog', () => {
+		it('drops task to user-selected project when no link found', async () => {
+			const result = await testDropTaskToProjectPlugin({
+				source: `
+- [ ] Write monitoring runbook
+`,
+				sourceFileName: '2026-01-30 Fri',
+				sourcePath: '+Diary/2026/01/2026-01-30 Fri.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+- [ ] Define rollback strategy
+`
+				},
+				cursorLine: 0,
+				pickerSelection: 'Migration Initiative'
+			});
+
+			// Source: task deleted
+			expect(result.source).not.toContain('monitoring runbook');
+
+			// Project: task added under ## Todo
+			const project = result.project('Migration Initiative');
+			expect(project).toContain('Write monitoring runbook');
+			expect(project).toContain('Define rollback strategy');
+		});
+
+		it('leaves task in source when user cancels the picker', async () => {
+			const result = await testDropTaskToProjectPlugin({
+				source: `
+- [ ] Write monitoring runbook
+`,
+				sourceFileName: '2026-01-30 Fri',
+				sourcePath: '+Diary/2026/01/2026-01-30 Fri.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+`
+				},
+				cursorLine: 0,
+				pickerSelection: null
+			});
+
+			// Source: task remains
+			expect(result.source).toContain('Write monitoring runbook');
+
+			// Project: unchanged
+			const project = result.project('Migration Initiative');
+			expect(project).not.toContain('monitoring runbook');
+		});
+
+		it('drops linked tasks immediately and shows picker for unlinked ones', async () => {
+			const result = await testDropTaskToProjectPlugin({
+				source: `
+- [ ] [[Migration Initiative]] Linked task
+- [ ] Unlinked task
+`,
+				sourceFileName: '2026-01-30 Fri',
+				sourcePath: '+Diary/2026/01/2026-01-30 Fri.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+`,
+					'Platform Upgrade': `
+## Todo
+`
+				},
+				selectionStartLine: 0,
+				selectionEndLine: 1,
+				pickerSelection: 'Platform Upgrade'
+			});
+
+			// Source: both tasks deleted
+			expect(result.source).not.toContain('Linked task');
+			expect(result.source).not.toContain('Unlinked task');
+
+			// Linked task goes to its project
+			const migration = result.project('Migration Initiative');
+			expect(migration).toContain('Linked task');
+			expect(migration).not.toContain('Unlinked task');
+
+			// Unlinked task goes to the picked project
+			const platform = result.project('Platform Upgrade');
+			expect(platform).toContain('Unlinked task');
+			expect(platform).not.toContain('Linked task');
+		});
+
+		it('drops all unlinked tasks to picker-selected project', async () => {
+			const result = await testDropTaskToProjectPlugin({
+				source: `
+- [ ] First unlinked task
+- [ ] Second unlinked task
+- [ ] Third unlinked task
+`,
+				sourceFileName: '2026-01-30 Fri',
+				sourcePath: '+Diary/2026/01/2026-01-30 Fri.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+`
+				},
+				selectionStartLine: 0,
+				selectionEndLine: 2,
+				pickerSelection: 'Migration Initiative'
+			});
+
+			// Source: all tasks deleted
+			expect(result.source).not.toContain('First unlinked');
+			expect(result.source).not.toContain('Second unlinked');
+			expect(result.source).not.toContain('Third unlinked');
+
+			// Project: all tasks added in order
+			const project = result.project('Migration Initiative')!;
+			expect(project).toContain('First unlinked task');
+			expect(project).toContain('Second unlinked task');
+			expect(project).toContain('Third unlinked task');
+
+			const firstIdx = project.indexOf('First unlinked');
+			const secondIdx = project.indexOf('Second unlinked');
+			const thirdIdx = project.indexOf('Third unlinked');
+			expect(secondIdx).toBeGreaterThan(firstIdx);
+			expect(thirdIdx).toBeGreaterThan(secondIdx);
+		});
+
+		it('drops unlinked task with children to picker-selected project', async () => {
+			const result = await testDropTaskToProjectPlugin({
+				source: `
+- [ ] Write runbook
+  - Include rollback steps
+  - Cover monitoring gaps
+`,
+				sourceFileName: '2026-01-30 Fri',
+				sourcePath: '+Diary/2026/01/2026-01-30 Fri.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+`
+				},
+				cursorLine: 0,
+				pickerSelection: 'Migration Initiative'
+			});
+
+			// Source: task and children deleted
+			expect(result.source).not.toContain('runbook');
+			expect(result.source).not.toContain('rollback steps');
+
+			// Project: task and children present
+			const project = result.project('Migration Initiative');
+			expect(project).toContain('Write runbook');
+			expect(project).toContain('rollback steps');
+			expect(project).toContain('monitoring gaps');
+		});
+
+		it('only drops linked tasks when picker is cancelled for unlinked ones', async () => {
+			const result = await testDropTaskToProjectPlugin({
+				source: `
+- [ ] [[Migration Initiative]] Linked task
+- [ ] Unlinked task
+`,
+				sourceFileName: '2026-01-30 Fri',
+				sourcePath: '+Diary/2026/01/2026-01-30 Fri.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+`
+				},
+				selectionStartLine: 0,
+				selectionEndLine: 1,
+				pickerSelection: null
+			});
+
+			// Linked task: dropped to project
+			expect(result.source).not.toContain('Linked task');
+			const project = result.project('Migration Initiative');
+			expect(project).toContain('Linked task');
+
+			// Unlinked task: stays in source (picker cancelled)
+			expect(result.source).toContain('Unlinked task');
 		});
 	});
 });
