@@ -4,19 +4,16 @@ import {
 	dedentLinesByAmount,
 	extractTaskText,
 	insertMultipleTasksWithDeduplication,
-	markTaskAsScheduled
+	markTaskAsScheduled,
+	TaskMarker
 } from '../utils/tasks';
-import type { TaskInsertItem } from '../utils/tasks';
+import type { TaskInsertItem } from '../types';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent, indentLines } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
 import { isProjectNote, getProjectName, parseProjectKeywords, findCollectorTask, insertUnderCollectorTask } from '../utils/projects';
 import { formatDailyPath } from '../utils/periodicNotes';
-import {
-	NOTICE_TIMEOUT_ERROR,
-	STARTED_TO_OPEN_PATTERN,
-	OPEN_TASK_MARKER
-} from '../config';
+import { NOTICE_TIMEOUT_ERROR } from '../config';
 
 /**
  * Take tasks from a project note and place them in today's daily note.
@@ -85,13 +82,11 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 			const parentIndent = countIndent(lineText);
 			const parentLineStripped = lineText.slice(parentIndent);
 			// Convert started [/] to open [ ] in target
-			const parentLineForTarget = parentLineStripped.replace(STARTED_TO_OPEN_PATTERN, '$1' + OPEN_TASK_MARKER);
+			const marker = TaskMarker.fromLine(parentLineStripped);
+			const parentLineForTarget = marker ? marker.toOpen().applyToLine(parentLineStripped) : parentLineStripped;
 
 			// Prepend [[Project Name]] to the task text
-			const parentLineWithLink = parentLineForTarget.replace(
-				/^(- \[.\]\s*)/,
-				`$1[[${projectName}]] `
-			);
+			const parentLineWithLink = TaskMarker.prependToContent(parentLineForTarget, `[[${projectName}]]`);
 
 			// Prepare children content (dedented)
 			let childrenContent = '';

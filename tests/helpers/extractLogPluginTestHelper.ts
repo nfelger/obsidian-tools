@@ -134,6 +134,9 @@ export async function testExtractLogPlugin({
 
   // Create vault that tracks modifications
   const mockVault = createMockVault({ files: allFiles });
+  mockVault.getAbstractFileByPath = vi.fn((path: string) => {
+    return allFiles.find((f: any) => f.path === path) || null;
+  });
   mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {
     const targetName = file.basename;
     const currentContent = targetContents.get(targetName) || '';

@@ -12,6 +12,7 @@ import {
 	OPEN_TASK_MARKER
 } from '../config';
 import { DEFAULT_SETTINGS } from '../types';
+import type { InsertTaskResult, TaskInsertItem } from '../types';
 
 // === Task State Machine ===
 
@@ -119,6 +120,24 @@ export class TaskMarker {
 	 */
 	applyToLine(line: string): string {
 		return line.replace(/^(\s*- )\[.\]/, `$1${this.render()}`);
+	}
+
+	/**
+	 * Prepend text after the task checkbox.
+	 * e.g., prependToContent("- [ ] Task", "[[Project]]") → "- [ ] [[Project]] Task"
+	 */
+	static prependToContent(line: string, text: string): string {
+		return line.replace(/^(\s*- \[.\]\s*)/, `$1${text} `);
+	}
+
+	/**
+	 * Strip a [[ProjectName]] prefix from a task line's content.
+	 * e.g., "- [ ] [[Project]] Task text" → "- [ ] Task text"
+	 */
+	static stripProjectLink(line: string, projectName: string): string {
+		const escaped = projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+		const pattern = new RegExp(`(- \\[.\\]\\s*)\\[\\[${escaped}\\]\\]\\s*`);
+		return line.replace(pattern, '$1');
 	}
 }
 
@@ -464,14 +483,6 @@ export function insertChildrenUnderTask(
 	return lines.join('\n');
 }
 
-/**
- * Result of inserting a task with deduplication.
- */
-export interface InsertTaskResult {
-	content: string;
-	wasMerged: boolean;
-	reopenedScheduled: boolean;
-}
 
 /**
  * Insert a task into content with deduplication.
@@ -526,15 +537,6 @@ export function insertTaskWithDeduplication(
 }
 
 // === Batch Insertion (order-preserving) ===
-
-/**
- * Data for a task to be inserted into a target note.
- */
-export interface TaskInsertItem {
-	taskText: string;
-	taskContent: string;
-	childrenContent: string;
-}
 
 /**
  * Insert multiple tasks under a target heading as a single block.

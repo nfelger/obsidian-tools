@@ -3,9 +3,10 @@ import type BulletFlowPlugin from '../main';
 import {
 	dedentLinesByAmount,
 	extractTaskText,
-	insertMultipleTasksWithDeduplication
+	insertMultipleTasksWithDeduplication,
+	TaskMarker
 } from '../utils/tasks';
-import type { TaskInsertItem } from '../utils/tasks';
+import type { TaskInsertItem } from '../types';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
@@ -82,14 +83,16 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 			// Extract task text - strip any existing [[Project]] prefix for matching
 			let rawTaskText = extractTaskText(lineText);
 			// Remove [[ProjectName]] prefix if present
-			const projectLinkPattern = new RegExp(`^\\[\\[${escapeRegex(projectLink.link.basename)}\\]\\]\\s*`);
-			rawTaskText = rawTaskText.replace(projectLinkPattern, '');
+			const linkPrefix = `[[${projectLink.link.basename}]] `;
+			if (rawTaskText.startsWith(linkPrefix)) {
+				rawTaskText = rawTaskText.slice(linkPrefix.length);
+			}
 
 			// Build content for the project note (without project link prefix)
 			const parentIndent = countIndent(lineText);
 			const parentLineStripped = lineText.slice(parentIndent);
 			// Strip project link from the task line for the project note version
-			const parentLineForProject = stripProjectLinkFromTask(parentLineStripped, projectLink.link.basename);
+			const parentLineForProject = TaskMarker.stripProjectLink(parentLineStripped, projectLink.link.basename);
 
 			// Prepare children content (dedented)
 			let childrenContent = '';
@@ -176,18 +179,3 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 	}
 }
 
-/**
- * Strip the [[ProjectName]] prefix from a task line.
- * Handles the format: "- [ ] [[Project]] Task text" → "- [ ] Task text"
- */
-function stripProjectLinkFromTask(line: string, projectName: string): string {
-	const pattern = new RegExp(`(- \\[.\\]\\s*)\\[\\[${escapeRegex(projectName)}\\]\\]\\s*`);
-	return line.replace(pattern, '$1');
-}
-
-/**
- * Escape special regex characters in a string.
- */
-function escapeRegex(str: string): string {
-	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
