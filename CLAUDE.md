@@ -13,6 +13,7 @@ obsidian-tools/
 │   ├── main.ts                   # Plugin entry point — register commands here
 │   ├── types.ts                  # All shared types — add new types here
 │   ├── config.ts                 # Task marker patterns & constants
+│   ├── settings.ts               # Plugin settings tab
 │   ├── commands/                 # One file per command
 │   │   ├── extractLog.ts
 │   │   ├── migrateTask.ts
@@ -22,6 +23,8 @@ obsidian-tools/
 │   │   └── dropTaskToProject.ts
 │   ├── events/
 │   │   └── autoMoveCompleted.ts  # CM6 extension for auto-move
+│   ├── ui/
+│   │   └── HotkeyModal.ts       # Leader-key hotkey modal
 │   └── utils/                    # Domain services & pure functions
 │       ├── commandSetup.ts       # Common command setup
 │       ├── tasks.ts              # TaskState enum + TaskMarker class
@@ -35,7 +38,8 @@ obsidian-tools/
 │   ├── unit/                     # Pure function tests
 │   ├── integration/              # Full workflow tests
 │   ├── helpers/                  # Test helper factories
-│   └── mocks/obsidian.js         # Obsidian API mock factories
+│   ├── mocks/obsidian.js         # Obsidian API mock factories
+│   └── legacy/                   # Legacy Templater script tests
 ├── docs/
 ├── manifest.json                 # Plugin metadata (bump version here)
 ├── package.json                  # Bump version here too
