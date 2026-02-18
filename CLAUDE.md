@@ -20,7 +20,8 @@ obsidian-tools/
 │   │   ├── pushTaskDown.ts
 │   │   ├── pullTaskUp.ts
 │   │   ├── takeProjectTask.ts
-│   │   └── dropTaskToProject.ts
+│   │   ├── dropTaskToProject.ts
+│   │   └── finishProject.ts
 │   ├── events/
 │   │   └── autoMoveCompleted.ts  # CM6 extension for auto-move
 │   ├── ui/

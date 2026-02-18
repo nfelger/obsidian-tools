@@ -147,6 +147,20 @@ export class BulletFlowSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+		new Setting(containerEl)
+			.setName('Project archive folder')
+			.setDesc('Folder where finished projects are moved to')
+			.addText(text => {
+				text
+					.setPlaceholder(DEFAULT_SETTINGS.projectArchiveFolder)
+					.setValue(this.plugin.settings.projectArchiveFolder)
+					.onChange(async (value) => {
+						this.plugin.settings.projectArchiveFolder = value;
+						await this.plugin.saveSettings();
+					});
+				new FolderSuggest(this.app, text.inputEl);
+			});
+
 		// === Periodic Note Patterns ===
 		containerEl.createEl('h2', { text: 'Periodic Note Patterns' });
 
