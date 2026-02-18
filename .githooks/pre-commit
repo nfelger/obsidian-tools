@@ -23,3 +23,9 @@ if [ -n "$VERSION_BUMPED" ] && [ -z "$CHANGELOG_STAGED" ]; then
   echo "Update the changelog before bumping versions."
   exit 1
 fi
+
+# Hook 3: Verify CLAUDE.md structure diagram matches actual layout.
+HOOK_DIR="$(dirname "$0")"
+if [ -x "$HOOK_DIR/check-claude-md-structure" ]; then
+  "$HOOK_DIR/check-claude-md-structure" || exit 1
+fi

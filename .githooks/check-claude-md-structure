@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Verify that every top-level src/ file and directory is listed in
+# CLAUDE.md's structure diagram, and vice versa.
+set -euo pipefail
+
+CLAUDE=CLAUDE.md
+ERRORS=0
+
+# Check that every real top-level src/ file is declared
+for f in src/*.ts; do
+  base=$(basename "$f")
+  grep -q "$base" "$CLAUDE" || { echo "src/$base exists but is not listed in CLAUDE.md"; ERRORS=$((ERRORS+1)); }
+done
+
+# Check that every real src/ subdirectory is declared
+for d in src/*/; do
+  dirname=$(basename "$d")
+  grep -q "$dirname/" "$CLAUDE" || { echo "src/$dirname/ exists but is not listed in CLAUDE.md"; ERRORS=$((ERRORS+1)); }
+done
+
+# Check that every real tests/ subdirectory is declared
+for d in tests/*/; do
+  dirname=$(basename "$d")
+  grep -q "$dirname/" "$CLAUDE" || { echo "tests/$dirname/ exists but is not listed in CLAUDE.md"; ERRORS=$((ERRORS+1)); }
+done
+
+if [ $ERRORS -gt 0 ]; then
+  echo ""
+  echo "Update the structure diagram in CLAUDE.md to match the actual layout."
+  exit 1
+fi
