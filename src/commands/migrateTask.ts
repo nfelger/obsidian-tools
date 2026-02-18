@@ -109,6 +109,6 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 		new Notice(message);
 	} catch (e: any) {
 		new Notice(`migrateTask ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
-		console.log('migrateTask ERROR', e);
+		console.error('migrateTask error:', e);
 	}
 }

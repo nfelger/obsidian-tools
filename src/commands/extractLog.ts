@@ -23,7 +23,7 @@ async function copyToClipboard(text: string): Promise<void> {
 		}
 	} catch (e) {
 		// Silently fail - clipboard not critical
-		console.log('Clipboard copy failed:', e);
+		console.error('copyToClipboard error:', e);
 	}
 }
 
@@ -203,6 +203,6 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 
 	} catch (e: any) {
 		new Notice(`extractLog ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
-		console.log('extractLog ERROR', e);
+		console.error('extractLog error:', e);
 	}
 }

@@ -169,6 +169,6 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 		new Notice(message);
 	} catch (e: any) {
 		new Notice(`pushTaskDown ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
-		console.log('pushTaskDown ERROR', e);
+		console.error('pushTaskDown error:', e);
 	}
 }
