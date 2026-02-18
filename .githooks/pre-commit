@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# Hook 1: Block planning comments in staged TypeScript source files.
+# Comments should describe what the code is, not what it might become.
+PLANNING_COMMENTS=$(git diff --cached --name-only | grep -E '\.ts$' | \
+  xargs grep -En '\b(TODO|FIXME|HACK|MVP|Slice)\b' 2>/dev/null)
+
+if [ -n "$PLANNING_COMMENTS" ]; then
+  echo "Error: planning comments found in staged .ts files."
+  echo "Comments should describe what the code is, not what it might become."
+  echo ""
+  echo "$PLANNING_COMMENTS"
+  exit 1
+fi
+
+# Hook 2: Require CHANGELOG.md when bumping version files.
+STAGED=$(git diff --cached --name-only)
+VERSION_BUMPED=$(echo "$STAGED" | grep -E '^(manifest|package|versions)\.json$')
+CHANGELOG_STAGED=$(echo "$STAGED" | grep '^CHANGELOG\.md$')
+
+if [ -n "$VERSION_BUMPED" ] && [ -z "$CHANGELOG_STAGED" ]; then
+  echo "Error: version file staged without CHANGELOG.md."
+  echo "Update the changelog before bumping versions."
+  exit 1
+fi
