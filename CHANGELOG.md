@@ -5,6 +5,14 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-02-18
+
+### Added
+
+- **Project selection dialog** for "Drop task to project" — when a task has no `[[Project]]` wikilink, a fuzzy-search picker lets you choose the target project
+- Picker appears once for all unlinked tasks in a multi-select; linked tasks still proceed automatically
+- Cancelling the picker leaves unlinked tasks in place
+
 ## [0.10.4] - 2026-02-18
 
 ### Improved
