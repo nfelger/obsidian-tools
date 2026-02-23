@@ -27,6 +27,7 @@ export async function finishProject(plugin: BulletFlowPlugin): Promise<void> {
 			return;
 		}
 
+		const projectName = file.basename;
 		const today = plugin.getToday();
 		const dateStr = formatDate(today);
 
@@ -35,7 +36,7 @@ export async function finishProject(plugin: BulletFlowPlugin): Promise<void> {
 		});
 
 		const archiveFolder = plugin.settings.projectArchiveFolder;
-		const newPath = `${archiveFolder}/✅ ${file.basename}.md`;
+		const newPath = `${archiveFolder}/✅ ${projectName}.md`;
 
 		if (!plugin.app.vault.getAbstractFileByPath(archiveFolder)) {
 			await plugin.app.vault.createFolder(archiveFolder);
@@ -43,7 +44,7 @@ export async function finishProject(plugin: BulletFlowPlugin): Promise<void> {
 
 		await plugin.app.fileManager.renameFile(file, newPath);
 
-		new Notice(`finishProject: ${file.basename} archived.`);
+		new Notice(`finishProject: ${projectName} archived.`);
 	} catch (e: any) {
 		new Notice(`finishProject ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('finishProject error:', e);
@@ -69,6 +70,7 @@ export function formatDate(date: Date): string {
  */
 export function addCompletedDate(content: string, date: string): string {
 	const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
+	const emptyFrontmatterRegex = /^---\n---/;
 	const match = content.match(frontmatterRegex);
 
 	if (match) {
@@ -78,6 +80,10 @@ export function addCompletedDate(content: string, date: string): string {
 			return content.replace(frontmatterRegex, `---\n${updated}\n---`);
 		}
 		return content.replace(frontmatterRegex, `---\n${frontmatter}\ncompleted: ${date}\n---`);
+	}
+
+	if (emptyFrontmatterRegex.test(content)) {
+		return content.replace(emptyFrontmatterRegex, `---\ncompleted: ${date}\n---`);
 	}
 
 	return `---\ncompleted: ${date}\n---\n${content}`;
