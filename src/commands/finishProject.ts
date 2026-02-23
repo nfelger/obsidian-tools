@@ -69,8 +69,7 @@ export function formatDate(date: Date): string {
  * - If no frontmatter → creates frontmatter with the property
  */
 export function addCompletedDate(content: string, date: string): string {
-	const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
-	const emptyFrontmatterRegex = /^---\n---/;
+	const frontmatterRegex = /^---\n([\s\S]*?)\n?---/;
 	const match = content.match(frontmatterRegex);
 
 	if (match) {
@@ -79,11 +78,10 @@ export function addCompletedDate(content: string, date: string): string {
 			const updated = frontmatter.replace(/^completed:.*$/m, `completed: ${date}`);
 			return content.replace(frontmatterRegex, `---\n${updated}\n---`);
 		}
-		return content.replace(frontmatterRegex, `---\n${frontmatter}\ncompleted: ${date}\n---`);
-	}
-
-	if (emptyFrontmatterRegex.test(content)) {
-		return content.replace(emptyFrontmatterRegex, `---\ncompleted: ${date}\n---`);
+		if (frontmatter) {
+			return content.replace(frontmatterRegex, `---\n${frontmatter}\ncompleted: ${date}\n---`);
+		}
+		return content.replace(frontmatterRegex, `---\ncompleted: ${date}\n---`);
 	}
 
 	return `---\ncompleted: ${date}\n---\n${content}`;
