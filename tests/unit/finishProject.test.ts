@@ -116,9 +116,13 @@ status: active
 
 		const result = addCompletedDate(content, '2026-02-18');
 
-		expect(result).toContain('completed: 2026-02-18');
-		expect(result).toContain('status: active');
-		expect(result).toContain('- [ ] Task 1');
-		expect(result).toContain('- [ ] Task 2');
+		expect(result).toBe(`---
+status: active
+completed: 2026-02-18
+---
+# Project
+
+- [ ] Task 1
+- [ ] Task 2`);
 	});
 });

@@ -7,8 +7,6 @@ import { NOTICE_TIMEOUT_ERROR } from '../config';
 /**
  * Finish a project: add completion date to frontmatter, rename with ✅ prefix,
  * and move to the archive folder.
- *
- * @param plugin - BulletFlow plugin instance
  */
 export async function finishProject(plugin: BulletFlowPlugin): Promise<void> {
 	try {
