@@ -28,15 +28,20 @@ export async function finishProject(plugin: BulletFlowPlugin): Promise<void> {
 		}
 
 		const projectName = file.basename;
+		const archiveFolder = plugin.settings.projectArchiveFolder;
+		const newPath = `${archiveFolder}/✅ ${projectName}.md`;
+
+		if (plugin.app.vault.getAbstractFileByPath(newPath)) {
+			new Notice(`finishProject: ${newPath} already exists.`);
+			return;
+		}
+
 		const today = plugin.getToday();
 		const dateStr = formatDate(today);
 
 		await plugin.app.vault.process(file, (content: string) => {
 			return addCompletedDate(content, dateStr);
 		});
-
-		const archiveFolder = plugin.settings.projectArchiveFolder;
-		const newPath = `${archiveFolder}/✅ ${projectName}.md`;
 
 		if (!plugin.app.vault.getAbstractFileByPath(archiveFolder)) {
 			await plugin.app.vault.createFolder(archiveFolder);
@@ -69,7 +74,8 @@ export function formatDate(date: Date): string {
  * - If no frontmatter → creates frontmatter with the property
  */
 export function addCompletedDate(content: string, date: string): string {
-	const frontmatterRegex = /^---\n([\s\S]*?)\n?---/;
+	// \n before closing --- ensures we don't match --- mid-line (e.g. "tag: a---b")
+	const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
 	const match = content.match(frontmatterRegex);
 
 	if (match) {
@@ -78,10 +84,12 @@ export function addCompletedDate(content: string, date: string): string {
 			const updated = frontmatter.replace(/^completed:.*$/m, `completed: ${date}`);
 			return content.replace(frontmatterRegex, `---\n${updated}\n---`);
 		}
-		if (frontmatter) {
-			return content.replace(frontmatterRegex, `---\n${frontmatter}\ncompleted: ${date}\n---`);
-		}
-		return content.replace(frontmatterRegex, `---\ncompleted: ${date}\n---`);
+		return content.replace(frontmatterRegex, `---\n${frontmatter}\ncompleted: ${date}\n---`);
+	}
+
+	// Empty frontmatter (---\n---) — no content between delimiters
+	if (content.startsWith('---\n---')) {
+		return content.replace('---\n---', `---\ncompleted: ${date}\n---`);
 	}
 
 	return `---\ncompleted: ${date}\n---\n${content}`;

@@ -22,6 +22,18 @@ describe('finishProject (plugin)', () => {
 			expect(result.renamePath).toBeNull();
 		});
 
+		it('rejects when target file already exists in archive', async () => {
+			const result = await testFinishProjectPlugin({
+				source: `# My Project`,
+				sourceFileName: 'My Project',
+				targetFileExists: true
+			});
+
+			expect(result.notice).toBe('finishProject: 4 Archive/✅ My Project.md already exists.');
+			expect(result.renamePath).toBeNull();
+			expect(result.content).not.toContain('completed:');
+		});
+
 		it('rejects when project already has checkmark prefix', async () => {
 			const result = await testFinishProjectPlugin({
 				source: `# Already Done`,
