@@ -90,8 +90,12 @@ export async function testFinishProjectPlugin({
 	});
 
 	mockApp.fileManager = {
-		renameFile: vi.fn(async (_file: any, newPath: string) => {
+		renameFile: vi.fn(async (file: any, newPath: string) => {
 			renamePath = newPath;
+			// Simulate Obsidian's in-place TFile mutation
+			const filename = newPath.split('/').pop() || '';
+			file.basename = filename.replace(/\.md$/, '');
+			file.path = newPath;
 		})
 	};
 

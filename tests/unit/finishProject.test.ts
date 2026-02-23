@@ -75,6 +75,19 @@ completed: 2026-02-18
 `);
 	});
 
+	it('handles empty frontmatter', () => {
+		const content = `---
+---
+# My Project`;
+
+		const result = addCompletedDate(content, '2026-02-18');
+
+		expect(result).toBe(`---
+completed: 2026-02-18
+---
+# My Project`);
+	});
+
 	it('preserves content after frontmatter', () => {
 		const content = `---
 status: active
