@@ -88,6 +88,23 @@ completed: 2026-02-18
 # My Project`);
 	});
 
+	it('does not match --- inside a frontmatter value', () => {
+		const content = `---
+tag: hello---world
+status: active
+---
+# My Project`;
+
+		const result = addCompletedDate(content, '2026-02-18');
+
+		expect(result).toBe(`---
+tag: hello---world
+status: active
+completed: 2026-02-18
+---
+# My Project`);
+	});
+
 	it('preserves content after frontmatter', () => {
 		const content = `---
 status: active

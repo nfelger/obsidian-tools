@@ -20,6 +20,7 @@ interface TestFinishProjectOptions {
 	projectArchiveFolder?: string;
 	today?: Date;
 	archiveFolderExists?: boolean;
+	targetFileExists?: boolean;
 }
 
 interface TestFinishProjectResult {
@@ -38,7 +39,8 @@ export async function testFinishProjectPlugin({
 	projectsFolder = '1 Projekte',
 	projectArchiveFolder = '4 Archive',
 	today = new Date(2026, 1, 18),
-	archiveFolderExists = false
+	archiveFolderExists = false,
+	targetFileExists = false
 }: TestFinishProjectOptions): Promise<TestFinishProjectResult> {
 	const normalizedSource = normalizeMarkdown(source);
 	let fileContent = normalizedSource;
@@ -68,9 +70,11 @@ export async function testFinishProjectPlugin({
 	let renamePath: string | null = null;
 	let folderCreated: string | null = null;
 
+	const targetPath = `${projectArchiveFolder}/✅ ${sourceFileName}.md`;
 	mockVault.getAbstractFileByPath = vi.fn((path: string) => {
 		if (path === sourcePath) return mockSourceFile;
 		if (path === projectArchiveFolder && archiveFolderExists) return { path: projectArchiveFolder };
+		if (path === targetPath && targetFileExists) return { path: targetPath };
 		return null;
 	});
 
