@@ -132,6 +132,23 @@ experience, not what changed internally.
 **CRITICAL: Update CHANGELOG.md before bumping versions.** Then bump in all three files
 in a single commit: `manifest.json`, `package.json`, `versions.json`.
 
+## Superpowers Integration
+
+This project integrates [obra/superpowers](https://github.com/obra/superpowers) (MIT licensed)
+for structured development workflows. Skills in `.claude/skills/` enforce:
+
+- **Brainstorming** before any creative/feature work (hard gate — no code until design approved)
+- **Written plans** before multi-step implementation
+- **TDD** (red-green-refactor, no exceptions without explicit permission)
+- **Systematic debugging** (root cause before fixes)
+- **Verification** before any completion claims
+
+Skills are loaded on demand via the `Skill` tool. The `using-superpowers` skill is injected
+at session start via a SessionStart hook. User instructions in this CLAUDE.md take priority
+over superpowers skills.
+
+Design specs go in `docs/superpowers/specs/`, implementation plans in `docs/superpowers/plans/`.
+
 ## Adding a New Command
 
 1. Create `src/commands/newCommand.ts`
