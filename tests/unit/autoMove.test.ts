@@ -3,7 +3,8 @@ import {
 	findRootAncestorLine,
 	collectBlock,
 	findLogInsertionLine,
-	computeAutoMove
+	computeAutoMove,
+	findAutoMoveTriggerLine
 } from '../../src/utils/autoMove';
 
 describe('findRootAncestorLine', () => {
@@ -483,6 +484,36 @@ describe('computeAutoMove', () => {
 		].join('\n');
 
 		expect(computeAutoMove(doc, 1, '## Todo', '## Log')).toBeNull();
+	});
+});
+
+describe('findAutoMoveTriggerLine', () => {
+	it('returns null when todo section absent', () => {
+		expect(findAutoMoveTriggerLine('## Log\n- [x] Done\n', '## Todo')).toBeNull();
+	});
+
+	it('returns null when no completed/started tasks in todo section', () => {
+		expect(findAutoMoveTriggerLine('## Todo\n- [ ] Open\n', '## Todo')).toBeNull();
+	});
+
+	it('returns line of first completed task in todo section', () => {
+		const doc = '## Todo\n- [x] Done\n- [ ] Open\n';
+		expect(findAutoMoveTriggerLine(doc, '## Todo')).toBe(1);
+	});
+
+	it('returns line of started task', () => {
+		const doc = '## Todo\n- [/] In progress\n';
+		expect(findAutoMoveTriggerLine(doc, '## Todo')).toBe(1);
+	});
+
+	it('ignores completed tasks outside todo section', () => {
+		const doc = '## Log\n- [x] Already logged\n## Todo\n- [ ] Open\n';
+		expect(findAutoMoveTriggerLine(doc, '## Todo')).toBeNull();
+	});
+
+	it('returns first completed task when multiple exist', () => {
+		const doc = '## Todo\n- [ ] Open\n- [x] First done\n- [x] Second done\n';
+		expect(findAutoMoveTriggerLine(doc, '## Todo')).toBe(2);
 	});
 });
 

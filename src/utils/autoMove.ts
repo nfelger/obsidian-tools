@@ -202,6 +202,31 @@ export function computeAutoMove(
 }
 
 /**
+ * Find the line number of the first completed or started task in the Todo section.
+ * Called fresh after each setTimeout to avoid stale line references.
+ *
+ * @param docText - Full document text
+ * @param todoHeading - The Todo section heading (e.g., "## Todo")
+ * @returns Line number (0-indexed), or null if none found
+ */
+export function findAutoMoveTriggerLine(
+	docText: string,
+	todoHeading: string
+): number | null {
+	const lines = docText.split('\n');
+	const todoRange = findSectionRange(lines, todoHeading);
+	if (!todoRange) return null;
+
+	for (let i = todoRange.start + 1; i < todoRange.end; i++) {
+		const marker = TaskMarker.fromLine(lines[i]);
+		if (marker && (marker.state === TaskState.Completed || marker.state === TaskState.Started)) {
+			return i;
+		}
+	}
+	return null;
+}
+
+/**
  * Convert a line number to a character offset in the document.
  * When lineNum >= lines.length, returns docLength (end of document).
  */
