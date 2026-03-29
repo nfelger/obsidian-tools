@@ -209,32 +209,3 @@ export function insertUnderCollectorTask(
 	return lines.join('\n');
 }
 
-/**
- * Remove a task line and its children from content.
- *
- * @param lines - Array of lines
- * @param taskLine - Line number of the task to remove
- * @param listItems - List items from metadata cache
- * @returns Updated array of lines with the task and children removed
- */
-export function removeTaskAndChildren(
-	lines: string[],
-	taskLine: number,
-	childStartLine?: number,
-	childEndLine?: number
-): string[] {
-	const result = [...lines];
-
-	if (childStartLine !== undefined && childEndLine !== undefined && childStartLine < childEndLine) {
-		// Remove children first (higher line numbers)
-		result.splice(childStartLine, childEndLine - childStartLine);
-	}
-
-	// Remove the task line itself
-	const adjustedLine = (childStartLine !== undefined && childEndLine !== undefined && childStartLine <= taskLine)
-		? taskLine
-		: taskLine;
-	result.splice(adjustedLine, 1);
-
-	return result;
-}

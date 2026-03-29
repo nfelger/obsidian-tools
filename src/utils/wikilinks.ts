@@ -1,4 +1,4 @@
-import type { TFile, MetadataCache, Vault } from 'obsidian';
+import type { MetadataCache, Vault } from 'obsidian';
 import type { ParsedWikilink, WikilinkMatch, ResolvedLink, LinkResolver } from '../types';
 import { stripListPrefix } from './listItems';
 
@@ -29,14 +29,6 @@ export class ObsidianLinkResolver implements LinkResolver {
 		};
 	}
 
-	/**
-	 * Get the underlying TFile for legacy code.
-	 * @deprecated Use resolve() for new code
-	 */
-	resolveToTFile(linkPath: string, sourcePath: string): TFile | null {
-		const tfile = this.metadataCache.getFirstLinkpathDest(linkPath, sourcePath);
-		return (tfile && tfile.extension === 'md') ? tfile : null;
-	}
 }
 
 /**

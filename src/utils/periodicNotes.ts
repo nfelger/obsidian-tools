@@ -334,19 +334,6 @@ export function formatYearlyPath(
 }
 
 /**
- * Calculate the path to the next periodic note.
- *
- * Boundary rules:
- * - Daily (Sunday) → next Weekly
- * - Weekly → always next Weekly
- * - Monthly (December) → next Yearly
- * - Yearly → always next Yearly
- *
- * @param noteInfo - Result from parseNoteType
- * @param settingsOrFolder - Plugin settings or diary folder string
- * @returns Full path to target note (without .md extension)
- */
-/**
  * Check if a date falls within a periodic note's range.
  *
  * @param date - The date to check
