@@ -13,7 +13,7 @@ import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
 import { isProjectNote, getProjectName, parseProjectKeywords, findCollectorTask, insertUnderCollectorTask } from '../utils/projects';
-import { formatDailyPath } from '../utils/periodicNotes';
+import { PeriodicNoteService } from '../utils/periodicNotes';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
 /**
@@ -51,7 +51,8 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		// Find today's daily note
 		const today = plugin.getToday ? plugin.getToday() : new Date();
-		const dailyPath = formatDailyPath(today, plugin.settings) + '.md';
+		const noteService = new PeriodicNoteService(plugin.settings);
+		const dailyPath = noteService.formatDailyPath(today) + '.md';
 		const dailyFile = plugin.app.vault.getAbstractFileByPath(dailyPath) as TFile;
 		if (!dailyFile) {
 			new Notice(`takeProjectTask: Today's daily note does not exist: ${dailyPath}`);

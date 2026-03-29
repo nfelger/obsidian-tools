@@ -489,7 +489,6 @@ export function getNextNotePath(
 	noteInfo: NoteInfo,
 	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS
 ): string {
-	if (!noteInfo) return '';
 
 	const settings = normalizeSettings(settingsOrFolder);
 	const { type, year, month, day, week } = noteInfo;

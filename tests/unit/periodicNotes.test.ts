@@ -311,9 +311,6 @@ describe('getNextNotePath', () => {
 		});
 	});
 
-	it('returns empty string for null noteInfo', () => {
-		expect(getNextNotePath(null as any)).toBe('');
-	});
 });
 
 describe('dateIsInPeriod', () => {

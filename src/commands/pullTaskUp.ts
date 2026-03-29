@@ -1,6 +1,6 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
-import { parseNoteType, getHigherNotePath } from '../utils/periodicNotes';
+import { PeriodicNoteService } from '../utils/periodicNotes';
 import {
 	buildTaskContent,
 	dedentLinesByAmount,
@@ -46,7 +46,8 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 
 		const { editor, file } = context;
 
-		const noteInfo = parseNoteType(file.basename, plugin.settings);
+		const noteService = new PeriodicNoteService(plugin.settings);
+		const noteInfo = noteService.parseNoteType(file.basename);
 		if (!noteInfo) {
 			new Notice('pullTaskUp: This is not a periodic note.');
 			return;
@@ -59,7 +60,7 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 		}
 
 		// Calculate target path (higher level note)
-		const higherPath = getHigherNotePath(noteInfo, plugin.settings);
+		const higherPath = noteService.getHigherNotePath(noteInfo);
 		if (!higherPath) {
 			new Notice('pullTaskUp: Cannot determine target note.');
 			return;

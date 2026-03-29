@@ -1,6 +1,6 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
-import { parseNoteType, getNextNotePath } from '../utils/periodicNotes';
+import { PeriodicNoteService } from '../utils/periodicNotes';
 import { dedentLinesByAmount, insertMultipleUnderTargetHeading, TaskMarker } from '../utils/tasks';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
@@ -32,13 +32,14 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		const { editor, file } = context;
 
-		const noteInfo = parseNoteType(file.basename, plugin.settings);
+		const noteService = new PeriodicNoteService(plugin.settings);
+		const noteInfo = noteService.parseNoteType(file.basename);
 		if (!noteInfo) {
 			new Notice('migrateTask: This is not a periodic note.');
 			return;
 		}
 
-		const targetPath = getNextNotePath(noteInfo, plugin.settings) + '.md';
+		const targetPath = noteService.getNextNotePath(noteInfo) + '.md';
 
 		const targetFile = plugin.app.vault.getAbstractFileByPath(targetPath) as TFile;
 		if (!targetFile) {

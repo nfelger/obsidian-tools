@@ -1,6 +1,6 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
-import { parseNoteType, getLowerNotePath, dateIsInPeriod } from '../utils/periodicNotes';
+import { PeriodicNoteService } from '../utils/periodicNotes';
 import {
 	buildTaskContent,
 	dedentLinesByAmount,
@@ -41,7 +41,8 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 
 		const { editor, file } = context;
 
-		const noteInfo = parseNoteType(file.basename, plugin.settings);
+		const noteService = new PeriodicNoteService(plugin.settings);
+		const noteInfo = noteService.parseNoteType(file.basename);
 		if (!noteInfo) {
 			new Notice('pushTaskDown: This is not a periodic note.');
 			return;
@@ -57,7 +58,7 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 		const today = plugin.getToday ? plugin.getToday() : new Date();
 
 		// Check if today is within the source period
-		if (!dateIsInPeriod(today, noteInfo)) {
+		if (!noteService.dateIsInPeriod(today, noteInfo)) {
 			new Notice('pushTaskDown: Current date is not in this period. Use Migrate Task to move forward.');
 			return;
 		}
@@ -65,7 +66,7 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 		// Calculate target path (lower level note)
 		let targetPath: string;
 		try {
-			const lowerPath = getLowerNotePath(noteInfo, today, plugin.settings);
+			const lowerPath = noteService.getLowerNotePath(noteInfo, today);
 			if (!lowerPath) {
 				new Notice('pushTaskDown: Cannot determine target note.');
 				return;
