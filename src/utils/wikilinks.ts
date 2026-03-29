@@ -150,49 +150,6 @@ export function stripWikilinksToDisplayText(text: string): string {
 	});
 }
 
-/**
- * Find the first valid wikilink in a line and resolve it to a TFile.
- * Ignores embeds (![[...]]).
- * Returns null if no valid markdown file link found.
- */
-export function findFirstWikiLink(
-	lineText: string,
-	sourcePath: string,
-	metadataCache: MetadataCache
-): ResolvedLink | null {
-	const wikiRegex = /\[\[([^\]]+)\]\]/g;
-	let match;
-
-	while ((match = wikiRegex.exec(lineText)) !== null) {
-		const index = match.index;
-		// Ignore embeds (![[...]])
-		if (index > 0 && lineText.charAt(index - 1) === '!') {
-			continue;
-		}
-
-		const inner = match[1];
-		const parts = inner.split('|');
-		const left = parts[0]; // Note[#Section]
-		const linkParts = left.split('#');
-		const linkPath = linkParts[0];
-
-		if (!linkPath) continue;
-
-		const tfile = metadataCache.getFirstLinkpathDest(linkPath, sourcePath);
-		if (tfile && tfile.extension === 'md') {
-			return {
-				path: tfile.path,
-				basename: tfile.basename,
-				extension: tfile.extension,
-				index,
-				matchText: match[0],
-				inner
-			};
-		}
-	}
-
-	return null;
-}
 
 /**
  * Check if a bullet line is a "pure link bullet" - only markers + one wikilink.
