@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Migrate, Push Down, Pull Up, and Take Project Task now insert tasks under `## Todo` by default (was `## Log`). Users with saved settings are unaffected.
 
+### Improved
+
+- `npm test` now auto-installs dependencies if `node_modules` is missing, so a fresh checkout works without a separate `npm install` step
+
 ## [0.11.0] - 2026-02-18
 
 ### Added
