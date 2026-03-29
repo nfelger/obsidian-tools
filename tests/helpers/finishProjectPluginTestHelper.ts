@@ -21,6 +21,8 @@ interface TestFinishProjectOptions {
 	today?: Date;
 	archiveFolderExists?: boolean;
 	targetFileExists?: boolean;
+	onCreateFolder?: () => void;
+	onProcess?: () => void;
 }
 
 interface TestFinishProjectResult {
@@ -40,7 +42,9 @@ export async function testFinishProjectPlugin({
 	projectArchiveFolder = '4 Archive',
 	today = new Date(2026, 1, 18),
 	archiveFolderExists = false,
-	targetFileExists = false
+	targetFileExists = false,
+	onCreateFolder,
+	onProcess
 }: TestFinishProjectOptions): Promise<TestFinishProjectResult> {
 	const normalizedSource = normalizeMarkdown(source);
 	let fileContent = normalizedSource;
@@ -62,6 +66,7 @@ export async function testFinishProjectPlugin({
 	const mockVault = createMockVault({ files: [mockSourceFile] });
 
 	mockVault.process = vi.fn(async (_file: any, processFn: (data: string) => string) => {
+		onProcess?.();
 		const newContent = await processFn(fileContent);
 		fileContent = newContent;
 		return newContent;
@@ -79,6 +84,7 @@ export async function testFinishProjectPlugin({
 	});
 
 	mockVault.createFolder = vi.fn(async (path: string) => {
+		onCreateFolder?.();
 		folderCreated = path;
 	});
 

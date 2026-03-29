@@ -37,13 +37,15 @@ export async function finishProject(plugin: BulletFlowPlugin): Promise<void> {
 		const today = plugin.getToday();
 		const dateStr = formatDate(today);
 
-		await plugin.app.vault.process(file, (content: string) => {
-			return addCompletedDate(content, dateStr);
-		});
-
+		// Create archive folder first — before modifying content — so a failure
+		// here leaves the file untouched rather than partially modified.
 		if (!plugin.app.vault.getAbstractFileByPath(archiveFolder)) {
 			await plugin.app.vault.createFolder(archiveFolder);
 		}
+
+		await plugin.app.vault.process(file, (content: string) => {
+			return addCompletedDate(content, dateStr);
+		});
 
 		await plugin.app.fileManager.renameFile(file, newPath);
 

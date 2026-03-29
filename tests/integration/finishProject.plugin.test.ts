@@ -109,6 +109,20 @@ completed: 2025-01-01
 			expect(result.renamePath).toBe('4 Archive/✅ My Project.md');
 		});
 
+		it('creates archive folder before modifying file content', async () => {
+			const callOrder: string[] = [];
+			const result = await testFinishProjectPlugin({
+				source: `# My Project`,
+				sourceFileName: 'My Project',
+				archiveFolderExists: false,
+				onCreateFolder: () => callOrder.push('createFolder'),
+				onProcess: () => callOrder.push('process')
+			});
+
+			expect(callOrder).toEqual(['createFolder', 'process']);
+			expect(result.renamePath).toBe('4 Archive/✅ My Project.md');
+		});
+
 		it('does not create archive folder when it already exists', async () => {
 			const result = await testFinishProjectPlugin({
 				source: `# My Project`,
