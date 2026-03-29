@@ -9,6 +9,8 @@ Help turn ideas into fully formed designs and specs through natural collaborativ
 
 Start by understanding the current project context, then ask questions one at a time to refine the idea. Once you understand what you're building, present the design and get user approval.
 
+**You MUST NOT call `EnterPlanMode` or `ExitPlanMode` during this skill.** This skill operates in normal mode. Plan mode restricts Write/Edit tools and has no clean exit. Use the writing-plans skill for structured planning instead.
+
 <HARD-GATE>
 Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until you have presented a design and the user has approved it. This applies to EVERY project regardless of perceived simplicity.
 </HARD-GATE>
@@ -162,3 +164,52 @@ A question about a UI topic is not automatically a visual question. "What does p
 
 If they agree to the companion, read the detailed guide before proceeding:
 `skills/brainstorming/visual-companion.md`
+
+---
+
+## Native Task Integration
+
+**REQUIRED:** Use Claude Code's native task tools to create structured tasks during design.
+
+### During Design Validation
+
+After each design section is validated, create a task with structured description:
+
+```yaml
+TaskCreate:
+  subject: "Implement [Component Name]"
+  description: |
+    **Goal:** [What this component produces]
+
+    **Files:**
+    - Create/Modify: [paths identified during design]
+
+    **Acceptance Criteria:**
+    - [ ] [Criterion from design validation]
+    - [ ] [Criterion from design validation]
+
+    **Verify:** [How to test this component works]
+
+    ```json:metadata
+    {"files": ["path/from/design"], "acceptanceCriteria": ["criterion 1", "criterion 2"]}
+    ```
+  activeForm: "Implementing [Component Name]"
+```
+
+These tasks will be refined with steps and verify commands during plan writing. See `skills/shared/task-format-reference.md` for the full format.
+
+Track all task IDs for dependency setup.
+
+### After All Components Validated
+
+Set up dependency relationships:
+
+```yaml
+TaskUpdate:
+  taskId: [dependent-task-id]
+  addBlockedBy: [prerequisite-task-ids]
+```
+
+### Before Handoff
+
+Run `TaskList` to display the complete task structure with dependencies.

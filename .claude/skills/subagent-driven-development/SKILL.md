@@ -45,44 +45,67 @@ digraph process {
 
     subgraph cluster_per_task {
         label="Per Task";
-        "Dispatch implementer subagent (./implementer-prompt.md)" [shape=box];
+        "Dispatch implementer subagent (skills/subagent-driven-development/implementer-prompt.md)" [shape=box];
         "Implementer subagent asks questions?" [shape=diamond];
         "Answer questions, provide context" [shape=box];
         "Implementer subagent implements, tests, commits, self-reviews" [shape=box];
-        "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [shape=box];
+        "Dispatch spec reviewer subagent (skills/subagent-driven-development/spec-reviewer-prompt.md)" [shape=box];
         "Spec reviewer subagent confirms code matches spec?" [shape=diamond];
         "Implementer subagent fixes spec gaps" [shape=box];
-        "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [shape=box];
+        "Dispatch code quality reviewer subagent (skills/subagent-driven-development/code-quality-reviewer-prompt.md)" [shape=box];
         "Code quality reviewer subagent approves?" [shape=diamond];
         "Implementer subagent fixes quality issues" [shape=box];
-        "Mark task complete in TodoWrite" [shape=box];
+        "Task requires user verification? (check json:metadata)" [shape=diamond];
+        "AskUserQuestion: user verification prompt" [shape=box];
+        "TaskUpdate: mark task completed" [shape=box];
     }
 
-    "Read plan, extract all tasks with full text, note context, create TodoWrite" [shape=box];
+    "Read plan, extract tasks, TaskCreate for each with full text" [shape=box];
     "More tasks remain?" [shape=diamond];
     "Dispatch final code reviewer subagent for entire implementation" [shape=box];
     "Use finishing-a-development-branch" [shape=box style=filled fillcolor=lightgreen];
 
-    "Read plan, extract all tasks with full text, note context, create TodoWrite" -> "Dispatch implementer subagent (./implementer-prompt.md)";
-    "Dispatch implementer subagent (./implementer-prompt.md)" -> "Implementer subagent asks questions?";
+    "Read plan, extract tasks, TaskCreate for each with full text" -> "Dispatch implementer subagent (skills/subagent-driven-development/implementer-prompt.md)";
+    "Dispatch implementer subagent (skills/subagent-driven-development/implementer-prompt.md)" -> "Implementer subagent asks questions?";
     "Implementer subagent asks questions?" -> "Answer questions, provide context" [label="yes"];
-    "Answer questions, provide context" -> "Dispatch implementer subagent (./implementer-prompt.md)";
+    "Answer questions, provide context" -> "Dispatch implementer subagent (skills/subagent-driven-development/implementer-prompt.md)";
     "Implementer subagent asks questions?" -> "Implementer subagent implements, tests, commits, self-reviews" [label="no"];
-    "Implementer subagent implements, tests, commits, self-reviews" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)";
-    "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" -> "Spec reviewer subagent confirms code matches spec?";
+    "Implementer subagent implements, tests, commits, self-reviews" -> "Dispatch spec reviewer subagent (skills/subagent-driven-development/spec-reviewer-prompt.md)";
+    "Dispatch spec reviewer subagent (skills/subagent-driven-development/spec-reviewer-prompt.md)" -> "Spec reviewer subagent confirms code matches spec?";
     "Spec reviewer subagent confirms code matches spec?" -> "Implementer subagent fixes spec gaps" [label="no"];
-    "Implementer subagent fixes spec gaps" -> "Dispatch spec reviewer subagent (./spec-reviewer-prompt.md)" [label="re-review"];
-    "Spec reviewer subagent confirms code matches spec?" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="yes"];
-    "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" -> "Code quality reviewer subagent approves?";
+    "Implementer subagent fixes spec gaps" -> "Dispatch spec reviewer subagent (skills/subagent-driven-development/spec-reviewer-prompt.md)" [label="re-review"];
+    "Spec reviewer subagent confirms code matches spec?" -> "Dispatch code quality reviewer subagent (skills/subagent-driven-development/code-quality-reviewer-prompt.md)" [label="yes"];
+    "Dispatch code quality reviewer subagent (skills/subagent-driven-development/code-quality-reviewer-prompt.md)" -> "Code quality reviewer subagent approves?";
     "Code quality reviewer subagent approves?" -> "Implementer subagent fixes quality issues" [label="no"];
-    "Implementer subagent fixes quality issues" -> "Dispatch code quality reviewer subagent (./code-quality-reviewer-prompt.md)" [label="re-review"];
-    "Code quality reviewer subagent approves?" -> "Mark task complete in TodoWrite" [label="yes"];
-    "Mark task complete in TodoWrite" -> "More tasks remain?";
-    "More tasks remain?" -> "Dispatch implementer subagent (./implementer-prompt.md)" [label="yes"];
+    "Implementer subagent fixes quality issues" -> "Dispatch code quality reviewer subagent (skills/subagent-driven-development/code-quality-reviewer-prompt.md)" [label="re-review"];
+    "Code quality reviewer subagent approves?" -> "Task requires user verification? (check json:metadata)" [label="yes"];
+        "Task requires user verification? (check json:metadata)" -> "AskUserQuestion: user verification prompt" [label="yes"];
+        "Task requires user verification? (check json:metadata)" -> "TaskUpdate: mark task completed" [label="no"];
+        "AskUserQuestion: user verification prompt" -> "TaskUpdate: mark task completed" [label="approved"];
+        "AskUserQuestion: user verification prompt" -> "Implementer subagent fixes quality issues" [label="changes needed"];
+    "TaskUpdate: mark task completed" -> "More tasks remain?";
+    "More tasks remain?" -> "Dispatch implementer subagent (skills/subagent-driven-development/implementer-prompt.md)" [label="yes"];
     "More tasks remain?" -> "Dispatch final code reviewer subagent for entire implementation" [label="no"];
     "Dispatch final code reviewer subagent for entire implementation" -> "Use finishing-a-development-branch";
 }
 ```
+
+## Dispatching with Metadata
+
+When dispatching an implementer subagent:
+1. Read the task's description via TaskGet — metadata is embedded as a `json:metadata` code fence at the end
+2. Parse the metadata JSON and map fields (files, acceptanceCriteria, verifyCommand) to the implementer prompt sections
+3. The implementer should receive ALL structured data — don't make them parse it from prose
+
+## User Verification Gate
+
+After both reviews pass, check the task's `json:metadata` for `"requiresUserVerification": true`.
+
+**If set:** The controller (you) MUST call `AskUserQuestion` using the `userVerificationPrompt` from the metadata before marking the task complete. This is a human-in-the-loop gate — no subagent can satisfy it.
+
+**If the user selects the negative option:** Dispatch the implementer to fix the reported issues, then re-run both reviews, then ask the user again.
+
+**This is the controller's responsibility, not the implementer's or reviewer's.** Subagents cannot call AskUserQuestion — only the controller can. The `requiresUserVerification` flag exists precisely to guarantee human sign-off on critical tasks.
 
 ## Model Selection
 
@@ -119,9 +142,9 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 ## Prompt Templates
 
-- `./implementer-prompt.md` - Dispatch implementer subagent
-- `./spec-reviewer-prompt.md` - Dispatch spec compliance reviewer subagent
-- `./code-quality-reviewer-prompt.md` - Dispatch code quality reviewer subagent
+- `skills/subagent-driven-development/implementer-prompt.md` - Dispatch implementer subagent
+- `skills/subagent-driven-development/spec-reviewer-prompt.md` - Dispatch spec compliance reviewer subagent
+- `skills/subagent-driven-development/code-quality-reviewer-prompt.md` - Dispatch code quality reviewer subagent
 
 ## Example Workflow
 
@@ -130,7 +153,7 @@ You: I'm using Subagent-Driven Development to execute this plan.
 
 [Read plan file once: docs/superpowers/plans/feature-plan.md]
 [Extract all 5 tasks with full text and context]
-[Create TodoWrite with all tasks]
+[TaskCreate for each task with full description]
 
 Task 1: Hook installation script
 
@@ -245,6 +268,8 @@ Done!
 - Skip review loops (reviewer found issues = implementer fixes = review again)
 - Let implementer self-review replace actual review (both are needed)
 - **Start code quality review before spec compliance is ✅** (wrong order)
+- **Skip user verification when task metadata has `requiresUserVerification: true`** (the user explicitly requested this gate)
+- Let a subagent handle user verification (only the controller can call AskUserQuestion)
 - Move to next task while either review has open issues
 
 **If subagent asks questions:**
@@ -261,6 +286,17 @@ Done!
 **If subagent fails task:**
 - Dispatch fix subagent with specific instructions
 - Don't try to fix manually (context pollution)
+
+## Task Persistence Sync
+
+After marking each task completed via `TaskUpdate`, update the `.tasks.json` file to stay in sync:
+
+1. Read `<plan-path>.tasks.json`
+2. Set the task's `"status"` to `"completed"`
+3. Set `"lastUpdated"` to current ISO timestamp
+4. Write the file back
+
+This ensures cross-session resume works correctly. Without this, a new session loading `.tasks.json` would see completed tasks as `"pending"`.
 
 ## Integration
 
