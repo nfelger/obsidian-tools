@@ -85,7 +85,7 @@ describe('migrateTask (plugin)', () => {
 			// Source should have migrated marker
 			expect(result.source).toContain('- [>] Task to migrate');
 			// Target should have the task
-			expect(result.target).toContain('## Log');
+			expect(result.target).toContain('## Todo');
 			expect(result.target).toContain('- [ ] Task to migrate');
 			// Next task should be unchanged
 			expect(result.source).toContain('- [ ] Another task');
@@ -154,7 +154,7 @@ describe('migrateTask (plugin)', () => {
 	});
 
 	describe('Log heading management', () => {
-		it('should create ## Log heading if not present', async () => {
+		it('should create ## Todo heading if not present', async () => {
 			const result = await testMigrateTaskPlugin({
 				source: `
 - [ ] Task
@@ -168,7 +168,7 @@ Some content
 				cursorLine: 0
 			});
 
-			expect(result.target).toContain('## Log');
+			expect(result.target).toContain('## Todo');
 			expect(result.target).toContain('- [ ] Task');
 		});
 
@@ -190,7 +190,7 @@ Some content
 			expect(result.target).toContain('- [ ] New task');
 		});
 
-		it('should place ## Log after frontmatter', async () => {
+		it('should place ## Todo after frontmatter', async () => {
 			const result = await testMigrateTaskPlugin({
 				source: `
 - [ ] Task
@@ -205,10 +205,10 @@ title: Note
 				cursorLine: 0
 			});
 
-			// Log heading should come after frontmatter
+			// Todo heading should come after frontmatter
 			const frontmatterEnd = result.target!.indexOf('---', 3);
-			const logPos = result.target!.indexOf('## Log');
-			expect(logPos).toBeGreaterThan(frontmatterEnd);
+			const todoPos = result.target!.indexOf('## Todo');
+			expect(todoPos).toBeGreaterThan(frontmatterEnd);
 		});
 	});
 

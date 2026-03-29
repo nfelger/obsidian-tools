@@ -89,7 +89,7 @@ use wikilinks as the paper trail
 
 | Setting | Used by | Target note type | Default |
 |---|---|---|---|
-| `periodicNoteTaskTargetHeading` | migrateTask, pushTaskDown, pullTaskUp, takeProjectTask, autoMove (source) | Periodic notes | `## Log` |
+| `periodicNoteTaskTargetHeading` | migrateTask, pushTaskDown, pullTaskUp, takeProjectTask, autoMove (source) | Periodic notes | `## Todo` |
 | `logExtractionTargetHeading` | extractLog | Project/Area notes | `## Log` |
 | `projectNoteTaskTargetHeading` | dropTaskToProject | Project notes | `## Todo` |
 | `dailyNoteLogHeading` | autoMove (destination) | Daily notes | `## Log` |

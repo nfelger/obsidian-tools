@@ -5,6 +5,17 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- Auto-move hang when completing tasks in complex notes with many headings and task types — the plugin no longer requires an Obsidian restart after completing a task
+- Finish Project no longer modifies file content if the archive folder cannot be created
+
+### Changed
+
+- Migrate, Push Down, Pull Up, and Take Project Task now insert tasks under `## Todo` by default (was `## Log`). Users with saved settings are unaffected.
+
 ## [0.11.0] - 2026-02-18
 
 ### Added

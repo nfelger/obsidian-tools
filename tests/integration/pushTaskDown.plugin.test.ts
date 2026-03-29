@@ -104,7 +104,7 @@ describe('pushTaskDown (plugin) - integration', () => {
 			// Next task should be unchanged
 			expect(result.source).toContain('- [ ] Another task');
 			// Target should have the task
-			expect(result.target).toContain('## Log');
+			expect(result.target).toContain('## Todo');
 			expect(result.target).toContain('- [ ] Task to push down');
 			// Target path should be daily note
 			expect(result.targetPath).toContain('2026-01-22');
@@ -204,8 +204,8 @@ describe('pushTaskDown (plugin) - integration', () => {
 		});
 	});
 
-	describe('Log heading management', () => {
-		it('should create ## Log heading if not present', async () => {
+	describe('Todo heading management', () => {
+		it('should create ## Todo heading if not present', async () => {
 			const result = await testPushTaskDownPlugin({
 				source: `
 - [ ] Task
@@ -220,25 +220,25 @@ Some content
 				cursorLine: 0
 			});
 
-			expect(result.target).toContain('## Log');
+			expect(result.target).toContain('## Todo');
 			expect(result.target).toContain('- [ ] Task');
 		});
 
-		it('should add task under existing ## Log heading', async () => {
+		it('should add task under existing ## Todo heading', async () => {
 			const result = await testPushTaskDownPlugin({
 				source: `
 - [ ] New task
 `,
 				sourceFileName: '2026-01-W04',
 				targetContent: `
-## Log
+## Todo
 - [ ] Existing task
 `,
 				today: new Date(2026, 0, 22),
 				cursorLine: 0
 			});
 
-			expect(result.target).toContain('## Log');
+			expect(result.target).toContain('## Todo');
 			expect(result.target).toContain('- [ ] Existing task');
 			expect(result.target).toContain('- [ ] New task');
 		});

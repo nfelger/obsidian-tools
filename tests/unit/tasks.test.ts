@@ -216,7 +216,7 @@ describe('insertUnderTargetHeading', () => {
 ## Log
 
 Existing content`;
-		const result = insertUnderTargetHeading(content, '- New task');
+		const result = insertUnderTargetHeading(content, '- New task', '## Log');
 		expect(result).toContain('## Log\n\nExisting content\n- New task');
 	});
 
@@ -224,7 +224,7 @@ Existing content`;
 		const content = `# Note
 
 Some content`;
-		const result = insertUnderTargetHeading(content, '- New task');
+		const result = insertUnderTargetHeading(content, '- New task', '## Log');
 		expect(result).toContain('## Log\n- New task');
 	});
 
@@ -234,7 +234,7 @@ title: Note
 ---
 
 Some content`;
-		const result = insertUnderTargetHeading(content, '- New task');
+		const result = insertUnderTargetHeading(content, '- New task', '## Log');
 		const lines = result.split('\n');
 		expect(lines[0]).toBe('---');
 		expect(lines[1]).toBe('title: Note');
@@ -245,14 +245,14 @@ Some content`;
 
 	it('inserts at top of empty file', () => {
 		const content = '';
-		const result = insertUnderTargetHeading(content, '- New task');
+		const result = insertUnderTargetHeading(content, '- New task', '## Log');
 		expect(result.trim()).toBe('## Log\n- New task');
 	});
 
 	it('handles multiple insertions in chronological order', () => {
 		let content = '# Note\n\nSome content';
-		content = insertUnderTargetHeading(content, '- Task 1');
-		content = insertUnderTargetHeading(content, '- Task 2');
+		content = insertUnderTargetHeading(content, '- Task 1', '## Log');
+		content = insertUnderTargetHeading(content, '- Task 2', '## Log');
 
 		const lines = content.split('\n');
 		const logIdx = lines.findIndex(l => l === '## Log');
@@ -268,7 +268,7 @@ Some content`;
 ## Other Section
 
 Other content`;
-		const result = insertUnderTargetHeading(content, '- New task');
+		const result = insertUnderTargetHeading(content, '- New task', '## Log');
 		const lines = result.split('\n');
 		const logIdx = lines.findIndex(l => l === '## Log');
 		const otherIdx = lines.findIndex(l => l === '## Other Section');
@@ -288,7 +288,7 @@ Other content`;
 - Existing task
 
 # Top Level Heading`;
-		const result = insertUnderTargetHeading(content, '- New task');
+		const result = insertUnderTargetHeading(content, '- New task', '## Log');
 		const lines = result.split('\n');
 		const topIdx = lines.findIndex(l => l === '# Top Level Heading');
 		const newTaskIdx = lines.findIndex(l => l === '- New task');
@@ -304,7 +304,7 @@ Other content`;
 ### Subsection
 
 Sub content`;
-		const result = insertUnderTargetHeading(content, '- New task');
+		const result = insertUnderTargetHeading(content, '- New task', '## Log');
 		const lines = result.split('\n');
 		const subIdx = lines.findIndex(l => l === '### Subsection');
 		const newTaskIdx = lines.findIndex(l => l === '- New task');

@@ -344,7 +344,7 @@ describe('pullTaskUp command', () => {
 	});
 
 	describe('target heading', () => {
-		it('creates ## Log heading if missing', async () => {
+		it('creates ## Todo heading if missing', async () => {
 			const result = await testPullUpPlugin({
 				source: `- [ ] Task`,
 				sourceFileName: '2026-01-22 Thu',
@@ -354,27 +354,27 @@ Some content`,
 				cursorLine: 0
 			});
 
-			expect(result.target).toContain('## Log');
+			expect(result.target).toContain('## Todo');
 			expect(result.target).toContain('- [ ] Task');
 		});
 
-		it('appends under existing ## Log heading', async () => {
+		it('appends under existing ## Todo heading', async () => {
 			const result = await testPullUpPlugin({
 				source: `- [ ] New task`,
 				sourceFileName: '2026-01-22 Thu',
 				targetContent: `# Weekly Note
 
-## Log
+## Todo
 - [ ] Existing task`,
 				cursorLine: 0
 			});
 
-			// New task should be appended after existing content in Log section
-			const logIndex = result.target!.indexOf('## Log');
+			// New task should be appended after existing content in Todo section
+			const todoIndex = result.target!.indexOf('## Todo');
 			const existingTaskIndex = result.target!.indexOf('- [ ] Existing task');
 			const newTaskIndex = result.target!.indexOf('- [ ] New task');
 
-			expect(logIndex).toBeLessThan(existingTaskIndex);
+			expect(todoIndex).toBeLessThan(existingTaskIndex);
 			expect(existingTaskIndex).toBeLessThan(newTaskIndex);
 		});
 	});

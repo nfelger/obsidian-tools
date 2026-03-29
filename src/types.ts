@@ -130,7 +130,7 @@ export interface BulletFlowSettings {
 
 export const DEFAULT_SETTINGS: BulletFlowSettings = {
 	diaryFolder: '+Diary',
-	periodicNoteTaskTargetHeading: '## Log',
+	periodicNoteTaskTargetHeading: '## Todo',
 	logExtractionTargetHeading: '## Log',
 	dailyNotePattern: 'YYYY/MM/YYYY-MM-DD ddd',
 	weeklyNotePattern: 'gggg/MM/gggg-MM-[W]WW',
