@@ -202,8 +202,8 @@ export function insertUnderCollectorTask(
 		}
 	}
 
-	// Indent the task content to be a child of the collector
-	const indentedContent = indentLines(taskContent.split('\n'), collectorIndent + 4).join('\n');
+	// Indent the task content to be a child of the collector (2-space indent)
+	const indentedContent = indentLines(taskContent.split('\n'), collectorIndent + 2).join('\n');
 
 	lines.splice(insertLine, 0, indentedContent);
 	return lines.join('\n');

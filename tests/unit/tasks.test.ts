@@ -11,6 +11,7 @@ import {
 	extractTaskText,
 	findMatchingTask,
 	insertChildrenUnderTask,
+	buildTaskContent,
 	TaskMarker,
 	TaskState
 } from '../../src/utils/tasks';
@@ -797,5 +798,26 @@ describe('TaskMarker', () => {
 			const result = TaskMarker.stripProjectLink('- [ ] [[My (Project)]] Task', 'My (Project)');
 			expect(result).toBe('- [ ] Task');
 		});
+	});
+});
+
+describe('buildTaskContent', () => {
+	it('returns task line alone when no children', () => {
+		expect(buildTaskContent('- [ ] Task', [], 2)).toBe('- [ ] Task');
+	});
+
+	it('indents children by given amount', () => {
+		const result = buildTaskContent('- [ ] Task', ['- Child one', '- Child two'], 2);
+		expect(result).toBe('- [ ] Task\n  - Child one\n  - Child two');
+	});
+
+	it('preserves empty child lines without adding indent', () => {
+		const result = buildTaskContent('- [ ] Task', ['- Child', ''], 2);
+		expect(result).toBe('- [ ] Task\n  - Child\n');
+	});
+
+	it('applies 4-space indent when specified', () => {
+		const result = buildTaskContent('- [ ] Task', ['- Child'], 4);
+		expect(result).toBe('- [ ] Task\n    - Child');
 	});
 });

@@ -1,6 +1,7 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import {
+	buildTaskContent,
 	dedentLinesByAmount,
 	extractTaskText,
 	insertMultipleTasksWithDeduplication,
@@ -9,7 +10,7 @@ import {
 } from '../utils/tasks';
 import type { TaskInsertItem } from '../types';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
-import { countIndent, indentLines } from '../utils/indent';
+import { countIndent } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
 import { isProjectNote, getProjectName, parseProjectKeywords, findCollectorTask, insertUnderCollectorTask } from '../utils/projects';
 import { formatDailyPath } from '../utils/periodicNotes';
@@ -95,20 +96,20 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 				childrenContent = dedentedChildren.join('\n');
 			}
 
-			// Build full task content for collector insertion (4-space children, no project link)
+			// Build full task content for collector insertion (no project link)
 			// The collector task already identifies the project, so prepending [[Project]] is redundant noise
-			let taskContentForCollector = parentLineForTarget;
-			if (childrenContent) {
-				const indentedChildren = indentLines(childrenContent.split('\n'), 4).join('\n');
-				taskContentForCollector += '\n' + indentedChildren;
-			}
+			const taskContentForCollector = buildTaskContent(
+				parentLineForTarget,
+				childrenContent ? childrenContent.split('\n') : [],
+				2
+			);
 
-			// Build full task content for heading insertion (4-space children)
-			let taskContent = parentLineWithLink;
-			if (childrenContent) {
-				const indentedChildren = indentLines(childrenContent.split('\n'), 4).join('\n');
-				taskContent += '\n' + indentedChildren;
-			}
+			// Build full task content for heading insertion
+			const taskContent = buildTaskContent(
+				parentLineWithLink,
+				childrenContent ? childrenContent.split('\n') : [],
+				2
+			);
 
 			// The task text for deduplication should include the project link
 			const taskTextWithLink = `[[${projectName}]] ${taskText}`;

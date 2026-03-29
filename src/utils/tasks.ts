@@ -484,6 +484,20 @@ export function insertChildrenUnderTask(
 }
 
 
+/**
+ * Build a task line with its children, applying consistent indentation.
+ *
+ * @param taskLine - The task line itself (e.g. "- [ ] Do something")
+ * @param children - Child lines (already stripped of leading whitespace)
+ * @param indent - Number of spaces to prepend to each non-empty child line
+ */
+export function buildTaskContent(taskLine: string, children: string[], indent: number): string {
+	if (children.length === 0) return taskLine;
+	const indentStr = ' '.repeat(indent);
+	const childText = children.map(line => line ? indentStr + line : line).join('\n');
+	return taskLine + '\n' + childText;
+}
+
 // === Batch Insertion (order-preserving) ===
 
 /**

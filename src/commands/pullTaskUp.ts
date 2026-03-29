@@ -2,6 +2,7 @@ import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { parseNoteType, getHigherNotePath } from '../utils/periodicNotes';
 import {
+	buildTaskContent,
 	dedentLinesByAmount,
 	extractTaskText,
 	insertMultipleTasksWithDeduplication,
@@ -99,13 +100,11 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 
 			// Build full task content for new insertions
 			const parentLineStripped = lineText.slice(parentIndent);
-			let taskContent = parentLineStripped;
-			if (childrenContent) {
-				const indentedChildren = childrenContent.split('\n').map(line =>
-					line ? '  ' + line : line
-				).join('\n');
-				taskContent += '\n' + indentedChildren;
-			}
+			const taskContent = buildTaskContent(
+				parentLineStripped,
+				childrenContent ? childrenContent.split('\n') : [],
+				2
+			);
 
 			collectedTasks.push({ taskText, taskContent, childrenContent });
 
