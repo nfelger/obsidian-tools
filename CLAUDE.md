@@ -79,10 +79,13 @@ use wikilinks as the paper trail
 
 **Task state machine:**
 ```
-[ ] (Open)   ─┬─ migrateTask ─→ [>] (Migrated) [terminal]
-[/] (Started) │
-              ├─ pushDown/pullUp ─→ [<] (Scheduled) ─→ merge ─→ [ ] (Open)
-              └─ complete ─→ [x] (Completed) [terminal]
+[ ] (Open)    ─┬─ migrateTask ──→ [>] (Migrated)  [terminal]
+               ├─ pushDown/pullUp → [<] (Scheduled) ─→ merge ─→ [ ] (Open)
+               └─ complete ──────→ [x] (Completed) [terminal]
+
+[/] (Started) ─┬─ migrateTask ──→ [>] (Migrated)  [terminal]
+               ├─ pushDown/pullUp → [<] (Scheduled) ─→ merge ─→ [ ] (Open)
+               └─ complete ──────→ [x] (Completed) [terminal]
 ```
 
 **Target heading settings** — four independent settings controlling where content is inserted:
