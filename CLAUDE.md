@@ -133,8 +133,9 @@ experience, not what changed internally.
 
 ## Releasing a New Version
 
-**CRITICAL: Update CHANGELOG.md before bumping versions.** Then bump in all three files
-in a single commit: `manifest.json`, `package.json`, `versions.json`.
+Use the `cut-release` skill. It handles CHANGELOG promotion, version bumps across all three
+files (`manifest.json`, `package.json`, `versions.json`), and the push to main in one atomic
+commit. CI publishes the GitHub release automatically.
 
 ## Superpowers Integration
 

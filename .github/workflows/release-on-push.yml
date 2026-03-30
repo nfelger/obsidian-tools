@@ -32,7 +32,10 @@ jobs:
         id: version
         run: |
           BASE_VERSION=$(node -p "require('./manifest.json').version")
-          DEV_VERSION="${BASE_VERSION}-dev.${{ github.run_number }}"
+          MAJOR_MINOR=$(echo $BASE_VERSION | cut -d. -f1-2)
+          PATCH=$(echo $BASE_VERSION | cut -d. -f3)
+          NEXT_PATCH=$((PATCH + 1))
+          DEV_VERSION="${MAJOR_MINOR}.${NEXT_PATCH}-dev.${{ github.run_number }}"
           echo "base_version=${BASE_VERSION}" >> $GITHUB_OUTPUT
           echo "dev_version=${DEV_VERSION}" >> $GITHUB_OUTPUT
           echo "commit_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT

@@ -86,6 +86,13 @@ git branch -d <feature-branch>
 
 Then: Cleanup worktree (Step 5)
 
+After cleanup, ask:
+```
+Ready to cut a release? (y/N)
+```
+
+If yes → invoke the `cut-release` skill.
+
 #### Option 2: Push and Create PR
 
 ```bash
@@ -198,3 +205,4 @@ git worktree remove <worktree-path>
 
 **Pairs with:**
 - **using-git-worktrees** - Cleans up worktree created by that skill
+- **cut-release** - Offered after Option 1 (local merge) completes
