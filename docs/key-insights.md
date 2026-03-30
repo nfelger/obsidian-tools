@@ -34,3 +34,17 @@ is the line number of its parent (-1 for top-level). The plugin uses this to fin
 without parsing markdown manually.
 
 Key function: `isDescendantOf()` in `src/utils/listItems.ts` — recursively finds all descendants.
+
+## TaskMarker Extensibility
+
+The `TaskState` enum and `TaskMarker` class live in `src/utils/taskMarker.ts`. The file
+header lists all five locations that must be updated when adding a new task state:
+
+1. `TaskState` enum — add the new state value
+2. `TaskMarker.fromLine()` — add the character in the switch
+3. `TaskMarker.isIncomplete()` — decide if the new state is "incomplete"
+4. `TaskMarker.isTerminal()` — decide if the new state is terminal
+5. `canMigrate()` / `canReopen()` — if the new state participates in those transitions
+
+`tasks.ts` re-exports everything from `taskMarker.ts`, so callers that import from `tasks.ts`
+require no import changes. When adding a new state, edit only `taskMarker.ts`.
