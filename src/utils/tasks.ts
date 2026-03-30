@@ -3,172 +3,12 @@
  */
 
 import { countIndent } from './indent';
-import {
-	INCOMPLETE_TASK_PATTERN,
-	MIGRATE_TASK_PATTERN,
-	SCHEDULED_MARKER,
-	SCHEDULED_TASK_PATTERN,
-	SCHEDULED_TO_OPEN_PATTERN,
-	OPEN_TASK_MARKER
-} from '../config';
 import { DEFAULT_SETTINGS } from '../types';
-import type { InsertTaskResult, TaskInsertItem } from '../types';
-
-// === Task State Machine ===
-
-/**
- * Explicit task states following BuJo conventions.
- *
- * State transitions:
- * - Open/Started → Migrated (terminal) via migrateTask
- * - Open/Started → Scheduled via pushTaskDown/pullTaskUp
- * - Scheduled → Open via merge in target note
- * - Open/Started → Completed (terminal) via user action
- */
-export enum TaskState {
-	Open = ' ',
-	Started = '/',
-	Completed = 'x',
-	Migrated = '>',
-	Scheduled = '<',
-}
-
-/**
- * Task marker value object with state transition methods.
- */
-export class TaskMarker {
-	constructor(public readonly state: TaskState) {}
-
-	/**
-	 * Parse a task marker from a line of text.
-	 * Returns null if the line is not a task.
-	 */
-	static fromLine(line: string): TaskMarker | null {
-		const match = line.match(/^\s*- \[(.)\]/);
-		if (!match) return null;
-
-		const char = match[1];
-		switch (char) {
-			case ' ': return new TaskMarker(TaskState.Open);
-			case '/': return new TaskMarker(TaskState.Started);
-			case 'x':
-			case 'X': return new TaskMarker(TaskState.Completed);
-			case '>': return new TaskMarker(TaskState.Migrated);
-			case '<': return new TaskMarker(TaskState.Scheduled);
-			default: return null;
-		}
-	}
-
-	/**
-	 * Check if this task can be migrated (open or started).
-	 */
-	canMigrate(): boolean {
-		return this.state === TaskState.Open || this.state === TaskState.Started;
-	}
-
-	/**
-	 * Check if this task can be reopened (scheduled only).
-	 */
-	canReopen(): boolean {
-		return this.state === TaskState.Scheduled;
-	}
-
-	/**
-	 * Check if this task is incomplete (open or started).
-	 */
-	isIncomplete(): boolean {
-		return this.state === TaskState.Open || this.state === TaskState.Started;
-	}
-
-	/**
-	 * Check if this task is in a terminal state (completed or migrated).
-	 */
-	isTerminal(): boolean {
-		return this.state === TaskState.Completed || this.state === TaskState.Migrated;
-	}
-
-	/**
-	 * Create a migrated marker.
-	 */
-	toMigrated(): TaskMarker {
-		return new TaskMarker(TaskState.Migrated);
-	}
-
-	/**
-	 * Create a scheduled marker.
-	 */
-	toScheduled(): TaskMarker {
-		return new TaskMarker(TaskState.Scheduled);
-	}
-
-	/**
-	 * Create an open marker.
-	 */
-	toOpen(): TaskMarker {
-		return new TaskMarker(TaskState.Open);
-	}
-
-	/**
-	 * Render the marker as a string (e.g., "[ ]", "[>]").
-	 */
-	render(): string {
-		return `[${this.state}]`;
-	}
-
-	/**
-	 * Apply this marker to a task line, replacing the existing marker.
-	 */
-	applyToLine(line: string): string {
-		return line.replace(/^(\s*- )\[.\]/, `$1${this.render()}`);
-	}
-
-	/**
-	 * Prepend text after the task checkbox.
-	 * e.g., prependToContent("- [ ] Task", "[[Project]]") → "- [ ] [[Project]] Task"
-	 */
-	static prependToContent(line: string, text: string): string {
-		return line.replace(/^(\s*- \[.\]\s*)/, `$1${text} `);
-	}
-
-	/**
-	 * Strip a [[ProjectName]] prefix from a task line's content.
-	 * e.g., "- [ ] [[Project]] Task text" → "- [ ] Task text"
-	 */
-	static stripProjectLink(line: string, projectName: string): string {
-		const escaped = projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		const pattern = new RegExp(`(- \\[.\\]\\s*)\\[\\[${escaped}\\]\\]\\s*`);
-		return line.replace(pattern, '$1');
-	}
-}
+import type { InsertTaskResult, TaskInsertItem, ListItem } from '../types';
+export { TaskState, TaskMarker, isIncompleteTask, markTaskAsScheduled, isScheduledTask, markScheduledAsOpen } from './taskMarker';
+import { TaskMarker, TaskState, isIncompleteTask, isScheduledTask, markScheduledAsOpen } from './taskMarker';
 
 // === Task Utilities ===
-
-/**
- * Check if a line is an incomplete task.
- *
- * Matches:
- * - Open tasks: "- [ ]"
- * - Started tasks: "- [/]"
- *
- * @param line - The line to check
- * @returns true if the line is an incomplete task
- */
-export function isIncompleteTask(line: string): boolean {
-	return INCOMPLETE_TASK_PATTERN.test(line);
-}
-
-/**
- * Mark a task as scheduled by replacing checkbox with [<].
- *
- * @param line - The task line to mark
- * @returns The line with [<] marker, or unchanged if not an incomplete task
- */
-export function markTaskAsScheduled(line: string): string {
-	if (!INCOMPLETE_TASK_PATTERN.test(line)) {
-		return line;
-	}
-	return line.replace(MIGRATE_TASK_PATTERN, `$1${SCHEDULED_MARKER}`);
-}
 
 /**
  * Parse a target section heading to extract level and text.
@@ -219,14 +59,14 @@ export function dedentLinesByAmount(lines: string[], amount: number): string[] {
  */
 export function findTopLevelTasksInRange(
 	editor: { getLine: (line: number) => string },
-	listItems: any[],
+	listItems: ListItem[],
 	startLine: number,
 	endLine: number
 ): number[] {
 	if (!listItems || listItems.length === 0) return [];
 
 	// Build line-to-item map
-	const lineToItem = new Map<number, any>();
+	const lineToItem = new Map<number, ListItem>();
 	for (const li of listItems) {
 		if (li.position && li.position.start && typeof li.position.start.line === 'number') {
 			lineToItem.set(li.position.start.line, li);
@@ -234,7 +74,7 @@ export function findTopLevelTasksInRange(
 	}
 
 	// Find all incomplete tasks in the range
-	const tasksInRange: Array<{ line: number; item: any }> = [];
+	const tasksInRange: Array<{ line: number; item: ListItem }> = [];
 	for (const li of listItems) {
 		if (!li.position || !li.position.start) continue;
 		const line = li.position.start.line;
@@ -361,29 +201,6 @@ export function insertUnderTargetHeading(
 }
 
 // === Deduplication and Task Transfer Helpers ===
-
-/**
- * Check if a line is a scheduled task (marked with [<]).
- *
- * @param line - The line to check
- * @returns true if the line is a scheduled task
- */
-export function isScheduledTask(line: string): boolean {
-	return SCHEDULED_TASK_PATTERN.test(line);
-}
-
-/**
- * Mark a scheduled task as open by replacing [<] with [ ].
- *
- * @param line - The task line to mark
- * @returns The line with [ ] marker, or unchanged if not a scheduled task
- */
-export function markScheduledAsOpen(line: string): string {
-	if (!SCHEDULED_TASK_PATTERN.test(line)) {
-		return line;
-	}
-	return line.replace(SCHEDULED_TO_OPEN_PATTERN, `$1${OPEN_TASK_MARKER}`);
-}
 
 /**
  * Extract task text without checkbox and leading whitespace.
