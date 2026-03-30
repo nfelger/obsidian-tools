@@ -28,7 +28,8 @@ obsidian-tools/
 │   │   └── HotkeyModal.ts       # Leader-key hotkey modal
 │   └── utils/                    # Domain services & pure functions
 │       ├── commandSetup.ts       # Common command setup
-│       ├── tasks.ts              # TaskState enum + TaskMarker class
+│       ├── taskMarker.ts         # TaskState enum + TaskMarker class
+│       ├── tasks.ts              # Task utilities; re-exports from taskMarker.ts
 │       ├── periodicNotes.ts      # PeriodicNoteService
 │       ├── wikilinks.ts          # LinkResolver + wikilink parsing
 │       ├── listItems.ts          # List item operations
@@ -70,8 +71,8 @@ use wikilinks as the paper trail
 - `Notice` — user notifications
 
 **Domain patterns — use these, don't bypass:**
-- `TaskMarker` (`src/utils/tasks.ts`) — type-safe task state transitions; never manipulate
-  task markers as raw strings
+- `TaskMarker` (`src/utils/taskMarker.ts`) — type-safe task state transitions; never manipulate
+  task markers as raw strings. See @docs/key-insights.md for extensibility guide.
 - `PeriodicNoteService` (`src/utils/periodicNotes.ts`) — encapsulates settings for periodic
   note operations; no parameter threading
 - `LinkResolver` interface (`src/types.ts`) — keeps Obsidian types out of domain logic;
@@ -137,42 +138,16 @@ in a single commit: `manifest.json`, `package.json`, `versions.json`.
 
 ## Superpowers Integration
 
-This project integrates [obra/superpowers](https://github.com/obra/superpowers) (MIT licensed)
-for structured development workflows. Skills in `.claude/skills/` enforce:
-
-- **Brainstorming** before any creative/feature work (hard gate — no code until design approved)
-- **Written plans** before multi-step implementation
-- **TDD** (red-green-refactor, no exceptions without explicit permission)
-- **Systematic debugging** (root cause before fixes)
-- **Verification** before any completion claims
-
-Skills are loaded on demand via the `Skill` tool. The `using-superpowers` skill is injected
-at session start via a SessionStart hook. User instructions in this CLAUDE.md take priority
-over superpowers skills.
+Skills in `.claude/skills/` enforce structured development workflows. The `using-superpowers`
+skill is injected at session start via a SessionStart hook. Instructions in this CLAUDE.md
+take priority over superpowers skills.
 
 Design specs go in `docs/superpowers/specs/`, implementation plans in `docs/superpowers/plans/`.
 
 ## Adding a New Command
 
-1. Create `src/commands/newCommand.ts`
+1. Create `src/commands/newCommand.ts` — follow the structure of any existing command
 2. Add types to `src/types.ts` if needed
 3. Write unit tests in `tests/unit/`
 4. Write integration tests in `tests/integration/`
 5. Register in `src/main.ts` via `this.addCommand(...)`
-
-Every command follows this structure:
-
-```typescript
-export async function newCommand(plugin: BulletFlowPlugin): Promise<void> {
-  try {
-    const context = getActiveMarkdownFile(plugin);
-    if (!context) return;
-    const { editor, file } = context;
-    // implementation
-    new Notice('newCommand: Success!');
-  } catch (e) {
-    new Notice(`newCommand ERROR: ${e.message}`);
-    console.error('newCommand error:', e);
-  }
-}
-```
