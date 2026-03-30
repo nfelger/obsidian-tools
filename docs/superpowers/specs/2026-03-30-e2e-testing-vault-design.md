@@ -75,11 +75,10 @@ The vault is structured around the default settings:
 
 | File | Purpose |
 |---|---|
-| `+Diary/<year>/<month>/<today>.md` | Daily note — source for migrateTask, pushTaskDown, takeProjectTask, dropTaskToProject |
-| `+Diary/<year>/<month>/<tomorrow>.md` | Next daily note — target for pushTaskDown |
-| `+Diary/<year>/<month>/<this-week>.md` | Weekly note — target for migrateTask (daily→weekly) |
-| `+Diary/<year>/<month>/<next-week>.md` | Next weekly note — target for pullTaskUp (weekly→weekly) |
-| `1 Projekte/My Project.md` | Project note — source for takeProjectTask, target for dropTaskToProject, subject of finishProject |
+| `+Diary/<year>/<month>/<today>.md` | Today's daily note — source for migrateTask, pullTaskUp, dropTaskToProject; target for pushTaskDown, takeProjectTask |
+| `+Diary/<year>/<month>/<tomorrow>.md` | Next daily note — target for migrateTask |
+| `+Diary/<year>/<month>/<this-week>.md` | This week's weekly note — source for pushTaskDown; target for pullTaskUp |
+| `1 Projekte/My Project.md` | Project note — source for takeProjectTask and finishProject; target for dropTaskToProject |
 | `Areas/My Area.md` | Area note — target for extractLog |
 | `4 Archive/` | Empty folder — destination for finishProject |
 
@@ -135,15 +134,15 @@ export function readVaultFile(vaultDir: string, relPath: string): string {
 
 ## Smoke Test Coverage (One Trace Per Command)
 
-| Command | ID | Input state | Expected output |
+| Command | Active file | Input state | Expected output |
 |---|---|---|---|
-| `extractLog` | `extract-log` | Daily note, cursor on bullet with children and `[[My Area]]` wikilink | Children moved to `My Area.md` under `## Log`; bullet in daily note updated to section link |
-| `migrateTask` | `migrate-task` | Daily note, cursor on `- [ ] A task` | Task appears in weekly note under `## Log` as `- [>] A task` with backlink; original marked `[>]` |
-| `pushTaskDown` | `push-task-down` | Daily note, cursor on `- [ ] A task` | Task appears in tomorrow's daily note under `## Log` as `- [<]`; original marked `[<]` |
-| `pullTaskUp` | `pull-task-up` | Weekly note, cursor on `- [<] A task` with backlink to daily | Task reopened (`[ ]`) in weekly note; `[<]` removed from daily |
-| `takeProjectTask` | `take-project-task` | Daily note open, project note has `- [ ] Project task` under `## Todo` | Task appears in daily note under `## Log`; `[>]` marker added in project note |
-| `dropTaskToProject` | `drop-task-to-project` | Daily note, cursor on `- [ ] A task` | Task appears in `My Project.md` under `## Todo`; original line removed from daily |
-| `finishProject` | `finish-project` | `My Project.md` open | File moved to `4 Archive/My Project.md`; frontmatter `completed` date added |
+| `extractLog` | `extract-log` | Daily note; cursor on `- [[My Area]] some text` with child bullets | Children moved to `My Area.md` under `## Log`; source bullet wikilink updated to section anchor (`[[My Area#...\|My Area]]`) |
+| `migrateTask` | `migrate-task` | Today's daily note; cursor on `- [ ] A task` | Task copied to tomorrow's daily note under `## Log`; source task marked `[>]` |
+| `pushTaskDown` | `push-task-down` | This week's weekly note; cursor on `- [ ] A task` | Task copied to today's daily note under `## Log`; source task marked `[<]` |
+| `pullTaskUp` | `pull-task-up` | Today's daily note; cursor on `- [ ] A task` | Task copied to this week's weekly note under `## Log`; source task marked `[<]` |
+| `takeProjectTask` | `take-project-task` | `My Project.md`; cursor on `- [ ] Project task` under `## Todo` | Task copied to today's daily note under `## Log` with `[[My Project]]` prefix; source task marked `[<]` |
+| `dropTaskToProject` | `drop-task-to-project` | Today's daily note; cursor on `- [ ] [[My Project]] A task` | Task added to `My Project.md` under `## Todo` (without the `[[My Project]]` prefix); task line deleted from daily note |
+| `finishProject` | `finish-project` | `My Project.md` | File moved to `4 Archive/✅ My Project.md`; `completed: <date>` added to frontmatter |
 
 ## Entry Points
 
