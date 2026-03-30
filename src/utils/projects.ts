@@ -6,7 +6,7 @@
 
 import type { ListItem, BulletFlowSettings, ResolvedLink, LinkResolver } from '../types';
 import { DEFAULT_SETTINGS } from '../types';
-import { getListItemAtLine } from './listItems';
+import { buildLineToItemMap } from './listItems';
 import { countIndent, indentLines } from './indent';
 import { findFirstResolvedLink } from './wikilinks';
 
@@ -83,6 +83,7 @@ export function findProjectLinkInAncestors(
 	resolver: LinkResolver,
 	settings: BulletFlowSettings = DEFAULT_SETTINGS
 ): { link: ResolvedLink; line: number } | null {
+	const lineMap = buildLineToItemMap(listItems);
 	let currentLine: number | undefined = startLine;
 
 	while (currentLine !== undefined && currentLine >= 0) {
@@ -94,7 +95,7 @@ export function findProjectLinkInAncestors(
 		}
 
 		// Walk up to parent
-		const item = getListItemAtLine(listItems, currentLine);
+		const item = lineMap.get(currentLine) ?? null;
 		if (!item || typeof item.parent !== 'number' || item.parent < 0) {
 			break;
 		}
