@@ -95,7 +95,7 @@ export function findProjectLinkInAncestors(
 		}
 
 		// Walk up to parent
-		const item = lineMap.get(currentLine) ?? null;
+		const item: ListItem | null = lineMap.get(currentLine) ?? null;
 		if (!item || typeof item.parent !== 'number' || item.parent < 0) {
 			break;
 		}
