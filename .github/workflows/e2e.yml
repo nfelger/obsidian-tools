@@ -45,3 +45,10 @@ jobs:
 
       - name: Run E2E tests
         run: npm run test:e2e
+
+      - name: Save Obsidian cache on failure
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .obsidian-cache
+          key: obsidian-${{ runner.os }}-latest

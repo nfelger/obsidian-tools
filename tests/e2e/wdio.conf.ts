@@ -24,5 +24,14 @@ export const config: Options.Testrunner = {
     services: ['obsidian'],
     injectGlobals: false,
     cacheDir: path.resolve(__dirname, '../../.obsidian-cache'),
-    logLevel: 'warn',
+    logLevel: 'info',
+    before: async function(_capabilities, _specs, browser) {
+        const hasPlugin = await browser.execute(() => {
+            return !!(window as any).app?.plugins?.plugins?.['bullet-flow'];
+        });
+        if (!hasPlugin) {
+            throw new Error('bullet-flow plugin failed to load in Obsidian');
+        }
+        console.log('bullet-flow plugin loaded successfully');
+    },
 };
