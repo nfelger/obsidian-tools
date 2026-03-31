@@ -1,0 +1,47 @@
+{
+  "planPath": "docs/superpowers/plans/2026-03-30-e2e-testing-vault.md",
+  "tasks": [
+    {
+      "id": 0,
+      "subject": "Task 1: Install dependencies, scaffold, configure wdio.conf.ts",
+      "status": "pending",
+      "description": "**Goal:** A working wdio-obsidian-service setup that launches Obsidian headlessly with the bullet-flow plugin installed, verified by a passing smoke spec.\n\n**Files:**\n- Create: `tests/e2e/wdio.conf.ts`\n- Create: `tests/e2e/tsconfig.json`\n- Create: `tests/e2e/fixtures/vault/.obsidian/app.json`\n- Create: `tests/e2e/fixtures/vault/.obsidian/community-plugins.json`\n- Create: `tests/e2e/specs/smoke.e2e.ts`\n- Modify: `package.json`\n\n**Verify:** `npm run build && npm run test:e2e` → `1 passing`\n\n```json:metadata\n{\"files\": [\"tests/e2e/wdio.conf.ts\", \"tests/e2e/tsconfig.json\", \"tests/e2e/fixtures/vault/.obsidian/app.json\", \"tests/e2e/fixtures/vault/.obsidian/community-plugins.json\", \"tests/e2e/specs/smoke.e2e.ts\", \"package.json\"], \"verifyCommand\": \"npm run build && npm run test:e2e\", \"acceptanceCriteria\": [\"smoke spec passes: plugin detected\", \"Xvfb starts on Linux\", \"wdio finds specs in tests/e2e/specs/\"], \"requiresUserVerification\": false}\n```"
+    },
+    {
+      "id": 1,
+      "subject": "Task 2: Implement vault helpers",
+      "status": "pending",
+      "blockedBy": [0],
+      "description": "**Goal:** paths.ts with date-aware path helpers and vault.ts with createVaultFile, readVaultFile, vaultPathExists, openFileAtLine, runCommand.\n\n**Files:**\n- Create: `tests/e2e/helpers/paths.ts`\n- Create: `tests/e2e/helpers/vault.ts`\n\n**Verify:** Verified transitively by Tasks 3–5 smoke tests passing.\n\n```json:metadata\n{\"files\": [\"tests/e2e/helpers/paths.ts\", \"tests/e2e/helpers/vault.ts\"], \"verifyCommand\": \"npm run test:e2e\", \"acceptanceCriteria\": [\"todayDailyPath() returns correct vault-relative path\", \"createVaultFile/readVaultFile work\", \"runCommand executes bullet-flow commands\"], \"requiresUserVerification\": false}\n```"
+    },
+    {
+      "id": 2,
+      "subject": "Task 3: Smoke tests — extractLog and migrateTask",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "**Goal:** Two passing E2E specs verifying extractLog and migrateTask happy paths.\n\n**Files:**\n- Create: `tests/e2e/specs/extractLog.e2e.ts`\n- Create: `tests/e2e/specs/migrateTask.e2e.ts`\n\n**Verify:** `npm run test:e2e` → `3 passing`\n\n```json:metadata\n{\"files\": [\"tests/e2e/specs/extractLog.e2e.ts\", \"tests/e2e/specs/migrateTask.e2e.ts\"], \"verifyCommand\": \"npm run test:e2e\", \"acceptanceCriteria\": [\"extractLog: children moved to area note, wikilink updated\", \"migrateTask: task copied to tomorrow's daily, source marked [>]\"], \"requiresUserVerification\": false}\n```"
+    },
+    {
+      "id": 3,
+      "subject": "Task 4: Smoke tests — pushTaskDown and pullTaskUp",
+      "status": "pending",
+      "blockedBy": [2],
+      "description": "**Goal:** Two passing E2E specs verifying pushTaskDown (weekly→daily) and pullTaskUp (daily→weekly).\n\n**Files:**\n- Create: `tests/e2e/specs/pushTaskDown.e2e.ts`\n- Create: `tests/e2e/specs/pullTaskUp.e2e.ts`\n\n**Verify:** `npm run test:e2e` → `5 passing`\n\n```json:metadata\n{\"files\": [\"tests/e2e/specs/pushTaskDown.e2e.ts\", \"tests/e2e/specs/pullTaskUp.e2e.ts\"], \"verifyCommand\": \"npm run test:e2e\", \"acceptanceCriteria\": [\"pushTaskDown: task in daily, weekly marked [<]\", \"pullTaskUp: task in weekly, daily marked [<]\"], \"requiresUserVerification\": false}\n```"
+    },
+    {
+      "id": 4,
+      "subject": "Task 5: Smoke tests — takeProjectTask, dropTaskToProject, finishProject",
+      "status": "pending",
+      "blockedBy": [3],
+      "description": "**Goal:** Three passing E2E specs for project-note commands.\n\n**Files:**\n- Create: `tests/e2e/specs/takeProjectTask.e2e.ts`\n- Create: `tests/e2e/specs/dropTaskToProject.e2e.ts`\n- Create: `tests/e2e/specs/finishProject.e2e.ts`\n\n**Verify:** `npm run test:e2e` → `8 passing`\n\n```json:metadata\n{\"files\": [\"tests/e2e/specs/takeProjectTask.e2e.ts\", \"tests/e2e/specs/dropTaskToProject.e2e.ts\", \"tests/e2e/specs/finishProject.e2e.ts\"], \"verifyCommand\": \"npm run test:e2e\", \"acceptanceCriteria\": [\"takeProjectTask: task in daily with [[My Project]] prefix, project marked [<]\", \"dropTaskToProject: task in project note, deleted from daily\", \"finishProject: file at 4 Archive/✅ My Project.md with completed: in frontmatter\"], \"requiresUserVerification\": false}\n```"
+    },
+    {
+      "id": 5,
+      "subject": "Task 6: GitHub Actions CI workflow",
+      "status": "pending",
+      "blockedBy": [4],
+      "description": "**Goal:** CI workflow running E2E suite on ubuntu-latest with Obsidian binary caching.\n\n**Files:**\n- Create: `.github/workflows/e2e.yml`\n\n**Verify:** Push to branch → green E2E job in GitHub Actions\n\n```json:metadata\n{\"files\": [\".github/workflows/e2e.yml\"], \"verifyCommand\": \"gh run view --repo nfelger/obsidian-tools\", \"acceptanceCriteria\": [\"workflow runs on push and pull_request\", \"Obsidian binary cached\", \"all 8 specs pass\"], \"requiresUserVerification\": false}\n```"
+    }
+  ],
+  "lastUpdated": "2026-03-30T00:00:00Z"
+}
