@@ -5,7 +5,7 @@ const VAULT_PATH = path.resolve(__dirname, 'fixtures/vault');
 
 export const config: Options.Testrunner = {
     runner: 'local',
-    specs: ['./specs/**/*.e2e.ts'],
+    specs: [path.join(__dirname, 'specs/**/*.e2e.ts')],
     maxInstances: 1,
     capabilities: [{
         browserName: 'obsidian',
