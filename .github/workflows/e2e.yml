@@ -34,17 +34,12 @@ jobs:
 
       - name: Set up virtual display
         run: |
-          sudo rm -rf /etc/apt/sources.list.d/*.list
-          echo "set man-db/auto-update false" | sudo debconf-communicate
-          sudo dpkg-reconfigure man-db
-
-          sudo apt-get update -q
-          sudo apt-get install -q herbstluftwm x11-xserver-utils
+          sudo apt-get install -y herbstluftwm
 
           export DISPLAY=:99
           echo "DISPLAY=$DISPLAY" >> "$GITHUB_ENV"
-          Xvfb $DISPLAY -screen 0 1280x1024x24 +extension GLX -noreset &
-          sleep 1
+          Xvfb :99 -screen 0 1280x1024x24 -ac +extension GLX -noreset &
+          sleep 2
           herbstluftwm &
           sleep 1
 
