@@ -2,7 +2,7 @@ import { browser } from '@wdio/globals';
 
 /**
  * Create (or overwrite) a file in the live Obsidian vault via Obsidian's API.
- * Creates parent folders as needed. Waits for the vault to index the file.
+ * Creates parent folders as needed.
  */
 export async function createVaultFile(relPath: string, content: string): Promise<void> {
     await browser.execute(async (filePath: string, fileContent: string) => {
@@ -17,7 +17,7 @@ export async function createVaultFile(relPath: string, content: string): Promise
                 try {
                     await app.vault.createFolder(folderPath);
                 } catch (_e) {
-                    // May already exist due to race; ignore
+                    // May already exist; ignore
                 }
             }
         }
@@ -29,6 +29,23 @@ export async function createVaultFile(relPath: string, content: string): Promise
             await app.vault.create(filePath, fileContent);
         }
     }, relPath, content);
+}
+
+/**
+ * Wait for a file to be indexed in Obsidian's metadataCache.
+ * Must be called after createVaultFile for files the command needs to resolve links into.
+ */
+export async function waitForCacheReady(relPath: string): Promise<void> {
+    await browser.waitUntil(
+        () => browser.execute((filePath: string) => {
+            const app = (window as any).app;
+            return app.vault.getAbstractFileByPath(filePath) !== null
+                && app.metadataCache.getFileCache(
+                    app.vault.getAbstractFileByPath(filePath)
+                ) !== null;
+        }, relPath),
+        { timeout: 10000, interval: 100, timeoutMsg: `Timed out waiting for cache: ${relPath}` }
+    );
 }
 
 /**
@@ -55,32 +72,48 @@ export async function vaultPathExists(relPath: string): Promise<boolean> {
 
 /**
  * Open a vault file in Obsidian and position the cursor at the given line (0-indexed).
- * Waits for the editor to be ready before returning.
+ * Waits until the active editor is ready before returning.
  */
 export async function openFileAtLine(relPath: string, line: number): Promise<void> {
-    await browser.execute(async (filePath: string, lineNum: number) => {
+    await browser.execute(async (filePath: string) => {
         const app = (window as any).app;
         const file = app.vault.getAbstractFileByPath(filePath);
         if (!file) throw new Error(`openFileAtLine: file not found: ${filePath}`);
         const leaf = app.workspace.getLeaf(false);
         await leaf.openFile(file);
+    }, relPath);
+
+    // Wait until the editor is active and showing this file
+    await browser.waitUntil(
+        () => browser.execute((filePath: string) => {
+            const app = (window as any).app;
+            const editor = app.workspace.activeEditor?.editor
+                ?? (app.workspace.activeLeaf?.view as any)?.editor;
+            const activeFile = app.workspace.getActiveFile();
+            return !!(editor && activeFile?.path === filePath);
+        }, relPath),
+        { timeout: 10000, interval: 100, timeoutMsg: `Timed out waiting for editor: ${relPath}` }
+    );
+
+    // Set cursor position
+    await browser.execute((filePath: string, lineNum: number) => {
+        const app = (window as any).app;
         const editor = app.workspace.activeEditor?.editor
             ?? (app.workspace.activeLeaf?.view as any)?.editor;
         if (editor) {
             editor.setCursor({ line: lineNum, ch: 0 });
         }
     }, relPath, line);
-    // Allow Obsidian to finish rendering and indexing
-    await browser.pause(800);
+
+    // Allow metadataCache to index the open file
+    await browser.pause(500);
 }
 
 /**
  * Execute a bullet-flow command by its short ID (without the 'bullet-flow:' prefix).
- * Waits for the async command to settle before returning.
+ * Throws if the command is not found. Waits for async command to settle.
  */
 export async function runCommand(commandId: string): Promise<void> {
-    await browser.execute((id: string) => {
-        (window as any).app.commands.executeCommandById(`bullet-flow:${id}`);
-    }, commandId);
-    await browser.pause(800);
+    await (browser as any).executeObsidianCommand(`bullet-flow:${commandId}`);
+    await browser.pause(1000);
 }
