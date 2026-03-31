@@ -111,9 +111,20 @@ export async function openFileAtLine(relPath: string, line: number): Promise<voi
 
 /**
  * Execute a bullet-flow command by its short ID (without the 'bullet-flow:' prefix).
- * Throws if the command is not found. Waits for async command to settle.
+ * Awaits the command's async callback to completion before returning.
  */
 export async function runCommand(commandId: string): Promise<void> {
-    await (browser as any).executeObsidianCommand(`bullet-flow:${commandId}`);
-    await browser.pause(1000);
+    const fullId = `bullet-flow:${commandId}`;
+    await (browser as any).executeObsidian(async ({ app }: any, id: string) => {
+        const command = (app as any).commands?.commands?.[id];
+        if (!command) throw new Error(`Command not found: ${id}`);
+        const result = command.callback
+            ? command.callback()
+            : command.checkCallback?.(false);
+        if (result && typeof (result as any).then === 'function') {
+            await result;
+        }
+    }, fullId);
+    // Brief pause for post-command Obsidian state propagation (e.g. fileManager.renameFile)
+    await browser.pause(300);
 }
