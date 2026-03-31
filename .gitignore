@@ -21,3 +21,6 @@ main.js.map
 # OS
 .DS_Store
 Thumbs.db
+
+# E2E test Obsidian binary cache
+.obsidian-cache/
