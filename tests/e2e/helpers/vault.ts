@@ -111,20 +111,23 @@ export async function openFileAtLine(relPath: string, line: number): Promise<voi
 
 /**
  * Execute a bullet-flow command by its short ID (without the 'bullet-flow:' prefix).
- * Awaits the command's async callback to completion before returning.
+ * Directly invokes and awaits the command callback when possible so that async
+ * file operations (vault.process, fileManager.renameFile) complete before returning.
  */
 export async function runCommand(commandId: string): Promise<void> {
     const fullId = `bullet-flow:${commandId}`;
     await (browser as any).executeObsidian(async ({ app }: any, id: string) => {
-        const command = (app as any).commands?.commands?.[id];
-        if (!command) throw new Error(`Command not found: ${id}`);
-        const result = command.callback
-            ? command.callback()
-            : command.checkCallback?.(false);
-        if (result && typeof (result as any).then === 'function') {
-            await result;
+        // Prefer the internal registry so we can await the async callback directly.
+        const cmd = (app as any).commands?.commands?.[id];
+        if (cmd?.callback) {
+            const r = cmd.callback();
+            if (r && typeof r.then === 'function') await r;
+            return;
         }
+        // Fallback: executeCommandById fires the callback without awaiting it.
+        const found = app.commands.executeCommandById(id);
+        if (!found) throw new Error(`Command not found: ${id}`);
     }, fullId);
-    // Brief pause for post-command Obsidian state propagation (e.g. fileManager.renameFile)
-    await browser.pause(300);
+    // Pause for any remaining post-command state propagation (renameFile link updates etc.)
+    await browser.pause(500);
 }
