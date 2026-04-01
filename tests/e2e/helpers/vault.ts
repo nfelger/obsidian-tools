@@ -22,12 +22,14 @@ export async function createVaultFile(relPath: string, content: string): Promise
             }
         }
 
+        // Delete then recreate so the metadataCache entry is cleared first.
+        // vault.modify() leaves the old cache entry in place until async re-index
+        // completes, which causes waitForCacheReady to see stale list items.
         const existing = app.vault.getAbstractFileByPath(filePath);
         if (existing) {
-            await app.vault.modify(existing, fileContent);
-        } else {
-            await app.vault.create(filePath, fileContent);
+            await app.vault.delete(existing);
         }
+        await app.vault.create(filePath, fileContent);
     }, relPath, content);
 }
 
@@ -50,12 +52,26 @@ export async function waitForCacheReady(relPath: string): Promise<void> {
 
 /**
  * Read a file from the live Obsidian vault. Returns null if the file doesn't exist.
+ *
+ * If the file is currently open in the active editor, reads from the editor buffer
+ * directly — editor operations (replaceRange, setLine) are not flushed to disk until
+ * Obsidian's autosave fires (typically 2 s), so vault.read() would return stale content.
  */
 export async function readVaultFile(relPath: string): Promise<string | null> {
     return browser.execute(async (filePath: string) => {
         const app = (window as any).app;
         const file = app.vault.getAbstractFileByPath(filePath);
         if (!file) return null;
+        // For the currently-active file, read directly from the editor buffer so we
+        // see editor changes that haven't been written to disk yet.
+        const activeFile = app.workspace.getActiveFile();
+        if (activeFile && activeFile.path === filePath) {
+            const editor = app.workspace.activeEditor?.editor
+                ?? (app.workspace.activeLeaf?.view as any)?.editor;
+            if (editor) {
+                return editor.getValue();
+            }
+        }
         return await app.vault.read(file);
     }, relPath);
 }
