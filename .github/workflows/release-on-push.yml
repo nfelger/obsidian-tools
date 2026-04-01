@@ -40,8 +40,19 @@ jobs:
           echo "dev_version=${DEV_VERSION}" >> $GITHUB_OUTPUT
           echo "commit_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Build plugin (stable)
+      - name: Check if stable release tag exists
+        id: tag_check
         if: github.ref == 'refs/heads/main'
+        run: |
+          TAG="${{ steps.version.outputs.base_version }}"
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "${TAG}"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build plugin (stable)
+        if: github.ref == 'refs/heads/main' && steps.tag_check.outputs.exists == 'false'
         run: npm run build
 
       - name: Update manifest.json with dev version
@@ -54,7 +65,7 @@ jobs:
         run: npm run build
 
       - name: Create Stable Release
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.tag_check.outputs.exists == 'false'
         uses: ncipollo/release-action@v1
         with:
           artifacts: "main.js,manifest.json,styles.css"

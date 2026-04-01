@@ -39,6 +39,7 @@ obsidian-tools/
 ├── tests/
 │   ├── unit/                     # Pure function tests
 │   ├── integration/              # Full workflow tests
+│   ├── e2e/                      # End-to-end tests (wdio-obsidian-service)
 │   ├── helpers/                  # Test helper factories
 │   ├── mocks/obsidian.js         # Obsidian API mock factories
 │   └── legacy/                   # Legacy Templater script tests
