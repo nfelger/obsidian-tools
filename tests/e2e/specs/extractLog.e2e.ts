@@ -21,7 +21,10 @@ describe('extractLog', () => {
             '## Log',
         ].join('\n'));
 
-        // Wait for metadataCache to index the linked target note
+        // Wait for metadataCache to index both files:
+        // - source daily note: extractLog needs listItems from cache to find children
+        // - target area note: needed to resolve [[My Area]] wikilink
+        await waitForCacheReady(todayDailyPath());
         await waitForCacheReady(AREA_NOTE_PATH);
     });
 

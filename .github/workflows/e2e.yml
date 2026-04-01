@@ -44,7 +44,14 @@ jobs:
           sleep 1
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: npm run test:e2e 2>&1 | tee e2e-output.txt; exit ${PIPESTATUS[0]}
+
+      - name: Upload E2E test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-output
+          path: e2e-output.txt
 
       - name: Save Obsidian cache on failure
         if: always()
