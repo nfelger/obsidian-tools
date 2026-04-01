@@ -32,6 +32,12 @@ jobs:
           path: .obsidian-cache
           key: obsidian-${{ runner.os }}-latest
 
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-herbstluftwm-${{ runner.os }}
+
       - name: Set up virtual display
         run: |
           sudo apt-get install -y herbstluftwm
