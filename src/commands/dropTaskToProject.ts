@@ -36,14 +36,14 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 
 		// Should not be used from a project note itself
 		if (isProjectNote(file.path, plugin.settings)) {
-			new Notice('dropTaskToProject: Already in a project note.');
+			new Notice('Drop task to project: Already in a project note.');
 			return;
 		}
 
 		const listItems = getListItems(plugin, file);
 		const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
 
-		const taskLines = findSelectedTaskLines(editor, listItems, 'dropTaskToProject');
+		const taskLines = findSelectedTaskLines(editor, listItems, 'Drop task to project');
 		if (!taskLines) return;
 
 		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
@@ -73,14 +73,14 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 			);
 
 			if (!projectLink) {
-				new Notice(`dropTaskToProject: No project link found for task on line ${taskLine + 1}.`);
+				new Notice(`Drop task to project: No project link found for task on line ${taskLine + 1}.`);
 				continue;
 			}
 
 			// Resolve the project file
 			const projectFile = plugin.app.vault.getAbstractFileByPath(projectLink.link.path) as TFile;
 			if (!projectFile) {
-				new Notice(`dropTaskToProject: Project note not found: ${projectLink.link.path}`);
+				new Notice(`Drop task to project: Project note not found: ${projectLink.link.path}`);
 				continue;
 			}
 
@@ -169,17 +169,17 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 		let message: string;
 		if (droppedCount === 1) {
 			message = mergedCount > 0
-				? 'dropTaskToProject: Task returned to project (reopened).'
-				: 'dropTaskToProject: Task added to project.';
+				? 'Drop task to project: Task returned to project (reopened).'
+				: 'Drop task to project: Task added to project.';
 		} else {
 			const parts: string[] = [];
 			if (newCount > 0) parts.push(`${newCount} new`);
 			if (mergedCount > 0) parts.push(`${mergedCount} reopened`);
-			message = `dropTaskToProject: ${droppedCount} tasks dropped to project (${parts.join(', ')}).`;
+			message = `Drop task to project: ${droppedCount} tasks dropped to project (${parts.join(', ')}).`;
 		}
 		new Notice(message);
 	} catch (e: any) {
-		new Notice(`dropTaskToProject ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		new Notice(`Drop task to project error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('dropTaskToProject error:', e);
 	}
 }

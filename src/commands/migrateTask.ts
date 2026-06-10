@@ -19,8 +19,9 @@ import { NOTICE_TIMEOUT_ERROR } from '../config';
  * 1. Check cursor/selection contains incomplete tasks
  * 2. Determine note type and target note (supports daily/weekly/monthly/yearly)
  * 3. Check target note exists
- * 4. Copy task(s) (and children) to target under "## Log"
- * 5. Mark source task(s) as migrated [>] and remove children
+ * 4. Copy task(s) and their incomplete children to target under the configured
+ *    task heading (completed/migrated subtrees stay in the source)
+ * 5. Mark source task(s) as migrated [>] and remove transferred children
  *
  * Supports:
  * - All periodic note types (daily, weekly, monthly, yearly)
@@ -40,7 +41,7 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 		const noteService = new PeriodicNoteService(plugin.settings);
 		const noteInfo = noteService.parseNoteType(file.basename);
 		if (!noteInfo) {
-			new Notice('migrateTask: This is not a periodic note.');
+			new Notice('Migrate task: This is not a periodic note.');
 			return;
 		}
 
@@ -48,13 +49,13 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		const targetFile = plugin.app.vault.getAbstractFileByPath(targetPath) as TFile;
 		if (!targetFile) {
-			new Notice(`migrateTask: Target note does not exist: ${targetPath}`);
+			new Notice(`Migrate task: Target note does not exist: ${targetPath}`);
 			return;
 		}
 
 		const listItems = getListItems(plugin, file);
 
-		const taskLines = findSelectedTaskLines(editor, listItems, 'migrateTask');
+		const taskLines = findSelectedTaskLines(editor, listItems, 'Migrate task');
 		if (!taskLines) return;
 
 		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
@@ -109,11 +110,11 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		const taskCount = taskLines.length;
 		const message = taskCount === 1
-			? 'migrateTask: Task migrated successfully.'
-			: `migrateTask: ${taskCount} tasks migrated successfully.`;
+			? 'Migrate task: Task migrated successfully.'
+			: `Migrate task: ${taskCount} tasks migrated successfully.`;
 		new Notice(message);
 	} catch (e: any) {
-		new Notice(`migrateTask ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		new Notice(`Migrate task error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('migrateTask error:', e);
 	}
 }

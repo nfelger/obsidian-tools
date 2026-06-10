@@ -53,14 +53,14 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 
 		const listItems = getListItems(plugin, file);
 		if (listItems.length === 0) {
-			new Notice('extractLog ERROR: No listItems metadata in this file.');
+			new Notice('Extract log error: No listItems metadata in this file.');
 			return;
 		}
 
 		// Find children
 		const children = findChildrenBlockFromListItems(editor, listItems, parentLine);
 		if (!children) {
-			new Notice('extractLog: No children under current bullet (no-op).');
+			new Notice('Extract log: No children under current bullet (no-op).');
 			return;
 		}
 
@@ -104,7 +104,7 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 				headingSuffix = afterLinkRaw.trim();
 			}
 		} else {
-			new Notice('extractLog ERROR: No wikilink found on current line.');
+			new Notice('Extract log error: No wikilink found on current line.');
 			return;
 		}
 
@@ -194,12 +194,12 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 		editor.setLine(parentLine, updatedParentText);
 
 		new Notice(
-			`extractLog: moved child block to "${targetFile.basename}" > ${targetText}`,
+			`Extract log: moved child block to "${targetFile.basename}" > ${targetText}`,
 			NOTICE_TIMEOUT_SUCCESS
 		);
 
 	} catch (e: any) {
-		new Notice(`extractLog ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		new Notice(`Extract log error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('extractLog error:', e);
 	}
 }

@@ -9,7 +9,7 @@ import { finishProject } from './commands/finishProject';
 import { HotkeyModal } from './ui/HotkeyModal';
 import { BulletFlowSettingTab } from './settings';
 import type { BulletFlowSettings } from './types';
-import { DEFAULT_SETTINGS } from './types';
+import { DEFAULT_SETTINGS, migrateSettings } from './types';
 import { createAutoMoveExtension } from './events/autoMoveCompleted';
 
 export default class BulletFlowPlugin extends Plugin {
@@ -97,7 +97,8 @@ export default class BulletFlowPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const loaded = migrateSettings(await this.loadData());
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
 	}
 
 	async saveSettings() {

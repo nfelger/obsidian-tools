@@ -49,13 +49,13 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 		const noteService = new PeriodicNoteService(plugin.settings);
 		const noteInfo = noteService.parseNoteType(file.basename);
 		if (!noteInfo) {
-			new Notice('pushTaskDown: This is not a periodic note.');
+			new Notice('Push task down: This is not a periodic note.');
 			return;
 		}
 
 		// Check if already at daily level
 		if (noteInfo.type === 'daily') {
-			new Notice('pushTaskDown: Cannot push down from daily note (already at lowest level).');
+			new Notice('Push task down: Cannot push down from daily note (already at lowest level).');
 			return;
 		}
 
@@ -64,7 +64,7 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 
 		// Check if today is within the source period
 		if (!noteService.dateIsInPeriod(today, noteInfo)) {
-			new Notice('pushTaskDown: Current date is not in this period. Use Migrate Task to move forward.');
+			new Notice('Push task down: Current date is not in this period. Use Migrate Task to move forward.');
 			return;
 		}
 
@@ -73,24 +73,24 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 		try {
 			const lowerPath = noteService.getLowerNotePath(noteInfo, today);
 			if (!lowerPath) {
-				new Notice('pushTaskDown: Cannot determine target note.');
+				new Notice('Push task down: Cannot determine target note.');
 				return;
 			}
 			targetPath = lowerPath + '.md';
 		} catch (e: any) {
-			new Notice(`pushTaskDown: ${e.message}`);
+			new Notice(`Push task down: ${e.message}`);
 			return;
 		}
 
 		const targetFile = plugin.app.vault.getAbstractFileByPath(targetPath) as TFile;
 		if (!targetFile) {
-			new Notice(`pushTaskDown: Target note does not exist: ${targetPath}`);
+			new Notice(`Push task down: Target note does not exist: ${targetPath}`);
 			return;
 		}
 
 		const listItems = getListItems(plugin, file);
 
-		const taskLines = findSelectedTaskLines(editor, listItems, 'pushTaskDown');
+		const taskLines = findSelectedTaskLines(editor, listItems, 'Push task down');
 		if (!taskLines) return;
 
 		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
@@ -161,17 +161,17 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 		let message: string;
 		if (taskCount === 1) {
 			message = mergedCount > 0
-				? 'pushTaskDown: Task merged with existing in lower note.'
-				: 'pushTaskDown: Task pushed to lower note.';
+				? 'Push task down: Task merged with existing in lower note.'
+				: 'Push task down: Task pushed to lower note.';
 		} else {
 			const parts: string[] = [];
 			if (newCount > 0) parts.push(`${newCount} new`);
 			if (mergedCount > 0) parts.push(`${mergedCount} merged`);
-			message = `pushTaskDown: ${taskCount} tasks pushed to lower note (${parts.join(', ')}).`;
+			message = `Push task down: ${taskCount} tasks pushed to lower note (${parts.join(', ')}).`;
 		}
 		new Notice(message);
 	} catch (e: any) {
-		new Notice(`pushTaskDown ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		new Notice(`Push task down error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('pushTaskDown error:', e);
 	}
 }

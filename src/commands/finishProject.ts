@@ -16,12 +16,12 @@ export async function finishProject(plugin: BulletFlowPlugin): Promise<void> {
 		const { file } = context;
 
 		if (!isProjectNote(file.path, plugin.settings)) {
-			new Notice('finishProject: Not a project note.');
+			new Notice('Finish project: Not a project note.');
 			return;
 		}
 
 		if (file.basename.startsWith('✅')) {
-			new Notice('finishProject: Project is already finished.');
+			new Notice('Finish project: Project is already finished.');
 			return;
 		}
 
@@ -30,7 +30,7 @@ export async function finishProject(plugin: BulletFlowPlugin): Promise<void> {
 		const newPath = `${archiveFolder}/✅ ${projectName}.md`;
 
 		if (plugin.app.vault.getAbstractFileByPath(newPath)) {
-			new Notice(`finishProject: ${newPath} already exists.`);
+			new Notice(`Finish project: ${newPath} already exists.`);
 			return;
 		}
 
@@ -49,9 +49,9 @@ export async function finishProject(plugin: BulletFlowPlugin): Promise<void> {
 
 		await plugin.app.fileManager.renameFile(file, newPath);
 
-		new Notice(`finishProject: ${projectName} archived.`);
+		new Notice(`Finish project: ${projectName} archived.`);
 	} catch (e: any) {
-		new Notice(`finishProject ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		new Notice(`Finish project error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('finishProject error:', e);
 	}
 }

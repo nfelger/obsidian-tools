@@ -54,33 +54,33 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 		const noteService = new PeriodicNoteService(plugin.settings);
 		const noteInfo = noteService.parseNoteType(file.basename);
 		if (!noteInfo) {
-			new Notice('pullTaskUp: This is not a periodic note.');
+			new Notice('Pull task up: This is not a periodic note.');
 			return;
 		}
 
 		// Check if already at yearly level
 		if (noteInfo.type === 'yearly') {
-			new Notice('pullTaskUp: Cannot pull up from yearly note (already at highest level).');
+			new Notice('Pull task up: Cannot pull up from yearly note (already at highest level).');
 			return;
 		}
 
 		// Calculate target path (higher level note)
 		const higherPath = noteService.getHigherNotePath(noteInfo);
 		if (!higherPath) {
-			new Notice('pullTaskUp: Cannot determine target note.');
+			new Notice('Pull task up: Cannot determine target note.');
 			return;
 		}
 
 		const targetPath = higherPath + '.md';
 		const targetFile = plugin.app.vault.getAbstractFileByPath(targetPath) as TFile;
 		if (!targetFile) {
-			new Notice(`pullTaskUp: Target note does not exist: ${targetPath}`);
+			new Notice(`Pull task up: Target note does not exist: ${targetPath}`);
 			return;
 		}
 
 		const listItems = getListItems(plugin, file);
 
-		const taskLines = findSelectedTaskLines(editor, listItems, 'pullTaskUp');
+		const taskLines = findSelectedTaskLines(editor, listItems, 'Pull task up');
 		if (!taskLines) return;
 
 		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
@@ -146,17 +146,17 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 		let message: string;
 		if (taskCount === 1) {
 			message = mergedCount > 0
-				? 'pullTaskUp: Task merged with existing in higher note.'
-				: 'pullTaskUp: Task pulled to higher note.';
+				? 'Pull task up: Task merged with existing in higher note.'
+				: 'Pull task up: Task pulled to higher note.';
 		} else {
 			const parts: string[] = [];
 			if (newCount > 0) parts.push(`${newCount} new`);
 			if (mergedCount > 0) parts.push(`${mergedCount} merged`);
-			message = `pullTaskUp: ${taskCount} tasks pulled to higher note (${parts.join(', ')}).`;
+			message = `Pull task up: ${taskCount} tasks pulled to higher note (${parts.join(', ')}).`;
 		}
 		new Notice(message);
 	} catch (e: any) {
-		new Notice(`pullTaskUp ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		new Notice(`Pull task up error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('pullTaskUp error:', e);
 	}
 }

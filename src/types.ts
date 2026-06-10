@@ -91,6 +91,9 @@ export interface NoteInfo {
  * - [text] - Literal text (escaped)
  */
 export interface BulletFlowSettings {
+	/** Schema version of saved settings; bump when defaults change meaning */
+	settingsVersion: number;
+
 	/** Base folder for periodic notes (e.g., '+Diary') */
 	diaryFolder: string;
 
@@ -128,7 +131,10 @@ export interface BulletFlowSettings {
 	projectArchiveFolder: string;
 }
 
+export const SETTINGS_VERSION = 1;
+
 export const DEFAULT_SETTINGS: BulletFlowSettings = {
+	settingsVersion: SETTINGS_VERSION,
 	diaryFolder: '+Diary',
 	periodicNoteTaskTargetHeading: '## Todo',
 	logExtractionTargetHeading: '## Log',
@@ -142,6 +148,32 @@ export const DEFAULT_SETTINGS: BulletFlowSettings = {
 	dailyNoteLogHeading: '## Log',
 	projectArchiveFolder: '4 Archive'
 };
+
+/**
+ * Migrate saved settings from older plugin versions.
+ *
+ * Settings saved before the version field existed (pre-0.11.1) used
+ * `## Log` as the default task target heading. That default changed to
+ * `## Todo`, so an unversioned saved `## Log` is treated as the old default
+ * and updated. Settings that already carry a version are left as-is.
+ *
+ * @param data - Raw data from loadData(), or null on fresh installs
+ * @returns Migrated data (same object shape), or null if data was null
+ */
+export function migrateSettings(
+	data: (Partial<BulletFlowSettings> & Record<string, unknown>) | null
+): Partial<BulletFlowSettings> | null {
+	if (!data) return null;
+
+	if (data.settingsVersion === undefined) {
+		if (data.periodicNoteTaskTargetHeading === '## Log') {
+			data.periodicNoteTaskTargetHeading = '## Todo';
+		}
+		data.settingsVersion = SETTINGS_VERSION;
+	}
+
+	return data;
+}
 
 // === Task Insertion ===
 

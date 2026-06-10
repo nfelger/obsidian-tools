@@ -138,18 +138,20 @@ export function findSelectedTaskLines(
 	commandName: string
 ): number[] | null {
 	if (editor.somethingSelected()) {
-		const selections = editor.listSelections();
-		const selection = selections[0];
-		const startLine = Math.min(selection.anchor.line, selection.head.line);
-		const endLine = Math.max(selection.anchor.line, selection.head.line);
+		const taskLineSet = new Set<number>();
+		for (const selection of editor.listSelections()) {
+			const startLine = Math.min(selection.anchor.line, selection.head.line);
+			const endLine = Math.max(selection.anchor.line, selection.head.line);
+			for (const line of findTopLevelTasksInRange(editor, listItems || [], startLine, endLine)) {
+				taskLineSet.add(line);
+			}
+		}
 
-		const taskLines = findTopLevelTasksInRange(editor, listItems || [], startLine, endLine);
-
-		if (taskLines.length === 0) {
+		if (taskLineSet.size === 0) {
 			new Notice(`${commandName}: No incomplete tasks in selection.`);
 			return null;
 		}
-		return taskLines;
+		return [...taskLineSet].sort((a, b) => a - b);
 	} else {
 		const currentLine = editor.getCursor().line;
 		const lineText = editor.getLine(currentLine);

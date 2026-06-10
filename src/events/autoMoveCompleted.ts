@@ -9,7 +9,7 @@
 
 import { EditorView, ViewUpdate } from '@codemirror/view';
 import { Annotation, Extension } from '@codemirror/state';
-import { MarkdownView } from 'obsidian';
+import { editorInfoField } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
 import { TaskMarker, TaskState } from '../utils/tasks';
@@ -73,11 +73,14 @@ function detectAutoMoveCandidate(update: ViewUpdate): boolean {
  * and move it to Log. Called via setTimeout(0) to avoid CM6 re-entrancy.
  */
 function performAutoMove(plugin: BulletFlowPlugin, view: EditorView): void {
-	const markdownView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
-	if (!markdownView?.file) return;
+	// Resolve the file from the captured editor view itself — the *active*
+	// view may have changed between the edit and this deferred callback,
+	// which would gate (or dispatch) against the wrong document.
+	const file = view.state.field(editorInfoField, false)?.file;
+	if (!file) return;
 
 	const noteService = new PeriodicNoteService(plugin.settings);
-	const noteInfo = noteService.parseNoteType(markdownView.file.basename);
+	const noteInfo = noteService.parseNoteType(file.basename);
 	if (!noteInfo || noteInfo.type !== 'daily') return;
 
 	const docText = view.state.doc.toString();

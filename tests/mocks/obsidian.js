@@ -301,3 +301,6 @@ export class Modal {
   onOpen() {}
   onClose() {}
 }
+
+// CM6 state field carrying the editor's file info (boundary stub)
+export const editorInfoField = {};

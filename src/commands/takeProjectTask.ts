@@ -44,13 +44,13 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		// Verify this is a project note
 		if (!isProjectNote(file.path, plugin.settings)) {
-			new Notice('takeProjectTask: This is not a project note.');
+			new Notice('Take project task: This is not a project note.');
 			return;
 		}
 
 		const projectName = getProjectName(file.path, plugin.settings);
 		if (!projectName) {
-			new Notice('takeProjectTask: Cannot determine project name.');
+			new Notice('Take project task: Cannot determine project name.');
 			return;
 		}
 
@@ -60,13 +60,13 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 		const dailyPath = noteService.formatDailyPath(today) + '.md';
 		const dailyFile = plugin.app.vault.getAbstractFileByPath(dailyPath) as TFile;
 		if (!dailyFile) {
-			new Notice(`takeProjectTask: Today's daily note does not exist: ${dailyPath}`);
+			new Notice(`Take project task: Today's daily note does not exist: ${dailyPath}`);
 			return;
 		}
 
 		const listItems = getListItems(plugin, file);
 
-		const taskLines = findSelectedTaskLines(editor, listItems, 'takeProjectTask');
+		const taskLines = findSelectedTaskLines(editor, listItems, 'Take project task');
 		if (!taskLines) return;
 
 		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
@@ -175,17 +175,17 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 		let message: string;
 		if (taskCount === 1) {
 			message = mergedCount > 0
-				? 'takeProjectTask: Task merged with existing in daily note.'
-				: 'takeProjectTask: Task taken to daily note.';
+				? 'Take project task: Task merged with existing in daily note.'
+				: 'Take project task: Task taken to daily note.';
 		} else {
 			const parts: string[] = [];
 			if (newCount > 0) parts.push(`${newCount} new`);
 			if (mergedCount > 0) parts.push(`${mergedCount} merged`);
-			message = `takeProjectTask: ${taskCount} tasks taken to daily note (${parts.join(', ')}).`;
+			message = `Take project task: ${taskCount} tasks taken to daily note (${parts.join(', ')}).`;
 		}
 		new Notice(message);
 	} catch (e: any) {
-		new Notice(`takeProjectTask ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		new Notice(`Take project task error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('takeProjectTask error:', e);
 	}
 }
