@@ -101,15 +101,13 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 			// The collector task already identifies the project, so prepending [[Project]] is redundant noise
 			const taskContentForCollector = buildTaskContent(
 				parentLineForTarget,
-				childrenContent ? childrenContent.split('\n') : [],
-				2
+				childrenContent ? childrenContent.split('\n') : []
 			);
 
 			// Build full task content for heading insertion
 			const taskContent = buildTaskContent(
 				parentLineWithLink,
-				childrenContent ? childrenContent.split('\n') : [],
-				2
+				childrenContent ? childrenContent.split('\n') : []
 			);
 
 			// The task text for deduplication should include the project link

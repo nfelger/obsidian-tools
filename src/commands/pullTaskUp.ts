@@ -103,8 +103,7 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 			const parentLineStripped = lineText.slice(parentIndent);
 			const taskContent = buildTaskContent(
 				parentLineStripped,
-				childrenContent ? childrenContent.split('\n') : [],
-				2
+				childrenContent ? childrenContent.split('\n') : []
 			);
 
 			collectedTasks.push({ taskText, taskContent, childrenContent });

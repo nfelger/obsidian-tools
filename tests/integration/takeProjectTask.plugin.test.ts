@@ -90,7 +90,8 @@ describe('takeProjectTask', () => {
 			const nextLine = lines[collectorIdx + 1];
 			expect(nextLine).toContain('Define rollback strategy');
 			expect(nextLine).not.toContain('[[Migration Initiative]]');
-			expect(nextLine).toMatch(/^\s{2}/); // indented 2 spaces
+			// Daily note has no indentation signal — falls back to tab indent
+			expect(nextLine).toMatch(/^\t/);
 		});
 
 		it('matches "Finish" keyword as collector', async () => {

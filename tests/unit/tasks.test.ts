@@ -12,6 +12,7 @@ import {
 	findMatchingTask,
 	insertChildrenUnderTask,
 	buildTaskContent,
+	insertMultipleTasksWithDeduplication,
 	TaskMarker,
 	TaskState
 } from '../../src/utils/tasks';
@@ -137,6 +138,24 @@ describe('findSectionRange', () => {
 	it('returns null when heading not found', () => {
 		const lines = ['# Note', '', 'Content'];
 		expect(findSectionRange(lines, '## Log')).toBeNull();
+	});
+
+	it('finds headings containing regex special characters', () => {
+		const lines = [
+			'## Todo (work)',
+			'- [ ] a',
+			'',
+			'## Log',
+			'- b'
+		];
+		const result = findSectionRange(lines, '## Todo (work)');
+		expect(result).toEqual({ start: 0, end: 3 });
+	});
+
+	it('does not treat special characters as regex syntax', () => {
+		// "C++" as a literal must not match "C" (the "+" must not quantify)
+		const lines = ['## C', '- x'];
+		expect(findSectionRange(lines, '## C++')).toBeNull();
 	});
 
 	it('extends to end of file when no subsequent heading', () => {
@@ -803,21 +822,83 @@ describe('TaskMarker', () => {
 
 describe('buildTaskContent', () => {
 	it('returns task line alone when no children', () => {
-		expect(buildTaskContent('- [ ] Task', [], 2)).toBe('- [ ] Task');
+		expect(buildTaskContent('- [ ] Task', [])).toBe('- [ ] Task');
 	});
 
-	it('indents children by given amount', () => {
-		const result = buildTaskContent('- [ ] Task', ['- Child one', '- Child two'], 2);
-		expect(result).toBe('- [ ] Task\n  - Child one\n  - Child two');
+	it('joins children preserving their relative indentation', () => {
+		const result = buildTaskContent('- [ ] Task', ['  - Child one', '    - Grandchild']);
+		expect(result).toBe('- [ ] Task\n  - Child one\n    - Grandchild');
 	});
 
-	it('preserves empty child lines without adding indent', () => {
-		const result = buildTaskContent('- [ ] Task', ['- Child', ''], 2);
+	it('preserves tab-indented children without adding spaces', () => {
+		const result = buildTaskContent('- [ ] Task', ['\t- Child', '\t\t- Grandchild']);
+		expect(result).toBe('- [ ] Task\n\t- Child\n\t\t- Grandchild');
+	});
+
+	it('preserves empty child lines', () => {
+		const result = buildTaskContent('- [ ] Task', ['  - Child', '']);
 		expect(result).toBe('- [ ] Task\n  - Child\n');
 	});
+});
 
-	it('applies 4-space indent when specified', () => {
-		const result = buildTaskContent('- [ ] Task', ['- Child'], 4);
-		expect(result).toBe('- [ ] Task\n    - Child');
+describe('insertMultipleTasksWithDeduplication', () => {
+	it('converts space-indented children to tabs when target uses tabs', () => {
+		const target = `## Todo
+- [ ] Existing
+\t- existing child
+`;
+		const result = insertMultipleTasksWithDeduplication(target, [{
+			taskText: 'New task',
+			taskContent: '- [ ] New task\n  - new child',
+			childrenContent: '  - new child'
+		}], '## Todo');
+
+		expect(result.newCount).toBe(1);
+		expect(result.content).toContain('- [ ] New task\n\t- new child');
+	});
+
+	it('indents merged children relative to a nested matched task', () => {
+		const target = `## Todo
+- [ ] Epic
+\t- [<] Review PR
+- [ ] Other
+`;
+		const result = insertMultipleTasksWithDeduplication(target, [{
+			taskText: 'Review PR',
+			taskContent: '- [ ] Review PR\n  - check tests',
+			childrenContent: '  - check tests'
+		}], '## Todo');
+
+		expect(result.mergedCount).toBe(1);
+		// Reopened and children nested *under* the tab-indented task
+		expect(result.content).toContain('\t- [ ] Review PR\n\t\t- check tests');
+	});
+
+	it('keeps merged children in the target unit for space-indented targets', () => {
+		const target = `## Todo
+- [ ] Review PR
+  - existing note
+`;
+		const result = insertMultipleTasksWithDeduplication(target, [{
+			taskText: 'Review PR',
+			taskContent: '- [ ] Review PR\n\t- new note',
+			childrenContent: '\t- new note'
+		}], '## Todo');
+
+		expect(result.mergedCount).toBe(1);
+		expect(result.content).toContain('- [ ] Review PR\n  - existing note\n  - new note');
+	});
+
+	it('preserves the source unit when target has no indentation signal', () => {
+		const target = `## Todo
+- [ ] Existing
+`;
+		const result = insertMultipleTasksWithDeduplication(target, [{
+			taskText: 'New task',
+			taskContent: '- [ ] New task\n\t- child',
+			childrenContent: '\t- child'
+		}], '## Todo');
+
+		expect(result.content).toContain('- [ ] New task\n\t- child');
 	});
 });

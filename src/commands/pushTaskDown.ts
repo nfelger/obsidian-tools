@@ -118,8 +118,7 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 			// Build full task content for new insertions
 			const taskContent = buildTaskContent(
 				parentLineForTarget,
-				childrenContent ? childrenContent.split('\n') : [],
-				2
+				childrenContent ? childrenContent.split('\n') : []
 			);
 
 			collectedTasks.push({ taskText, taskContent, childrenContent });

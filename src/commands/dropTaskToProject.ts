@@ -1,6 +1,7 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import {
+	buildTaskContent,
 	dedentLinesByAmount,
 	extractTaskText,
 	insertMultipleTasksWithDeduplication,
@@ -102,13 +103,10 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 			}
 
 			// Build full task content for new insertions
-			let taskContent = parentLineForProject;
-			if (childrenContent) {
-				const indentedChildren = childrenContent.split('\n').map(line =>
-					line ? '  ' + line : line
-				).join('\n');
-				taskContent += '\n' + indentedChildren;
-			}
+			const taskContent = buildTaskContent(
+				parentLineForProject,
+				childrenContent ? childrenContent.split('\n') : []
+			);
 
 			// Group by project file path
 			const projectPath = projectLink.link.path;
