@@ -83,11 +83,17 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 		const taskLines = findSelectedTaskLines(editor, listItems, 'pullTaskUp');
 		if (!taskLines) return;
 
-		// Process tasks from bottom to top to preserve line numbers during source edits
+		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
 		taskLines.sort((a, b) => b - a);
 
-		// Phase 1: Collect task data and modify source (bottom-to-top)
+		// Phase 1: Collect task data (read-only — source edits are deferred
+		// until the target write has succeeded)
 		const collectedTasks: TaskInsertItem[] = [];
+		const sourceEdits: Array<{
+			taskLine: number;
+			scheduledLine: string;
+			children: ReturnType<typeof getTransferableChildren>;
+		}> = [];
 
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
@@ -112,13 +118,7 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 			);
 
 			collectedTasks.push({ taskText, taskContent, childrenContent });
-
-			// Mark source line as scheduled
-			const scheduledLine = markTaskAsScheduled(lineText);
-			editor.setLine(taskLine, scheduledLine);
-
-			// Remove transferred children from source (terminal subtrees stay)
-			removeTransferredChildren(editor, children);
+			sourceEdits.push({ taskLine, scheduledLine: markTaskAsScheduled(lineText), children });
 		}
 
 		// Phase 2: Insert into target in original order
@@ -134,6 +134,13 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 			newCount = result.newCount;
 			return result.content;
 		});
+
+		// Phase 3: Mark source tasks as scheduled and remove transferred children
+		// (bottom-to-top; terminal subtrees stay)
+		for (const edit of sourceEdits) {
+			editor.setLine(edit.taskLine, edit.scheduledLine);
+			removeTransferredChildren(editor, edit.children);
+		}
 
 		const taskCount = taskLines.length;
 		let message: string;

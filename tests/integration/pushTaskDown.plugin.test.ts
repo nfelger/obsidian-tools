@@ -445,4 +445,26 @@ Some content
 			expect(result.target).toContain('- [ ] New task');
 		});
 	});
+
+	describe('transactional safety', () => {
+		it('leaves the source untouched when the target write fails', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] Task to push
+  - Child note
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: '',
+				today: new Date(2026, 0, 22),
+				cursorLine: 0,
+				failTargetWrite: true
+			});
+
+			expect(result.source).toContain('- [ ] Task to push');
+			expect(result.source).toContain('- Child note');
+			expect(result.source).not.toContain('[<]');
+			expect(result.notice).toMatch(/error/i);
+		});
+	});
+
 });

@@ -46,12 +46,17 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 		const taskLines = findSelectedTaskLines(editor, listItems, 'dropTaskToProject');
 		if (!taskLines) return;
 
-		// Process tasks from bottom to top to preserve line numbers during source edits
+		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
 		taskLines.sort((a, b) => b - a);
 
-		// Phase 1: Collect task data and delete from source (bottom-to-top)
+		// Phase 1: Collect task data (read-only — source deletions are deferred
+		// until all project writes have succeeded, so a failure cannot lose tasks)
 		// Group by project file for batch insertion
 		const tasksByProject = new Map<string, { file: TFile; items: TaskInsertItem[] }>();
+		const sourceDeletions: Array<{
+			taskLine: number;
+			children: ReturnType<typeof findChildrenBlockFromListItems>;
+		}> = [];
 		let droppedCount = 0;
 
 		for (const taskLine of taskLines) {
@@ -119,22 +124,7 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 				childrenContent
 			});
 
-			// Delete children from source first (higher line numbers)
-			if (children && children.lines.length > 0) {
-				editor.replaceRange(
-					'',
-					{ line: children.startLine, ch: 0 },
-					{ line: children.endLine, ch: 0 }
-				);
-			}
-
-			// Delete the task line from source
-			editor.replaceRange(
-				'',
-				{ line: taskLine, ch: 0 },
-				{ line: taskLine + 1, ch: 0 }
-			);
-
+			sourceDeletions.push({ taskLine, children });
 			droppedCount++;
 		}
 
@@ -157,6 +147,23 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 				newCount += result.newCount;
 				return result.content;
 			});
+		}
+
+		// Phase 3: Delete tasks from source (bottom-to-top)
+		for (const deletion of sourceDeletions) {
+			// Delete children first (higher line numbers), then the task line
+			if (deletion.children && deletion.children.lines.length > 0) {
+				editor.replaceRange(
+					'',
+					{ line: deletion.children.startLine, ch: 0 },
+					{ line: deletion.children.endLine, ch: 0 }
+				);
+			}
+			editor.replaceRange(
+				'',
+				{ line: deletion.taskLine, ch: 0 },
+				{ line: deletion.taskLine + 1, ch: 0 }
+			);
 		}
 
 		let message: string;

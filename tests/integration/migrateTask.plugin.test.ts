@@ -446,4 +446,25 @@ title: Note
 			expect(result.target).not.toContain('Task B');
 		});
 	});
+
+	describe('transactional safety', () => {
+		it('leaves the source untouched when the target write fails', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Task to migrate
+  - Child note
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 0,
+				failTargetWrite: true
+			});
+
+			expect(result.source).toContain('- [ ] Task to migrate');
+			expect(result.source).toContain('- Child note');
+			expect(result.source).not.toContain('[>]');
+			expect(result.notice).toMatch(/error/i);
+		});
+	});
+
 });

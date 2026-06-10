@@ -378,4 +378,25 @@ Some content`,
 			expect(existingTaskIndex).toBeLessThan(newTaskIndex);
 		});
 	});
+
+	describe('transactional safety', () => {
+		it('leaves the source untouched when the target write fails', async () => {
+			const result = await testPullUpPlugin({
+				source: `
+- [ ] Task to pull
+  - Child note
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 0,
+				failTargetWrite: true
+			});
+
+			expect(result.source).toContain('- [ ] Task to pull');
+			expect(result.source).toContain('- Child note');
+			expect(result.source).not.toContain('[<]');
+			expect(result.notice).toMatch(/error/i);
+		});
+	});
+
 });

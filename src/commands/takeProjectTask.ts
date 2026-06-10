@@ -69,14 +69,20 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 		const taskLines = findSelectedTaskLines(editor, listItems, 'takeProjectTask');
 		if (!taskLines) return;
 
-		// Process tasks from bottom to top to preserve line numbers during source edits
+		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
 		taskLines.sort((a, b) => b - a);
 
 		// Parse collector keywords
 		const keywords = parseProjectKeywords(plugin.settings.projectKeywords);
 
-		// Phase 1: Collect task data and modify source (bottom-to-top)
+		// Phase 1: Collect task data (read-only — source edits are deferred
+		// until the daily note write has succeeded)
 		const collectedTasks: Array<TaskInsertItem & { taskContentForCollector: string }> = [];
+		const sourceEdits: Array<{
+			taskLine: number;
+			scheduledLine: string;
+			children: ReturnType<typeof getTransferableChildren>;
+		}> = [];
 
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
@@ -125,12 +131,7 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 				taskContentForCollector
 			});
 
-			// Mark source line as scheduled
-			const scheduledLine = markTaskAsScheduled(lineText);
-			editor.setLine(taskLine, scheduledLine);
-
-			// Remove transferred children from source (terminal subtrees stay)
-			removeTransferredChildren(editor, children);
+			sourceEdits.push({ taskLine, scheduledLine: markTaskAsScheduled(lineText), children });
 		}
 
 		// Phase 2: Insert into target in original order
@@ -162,6 +163,13 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 				return result.content;
 			}
 		});
+
+		// Phase 3: Mark source tasks as scheduled and remove transferred children
+		// (bottom-to-top; terminal subtrees stay)
+		for (const edit of sourceEdits) {
+			editor.setLine(edit.taskLine, edit.scheduledLine);
+			removeTransferredChildren(editor, edit.children);
+		}
 
 		const taskCount = taskLines.length;
 		let message: string;

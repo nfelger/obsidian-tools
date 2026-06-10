@@ -207,4 +207,29 @@ describe('dropTaskToProject', () => {
 			expect(thirdIdx).toBeGreaterThan(secondIdx);
 		});
 	});
+
+	describe('transactional safety', () => {
+		it('keeps the task in the source when the project write fails', async () => {
+			const result = await testDropTaskToProjectPlugin({
+				source: `
+- [ ] [[Migration Initiative]] Write runbook
+  - Include rollback steps
+`,
+				sourceFileName: '2026-01-30 Fri',
+				sourcePath: '+Diary/2026/01/2026-01-30 Fri.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+`
+				},
+				cursorLine: 0,
+				failTargetWrite: true
+			});
+
+			expect(result.source).toContain('Write runbook');
+			expect(result.source).toContain('Include rollback steps');
+			expect(result.notice).toMatch(/error/i);
+		});
+	});
+
 });

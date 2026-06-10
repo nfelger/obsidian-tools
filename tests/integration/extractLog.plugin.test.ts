@@ -305,4 +305,29 @@ Some existing content
     expect(targetContent).toContain('- Indented child');
     expect(targetContent).toContain('  - Deeply nested');
   });
+
+  describe('transactional safety', () => {
+    it('leaves the source untouched when the target write fails', async () => {
+      const result = await testExtractLogPlugin({
+        source: `
+- [[Target Note]]
+  - Child 1
+  - Child 2
+      `,
+        targetNotes: {
+          'Target Note': `
+## Log
+        `
+        },
+        failTargetWrite: true
+      });
+
+      expect(result.source).toContain('- Child 1');
+      expect(result.source).toContain('- Child 2');
+      // Wikilink must not have been rewritten with a section anchor
+      expect(result.source).toContain('- [[Target Note]]');
+      expect(result.notice).toMatch(/error/i);
+    });
+  });
+
 });

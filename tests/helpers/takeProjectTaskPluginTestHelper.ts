@@ -24,6 +24,7 @@ interface TestTakeProjectTaskOptions {
 	selectionEndLine?: number | null;
 	projectsFolder?: string;
 	projectKeywords?: string;
+	failTargetWrite?: boolean;
 }
 
 interface TestTakeProjectTaskResult {
@@ -45,7 +46,8 @@ export async function testTakeProjectTaskPlugin({
 	selectionStartLine = null,
 	selectionEndLine = null,
 	projectsFolder = '1 Projekte',
-	projectKeywords = '"Push", "Finish"'
+	projectKeywords = '"Push", "Finish"',
+	failTargetWrite = false
 }: TestTakeProjectTaskOptions): Promise<TestTakeProjectTaskResult> {
 	const normalizedSource = normalizeMarkdown(source);
 	const listItems = parseMarkdownToListItems(normalizedSource) as ListItem[];
@@ -134,6 +136,7 @@ export async function testTakeProjectTaskPlugin({
 	});
 
 	mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {
+		if (failTargetWrite) throw new Error('Simulated write failure');
 		if (file === mockDailyFile || file?.path === dailyPath) {
 			const currentContent = dailyContentState || '';
 			const newContent = await processFn(currentContent);

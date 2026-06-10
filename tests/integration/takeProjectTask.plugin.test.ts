@@ -279,4 +279,26 @@ describe('takeProjectTask', () => {
 			expect(result.daily).toContain('- [ ] [[Migration Initiative]] In progress task');
 		});
 	});
+
+	describe('transactional safety', () => {
+		it('leaves the project note untouched when the daily write fails', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Define rollback strategy
+  - Child note
+`,
+				sourceFileName: 'Migration Initiative',
+				dailyNoteContent: '',
+				today: new Date(2026, 0, 30),
+				cursorLine: 0,
+				failTargetWrite: true
+			});
+
+			expect(result.source).toContain('- [ ] Define rollback strategy');
+			expect(result.source).toContain('- Child note');
+			expect(result.source).not.toContain('[<]');
+			expect(result.notice).toMatch(/error/i);
+		});
+	});
+
 });

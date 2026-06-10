@@ -108,13 +108,6 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 			return;
 		}
 
-		// Remove children from source
-		editor.replaceRange(
-			'',
-			{ line: children.startLine, ch: 0 },
-			{ line: children.endLine, ch: 0 }
-		);
-
 		// Build heading line (can contain wikilinks)
 		// Use one level deeper than the target heading
 		const { level: targetLevel, text: targetText } = parseTargetHeading(plugin.settings.logExtractionTargetHeading);
@@ -126,36 +119,30 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 		const rawHeadingTextForLink = dailyNoteName + rawHeadingLineSuffix;
 		const headingTextForLink = stripWikilinksToDisplayText(rawHeadingTextForLink).trim();
 
-		// Update wikilink in parent bullet to point to this heading
-		// Keep visible text exactly as before using an alias
-		if (firstLink) {
-			const inner = firstLink.inner;
-			const p = inner.split('|');
-			const left = p[0]; // original link target (page[#section])
-			const aliasPart = p.length > 1 ? p.slice(1).join('|') : null;
+		// Compute the updated wikilink for the parent bullet (applied after the
+		// target write succeeds). Keep visible text exactly as before via alias.
+		const inner = firstLink.inner;
+		const p = inner.split('|');
+		const left = p[0]; // original link target (page[#section])
+		const aliasPart = p.length > 1 ? p.slice(1).join('|') : null;
 
-			// Base page name (drop any old section)
-			const lp = left.split('#');
-			const page = lp[0];
+		// Base page name (drop any old section)
+		const lp = left.split('#');
+		const page = lp[0];
 
-			// New target with updated section
-			const newLeft = `${page}#${headingTextForLink}`;
+		// New target with updated section
+		const newLeft = `${page}#${headingTextForLink}`;
 
-			// Visible text should stay exactly the same as before:
-			// - if there was an alias, use that
-			// - otherwise use the original left part as-is
-			const displayTextOriginal = aliasPart ? aliasPart : left;
+		// Visible text should stay exactly the same as before:
+		// - if there was an alias, use that
+		// - otherwise use the original left part as-is
+		const displayTextOriginal = aliasPart ? aliasPart : left;
 
-			const newInner = `${newLeft}|${displayTextOriginal}`;
-			const newLink = `[[${newInner}]]`;
-
-			const updatedParentText =
-				parentText.slice(0, firstLink.index) +
-				newLink +
-				parentText.slice(firstLink.index + firstLink.matchText.length);
-
-			editor.setLine(parentLine, updatedParentText);
-		}
+		const newLink = `[[${newLeft}|${displayTextOriginal}]]`;
+		const updatedParentText =
+			parentText.slice(0, firstLink.index) +
+			newLink +
+			parentText.slice(firstLink.index + firstLink.matchText.length);
 
 		// Find target heading in target via metadataCache
 		const targetCache = plugin.app.metadataCache.getFileCache(targetFile);
@@ -196,6 +183,15 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 				return newLines.join('\n');
 			}
 		});
+
+		// Target write succeeded — now update the source: remove the extracted
+		// children and point the wikilink at the new section
+		editor.replaceRange(
+			'',
+			{ line: children.startLine, ch: 0 },
+			{ line: children.endLine, ch: 0 }
+		);
+		editor.setLine(parentLine, updatedParentText);
 
 		new Notice(
 			`extractLog: moved child block to "${targetFile.basename}" > ${targetText}`,

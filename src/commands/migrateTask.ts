@@ -57,11 +57,17 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 		const taskLines = findSelectedTaskLines(editor, listItems, 'migrateTask');
 		if (!taskLines) return;
 
-		// Process tasks from bottom to top to preserve line numbers during source edits
+		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
 		taskLines.sort((a, b) => b - a);
 
-		// Phase 1: Collect content and modify source (bottom-to-top)
+		// Phase 1: Collect content (read-only — the source is not touched until
+		// the target write has succeeded, so a failure cannot lose content)
 		const collectedContent: string[] = [];
+		const sourceEdits: Array<{
+			taskLine: number;
+			migratedLine: string;
+			children: ReturnType<typeof getTransferableChildren>;
+		}> = [];
 
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
@@ -80,13 +86,9 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 			}
 			collectedContent.push(taskContent);
 
-			// Mark source line as migrated
 			const sourceMarker = TaskMarker.fromLine(lineText);
 			const migratedLine = sourceMarker ? sourceMarker.toMigrated().applyToLine(lineText) : lineText;
-			editor.setLine(taskLine, migratedLine);
-
-			// Remove transferred children from source (terminal subtrees stay)
-			removeTransferredChildren(editor, children);
+			sourceEdits.push({ taskLine, migratedLine, children });
 		}
 
 		// Phase 2: Insert into target in original order
@@ -97,6 +99,13 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 		await plugin.app.vault.process(targetFile, (data: string) => {
 			return insertMultipleUnderTargetHeading(data, collectedContent, targetHeading);
 		});
+
+		// Phase 3: Mark source tasks as migrated and remove transferred children
+		// (bottom-to-top; terminal subtrees stay)
+		for (const edit of sourceEdits) {
+			editor.setLine(edit.taskLine, edit.migratedLine);
+			removeTransferredChildren(editor, edit.children);
+		}
 
 		const taskCount = taskLines.length;
 		const message = taskCount === 1

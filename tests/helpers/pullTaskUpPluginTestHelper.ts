@@ -21,6 +21,7 @@ interface TestPullUpOptions {
 	selectionStartLine?: number | null;
 	selectionEndLine?: number | null;
 	diaryFolder?: string;
+	failTargetWrite?: boolean;
 }
 
 interface TestPullUpResult {
@@ -45,7 +46,8 @@ export async function testPullUpPlugin({
 	cursorLine = 0,
 	selectionStartLine = null,
 	selectionEndLine = null,
-	diaryFolder = '+Diary'
+	diaryFolder = '+Diary',
+	failTargetWrite = false
 }: TestPullUpOptions): Promise<TestPullUpResult> {
 	// Normalize markdown
 	const normalizedSource = normalizeMarkdown(source);
@@ -177,6 +179,7 @@ export async function testPullUpPlugin({
 	});
 
 	mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {
+		if (failTargetWrite) throw new Error('Simulated write failure');
 		if (file === mockTargetFile || file?.path === targetPath) {
 			const currentContent = targetContentState || '';
 			const newContent = await processFn(currentContent);

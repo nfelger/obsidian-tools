@@ -22,6 +22,7 @@ interface TestPushTaskDownOptions {
 	selectionStartLine?: number | null;
 	selectionEndLine?: number | null;
 	diaryFolder?: string;
+	failTargetWrite?: boolean;
 }
 
 interface TestPushTaskDownResult {
@@ -47,7 +48,8 @@ export async function testPushTaskDownPlugin({
 	cursorLine = 0,
 	selectionStartLine = null,
 	selectionEndLine = null,
-	diaryFolder = '+Diary'
+	diaryFolder = '+Diary',
+	failTargetWrite = false
 }: TestPushTaskDownOptions): Promise<TestPushTaskDownResult> {
 	// Normalize markdown
 	const normalizedSource = normalizeMarkdown(source);
@@ -184,6 +186,7 @@ export async function testPushTaskDownPlugin({
 	});
 
 	mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {
+		if (failTargetWrite) throw new Error('Simulated write failure');
 		if (file === mockTargetFile || file?.path === targetPath) {
 			const currentContent = targetContentState || '';
 			const newContent = await processFn(currentContent);
