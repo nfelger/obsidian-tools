@@ -5,7 +5,20 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.11.2] - 2026-06-10
+## [0.12.0] - 2026-06-10
+
+### Added
+
+- Target notes are created automatically: migrating, pushing, pulling, or taking
+  a task no longer fails when tomorrow's (or the target period's) note doesn't
+  exist yet — the note and its folders are created on the fly
+- Taking several project tasks at once groups them under a single
+  `Push [[Project]]` collector bullet instead of repeating the project link on
+  every task
+- Migrating a task that sits indented under a project bullet prepends the
+  project wikilink, so the task keeps its context in the target note
+- Extract log headings now include the text before the wikilink, so bullets
+  like "Checkin mit Chris zu [[Project]]" keep their meaning
 
 ### Fixed
 
