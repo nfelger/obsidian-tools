@@ -3,6 +3,8 @@ import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
 import { dedentLinesByAmount, insertMultipleUnderTargetHeading, TaskMarker } from '../utils/tasks';
 import { countIndent } from '../utils/indent';
+import { findProjectLinkInAncestors } from '../utils/projects';
+import { ObsidianLinkResolver } from '../utils/wikilinks';
 import {
 	getActiveMarkdownFile,
 	getOrCreateFile,
@@ -71,6 +73,8 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 			children: ReturnType<typeof getTransferableChildren>;
 		}> = [];
 
+		const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
+
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
 			const children = getTransferableChildren(editor, listItems, taskLine);
@@ -80,7 +84,20 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 			const parentLineStripped = lineText.slice(parentIndent);
 			// Convert started [/] to open [ ] in target
 			const marker = TaskMarker.fromLine(parentLineStripped);
-			const parentLineForTarget = marker ? marker.toOpen().applyToLine(parentLineStripped) : parentLineStripped;
+			let parentLineForTarget = marker ? marker.toOpen().applyToLine(parentLineStripped) : parentLineStripped;
+
+			// A task nested under a project bullet loses that context in the
+			// target (it arrives top-level) — restore it by prepending the
+			// project link. Links already on the task line stay as they are.
+			const projectLink = findProjectLinkInAncestors(
+				editor, listItems, taskLine, file.path, resolver, plugin.settings
+			);
+			if (projectLink && projectLink.line !== taskLine) {
+				parentLineForTarget = TaskMarker.prependToContent(
+					parentLineForTarget, `[[${projectLink.link.basename}]]`
+				);
+			}
+
 			let taskContent = parentLineForTarget;
 			if (children && children.lines.length > 0) {
 				const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);

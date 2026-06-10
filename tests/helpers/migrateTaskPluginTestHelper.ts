@@ -23,6 +23,8 @@ interface TestMigrateTaskOptions {
 	selectionEndLine?: number | null;
 	diaryFolder?: string;
 	failTargetWrite?: boolean;
+	/** Project note names that wikilinks resolve to (in the default projects folder) */
+	projects?: string[];
 }
 
 interface TestMigrateTaskResult {
@@ -49,7 +51,8 @@ export async function testMigrateTaskPlugin({
 	selectionStartLine = null,
 	selectionEndLine = null,
 	diaryFolder = '+Diary',
-	failTargetWrite = false
+	failTargetWrite = false,
+	projects = []
 }: TestMigrateTaskOptions): Promise<TestMigrateTaskResult> {
 	// Normalize markdown
 	const normalizedSource = normalizeMarkdown(source);
@@ -187,9 +190,19 @@ export async function testMigrateTaskPlugin({
 		return '';
 	});
 
+	// Map project wikilinks to files in the projects folder
+	const linkDests = new Map<string, any>();
+	for (const name of projects) {
+		linkDests.set(name, createMockFile({
+			path: `1 Projekte/${name}.md`,
+			basename: name
+		}));
+	}
+
 	// Create metadata cache
 	const mockMetadataCache = createMockMetadataCache({
-		fileCache
+		fileCache,
+		linkDests
 	});
 
 	// Create workspace

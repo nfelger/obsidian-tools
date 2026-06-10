@@ -469,4 +469,57 @@ title: Note
 		});
 	});
 
+
+	describe('project context', () => {
+		it('prepends the project link when the task sits under a project bullet', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [[Migration Initiative]]
+  - [ ] Write runbook
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 1,
+				projects: ['Migration Initiative']
+			});
+
+			// Source: nested task marked migrated, line text unchanged otherwise
+			expect(result.source).toContain('- [>] Write runbook');
+
+			// Target: project context restored via prepended link
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Write runbook');
+		});
+
+		it('does not prepend when the link is already on the task line', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] [[Migration Initiative]] Write runbook
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 0,
+				projects: ['Migration Initiative']
+			});
+
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Write runbook');
+			expect(result.target).not.toContain('[[Migration Initiative]] [[Migration Initiative]]');
+		});
+
+		it('does not prepend for non-project ancestor bullets', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [[Some Random Note]]
+  - [ ] Unrelated task
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 1,
+				projects: []
+			});
+
+			expect(result.target).toContain('- [ ] Unrelated task');
+			expect(result.target).not.toContain('[[Some Random Note]] Unrelated task');
+		});
+	});
+
 });
