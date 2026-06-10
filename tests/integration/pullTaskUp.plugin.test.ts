@@ -29,17 +29,6 @@ describe('pullTaskUp command', () => {
 			expect(result.notice).toContain('already at highest level');
 		});
 
-		it('shows error when target note does not exist', async () => {
-			const result = await testPullUpPlugin({
-				source: `- [ ] Task`,
-				sourceFileName: '2026-01-22 Thu',
-				targetContent: null,
-				cursorLine: 0
-			});
-
-			expect(result.notice).toContain('does not exist');
-		});
-
 		it('shows error when cursor not on incomplete task', async () => {
 			const result = await testPullUpPlugin({
 				source: `- [x] Completed task
@@ -396,6 +385,24 @@ Some content`,
 			expect(result.source).toContain('- Child note');
 			expect(result.source).not.toContain('[<]');
 			expect(result.notice).toMatch(/error/i);
+		});
+	});
+
+
+	describe('target creation', () => {
+		it('should create the target note when it does not exist', async () => {
+			const result = await testPullUpPlugin({
+				source: `
+- [ ] Task to pull
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: null, // Target doesn't exist
+				cursorLine: 0
+			});
+
+			expect(result.source).toContain('- [<] Task to pull');
+			expect(result.target).toContain('## Todo');
+			expect(result.target).toContain('- [ ] Task to pull');
 		});
 	});
 

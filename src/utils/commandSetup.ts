@@ -54,6 +54,38 @@ export function getListItems(plugin: BulletFlowPlugin, file: TFile): ListItem[] 
 }
 
 /**
+ * Get a file by path, creating it (and its parent folders) when missing.
+ *
+ * Used for transfer targets: periodic notes for a future day/week often
+ * don't exist yet, and erroring out forces the user to create them by hand.
+ * Created notes start empty — the insertion logic adds the target heading.
+ *
+ * @param plugin - Plugin instance
+ * @param path - Full vault path including extension
+ * @returns The existing or newly created file, or null if creation failed
+ */
+export async function getOrCreateFile(plugin: BulletFlowPlugin, path: string): Promise<TFile | null> {
+	const existing = plugin.app.vault.getAbstractFileByPath(path) as TFile;
+	if (existing) return existing;
+
+	try {
+		// Ensure parent folders exist, innermost last
+		const parts = path.split('/').slice(0, -1);
+		let dir = '';
+		for (const part of parts) {
+			dir = dir ? `${dir}/${part}` : part;
+			if (!plugin.app.vault.getAbstractFileByPath(dir)) {
+				await plugin.app.vault.createFolder(dir);
+			}
+		}
+		return await plugin.app.vault.create(path, '');
+	} catch (e) {
+		console.error('getOrCreateFile error:', e);
+		return null;
+	}
+}
+
+/**
  * The children of a task that travel with it during a transfer.
  */
 export interface TransferableChildren {

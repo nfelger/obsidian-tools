@@ -12,6 +12,7 @@ import type { TaskInsertItem } from '../types';
 import { countIndent } from '../utils/indent';
 import {
 	getActiveMarkdownFile,
+	getOrCreateFile,
 	getListItems,
 	findSelectedTaskLines,
 	getTransferableChildren,
@@ -58,9 +59,9 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 		const today = plugin.getToday ? plugin.getToday() : new Date();
 		const noteService = new PeriodicNoteService(plugin.settings);
 		const dailyPath = noteService.formatDailyPath(today) + '.md';
-		const dailyFile = plugin.app.vault.getAbstractFileByPath(dailyPath) as TFile;
+		const dailyFile = await getOrCreateFile(plugin, dailyPath);
 		if (!dailyFile) {
-			new Notice(`Take project task: Today's daily note does not exist: ${dailyPath}`);
+			new Notice(`Take project task: Could not create today's daily note: ${dailyPath}`);
 			return;
 		}
 

@@ -169,13 +169,21 @@ export async function testPullUpPlugin({
 
 	// Override getAbstractFileByPath to check if target exists
 	mockVault.getAbstractFileByPath = vi.fn((path: string) => {
-		if (path === targetPath && targetExists) {
+		if (path === targetPath && (targetExists || mockTargetFile)) {
 			return mockTargetFile;
 		}
 		if (path === sourcePath) {
 			return mockSourceFile;
 		}
 		return null;
+	});
+
+	mockVault.createFolder = vi.fn(async () => {});
+	mockVault.create = vi.fn(async (path: string, content: string) => {
+		if (path !== targetPath) throw new Error(`unexpected create: ${path}`);
+		mockTargetFile = createMockFile({ path, basename: actualTargetFileName! });
+		targetContentState = content;
+		return mockTargetFile;
 	});
 
 	mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {

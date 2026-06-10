@@ -231,7 +231,7 @@ describe('takeProjectTask', () => {
 			expect(result.notice).toContain('not a project note');
 		});
 
-		it('errors when daily note does not exist', async () => {
+		it('creates the daily note when it does not exist', async () => {
 			const result = await testTakeProjectTaskPlugin({
 				source: `
 - [ ] Some task
@@ -242,7 +242,8 @@ describe('takeProjectTask', () => {
 				cursorLine: 0
 			});
 
-			expect(result.notice).toContain('does not exist');
+			expect(result.source).toContain('- [<] Some task');
+			expect(result.daily).toContain('[[Migration Initiative]] Some task');
 		});
 
 		it('errors when cursor is not on an incomplete task', async () => {

@@ -12,6 +12,7 @@ import type { TaskInsertItem } from '../types';
 import { countIndent } from '../utils/indent';
 import {
 	getActiveMarkdownFile,
+	getOrCreateFile,
 	getListItems,
 	findSelectedTaskLines,
 	getTransferableChildren,
@@ -72,9 +73,9 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 		}
 
 		const targetPath = higherPath + '.md';
-		const targetFile = plugin.app.vault.getAbstractFileByPath(targetPath) as TFile;
+		const targetFile = await getOrCreateFile(plugin, targetPath);
 		if (!targetFile) {
-			new Notice(`Pull task up: Target note does not exist: ${targetPath}`);
+			new Notice(`Pull task up: Could not create target note: ${targetPath}`);
 			return;
 		}
 

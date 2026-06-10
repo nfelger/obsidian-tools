@@ -43,7 +43,7 @@ describe('pushTaskDown (plugin) - integration', () => {
 			expect(result.notice).toMatch(/not.*periodic|periodic note/i);
 		});
 
-		it('should fail if target note does not exist', async () => {
+		it('should create the target note when it does not exist', async () => {
 			const result = await testPushTaskDownPlugin({
 				source: `
 - [ ] Task to push
@@ -54,7 +54,9 @@ describe('pushTaskDown (plugin) - integration', () => {
 				cursorLine: 0
 			});
 
-			expect(result.notice).toMatch(/not exist|doesn't exist|does not exist/i);
+			expect(result.source).toContain('- [<] Task to push');
+			expect(result.target).toContain('## Todo');
+			expect(result.target).toContain('- [ ] Task to push');
 		});
 
 		it('should fail if already at daily level', async () => {

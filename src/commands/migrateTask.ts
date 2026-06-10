@@ -5,6 +5,7 @@ import { dedentLinesByAmount, insertMultipleUnderTargetHeading, TaskMarker } fro
 import { countIndent } from '../utils/indent';
 import {
 	getActiveMarkdownFile,
+	getOrCreateFile,
 	getListItems,
 	findSelectedTaskLines,
 	getTransferableChildren,
@@ -47,9 +48,9 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		const targetPath = noteService.getNextNotePath(noteInfo) + '.md';
 
-		const targetFile = plugin.app.vault.getAbstractFileByPath(targetPath) as TFile;
+		const targetFile = await getOrCreateFile(plugin, targetPath);
 		if (!targetFile) {
-			new Notice(`Migrate task: Target note does not exist: ${targetPath}`);
+			new Notice(`Migrate task: Could not create target note: ${targetPath}`);
 			return;
 		}
 

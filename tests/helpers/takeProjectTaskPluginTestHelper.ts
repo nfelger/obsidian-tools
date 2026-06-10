@@ -130,9 +130,17 @@ export async function testTakeProjectTaskPlugin({
 	const mockVault = createMockVault({ files: allFiles });
 
 	mockVault.getAbstractFileByPath = vi.fn((path: string) => {
-		if (path === dailyPath && dailyExists) return mockDailyFile;
+		if (path === dailyPath && (dailyExists || mockDailyFile)) return mockDailyFile;
 		if (path === sourcePath) return mockSourceFile;
 		return null;
+	});
+
+	mockVault.createFolder = vi.fn(async () => {});
+	mockVault.create = vi.fn(async (path: string, content: string) => {
+		if (path !== dailyPath) throw new Error(`unexpected create: ${path}`);
+		mockDailyFile = createMockFile({ path, basename: path.split('/').pop()!.replace('.md', '') });
+		dailyContentState = content;
+		return mockDailyFile;
 	});
 
 	mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {
