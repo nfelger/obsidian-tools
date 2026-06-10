@@ -5,6 +5,32 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Moving tasks no longer mixes tabs and spaces — transferred content is re-rendered
+  in the target note's own indentation style, fixing glitchy indent guides
+- Pulling a task up into a note where it already exists nested under another task
+  now places merged children correctly under that task
+- Custom section headings containing characters like `(`, `)`, or `+` are now found
+  instead of being duplicated on every insertion
+- If writing to the target note fails, the source note is left untouched — commands
+  no longer mark tasks as moved (or delete them) before the move has succeeded
+- Vaults configured before 0.11.1 now pick up the `## Todo` task heading default;
+  pull up / push down / migrate no longer land in `## Log`
+- Selecting tasks with multiple cursors now moves tasks from every selection,
+  not just the first
+- Auto-move no longer risks acting on the wrong note when switching panes right
+  after completing a task
+
+### Changed
+
+- Migrating, pushing, pulling, or taking a task now moves only its incomplete
+  children; completed sub-tasks stay in the source note as the day's record
+- Notices now show readable command names ("Migrate task: …") instead of internal
+  identifiers ("migrateTask: …")
+
 ## [0.11.1] - 2026-04-01
 
 ### Fixed

@@ -48,3 +48,28 @@ header lists all five locations that must be updated when adding a new task stat
 
 `tasks.ts` re-exports everything from `taskMarker.ts`, so callers that import from `tasks.ts`
 require no import changes. When adding a new state, edit only `taskMarker.ts`.
+
+## Indentation Model
+
+Indentation is handled as a *unit* (`'\t'` or N spaces), not a character count:
+
+- `detectIndentUnit()` in `src/utils/indent.ts` infers a block's unit: tab if any
+  leading tab exists, otherwise the smallest positive space indent.
+- Transferred blocks are re-rendered in the **target file's** unit via
+  `convertIndentUnit()` at insertion time (`insertMultipleUnderTargetHeading`,
+  the dedup merge path, `insertUnderCollectorTask`). When the target has no
+  indentation signal, the source unit is preserved; when extra nesting must be
+  *added* and neither side has a signal, tabs are used (Obsidian's default).
+- Children merged under an existing task are prefixed with that task's own
+  leading whitespace, so hierarchy stays correct for nested matches.
+
+Never hardcode `'  '` when building nested content — always go through these helpers.
+
+## Transfer Command Ordering
+
+All transfer commands and extract log follow a strict phase order: collect
+(read-only) → write target via `vault.process` → mutate source. The source must
+never be modified before the target write succeeds; collected content exists only
+in memory, so the old order could lose tasks on a failed write. Completed/migrated
+child subtrees stay in the source (`selectTransferableChildLines` in
+`src/utils/tasks.ts`).

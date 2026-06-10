@@ -43,27 +43,31 @@ BRAT will automatically update the plugin whenever new versions are released.
 
 **Behavior:**
 - Place cursor on a bullet containing a `[[wikilink]]`
-- Extracts all children to the linked note under a `## Log` heading
-- Creates a back-link to the daily note with timestamp
+- Extracts all children to the linked note under a `## Log` heading (configurable),
+  beneath a sub-heading that links back to the daily note
+- Rewrites the source wikilink to point at the new section (visible text unchanged)
 - Copies extracted content to clipboard
 - Handles pure link bullets (inherits context from parent)
 - Supports section links: `[[Note#Section]]`
 
 **Example:**
 ```
-- Project meeting notes [[Project Alpha]]
+- [[Project Alpha]] meeting notes
   - Decided on MVP scope
   - Next milestone: Feb 15
 ```
 
-After extraction, the linked note `Project Alpha` gets:
+After extraction (from daily note `2026-01-25 Sat`), the linked note `Project Alpha` gets:
 ```markdown
 ## Log
 
-- 2026-01-25 Sat - Project meeting notes
-  - Decided on MVP scope
-  - Next milestone: Feb 15
+### [[2026-01-25 Sat]] meeting notes
+
+- Decided on MVP scope
+- Next milestone: Feb 15
 ```
+
+and the source bullet becomes `- [[Project Alpha#2026-01-25 Sat meeting notes|Project Alpha]] meeting notes`.
 
 ### Migrate Task
 
@@ -72,7 +76,9 @@ After extraction, the linked note `Project Alpha` gets:
 **Behavior:**
 - Place cursor on an incomplete task (`- [ ]` or `- [/]`), or select multiple lines
 - Marks the task(s) as migrated (`- [>]`)
-- Copies task(s) and children to the next note under `## Log` (started tasks reset to `- [ ]`)
+- Copies task(s) and their incomplete children to the next note under `## Todo`
+  (configurable; started tasks reset to `- [ ]`). Completed or already-migrated
+  children stay behind in the source note as the day's record.
 - Automatically determines target based on note type and boundaries:
   - Daily (Mon-Sat) → next daily
   - Daily (Sunday) → next weekly
@@ -91,8 +97,8 @@ After extraction, the linked note `Project Alpha` gets:
 ```
 
 After migrating from Sunday (2026-01-25):
-- Source (daily): `- [>] Write documentation` (children removed)
-- Target (weekly 2026-01-W05): Full task tree under `## Log`
+- Source (daily): `- [>] Write documentation` (incomplete children removed)
+- Target (weekly 2026-01-W05): Full task tree under `## Todo`
 
 ## Workflow Overview
 
@@ -187,7 +193,7 @@ npm run test:ui
 - Unit tests for utilities
 - Integration tests with markdown-first pattern
 - Full Obsidian API mocks
-- See [TESTING.md](TESTING.md) for details
+- See [tests/CLAUDE.md](tests/CLAUDE.md) for details
 
 ### Project Structure
 
@@ -195,7 +201,7 @@ npm run test:ui
 obsidian-tools/
 ├── src/               # TypeScript plugin source
 │   ├── main.ts        # Plugin entry point
-│   ├── commands/      # extractLog, migrateTask
+│   ├── commands/      # One file per command
 │   └── utils/         # Shared utilities
 ├── tests/             # Test suite
 │   ├── unit/          # Pure function tests

@@ -5,6 +5,16 @@ Scope: full review of Bullet Flow (plugin source, tests, docs, tooling), with a 
 improvement plan. Findings marked **[confirmed]** were reproduced against the actual
 plugin code; others are based on code reading.
 
+> **Implementation status (same branch, 2026-06-10):** Phases 0–2 are implemented.
+> Fixed: §3.1, §3.2, §3.3, §3.4, §3.6, §3.7, §3.8, §3.11, notice prefixes (§4.2),
+> doc drift (§5). Deliberately **not** done after re-evaluation: §3.9 (collector
+> duplicates cannot arise — a task in the project is `[<]` after taking and cannot
+> be re-taken until reopened, which removes the daily copy) and §3.10 (in this
+> workflow open tasks legitimately live in the daily Log section, so file-wide
+> dedup matching is desired behavior). §3.5 (cache-freshness guard) remains open —
+> a reliable guard needs a design that avoids false positives on mixed indents.
+> Phases 3–5 remain open.
+
 ---
 
 ## 1. What this repository is
