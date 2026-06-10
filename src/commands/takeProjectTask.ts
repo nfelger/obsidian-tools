@@ -5,6 +5,7 @@ import {
 	dedentLinesByAmount,
 	extractTaskText,
 	insertMultipleTasksWithDeduplication,
+	insertUnderTargetHeading,
 	markTaskAsScheduled,
 	TaskMarker
 } from '../utils/tasks';
@@ -142,20 +143,29 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 		let mergedCount = 0;
 		let newCount = 0;
 
+		const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
 		await plugin.app.vault.process(dailyFile, (data: string) => {
 			// Check for collector task
-			const collectorLine = findCollectorTask(data, projectName, keywords);
+			let collectorLine = findCollectorTask(data, projectName, keywords);
+			let content = data;
+
+			// Taking several tasks at once: group them under a collector so the
+			// project link appears once instead of on every task
+			if (collectorLine === null && collectedTasks.length > 1) {
+				const keyword = keywords[0] ?? 'Push';
+				content = insertUnderTargetHeading(content, `- [ ] ${keyword} [[${projectName}]]`, targetHeading);
+				collectorLine = findCollectorTask(content, projectName, [keyword]);
+			}
 
 			if (collectorLine !== null) {
 				// Batch insert under collector as a single block (preserves order)
 				const block = collectedTasks.map(t => t.taskContentForCollector).join('\n');
 				newCount = collectedTasks.length;
-				return insertUnderCollectorTask(data, collectorLine, block);
+				return insertUnderCollectorTask(content, collectorLine, block);
 			} else {
 				// Batch insert with deduplication under heading (preserves order)
-				const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
 				const result = insertMultipleTasksWithDeduplication(
-					data,
+					content,
 					collectedTasks,
 					targetHeading
 				);

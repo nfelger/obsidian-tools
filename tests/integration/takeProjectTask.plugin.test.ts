@@ -134,7 +134,7 @@ describe('takeProjectTask', () => {
 	});
 
 	describe('multi-select', () => {
-		it('takes multiple tasks from project', async () => {
+		it('groups multiple taken tasks under a created collector', async () => {
 			const result = await testTakeProjectTaskPlugin({
 				source: `
 - [ ] First task
@@ -153,13 +153,19 @@ describe('takeProjectTask', () => {
 			expect(result.source).toContain('- [<] Second task');
 			expect(result.source).toContain('- [<] Third task');
 
-			// All tasks in daily
-			expect(result.daily).toContain('[[Migration Initiative]] First task');
-			expect(result.daily).toContain('[[Migration Initiative]] Second task');
-			expect(result.daily).toContain('[[Migration Initiative]] Third task');
+			// Daily: collector created, tasks nested beneath without repeated links
+			expect(result.daily).toContain('- [ ] Push [[Migration Initiative]]');
+			expect(result.daily).toContain('First task');
+			expect(result.daily).not.toContain('[[Migration Initiative]] First task');
+
+			const lines = result.daily!.split('\n');
+			const collectorIdx = lines.findIndex(l => l.includes('Push [[Migration Initiative]]'));
+			const firstTaskIdx = lines.findIndex(l => l.includes('First task'));
+			expect(firstTaskIdx).toBeGreaterThan(collectorIdx);
+			expect(lines[firstTaskIdx]).toMatch(/^\s/); // nested under the collector
 		});
 
-		it('preserves original order under heading', async () => {
+		it('preserves original order under created collector', async () => {
 			const result = await testTakeProjectTaskPlugin({
 				source: `
 - [ ] First task
@@ -180,6 +186,21 @@ describe('takeProjectTask', () => {
 			expect(firstIdx).toBeGreaterThan(-1);
 			expect(secondIdx).toBeGreaterThan(firstIdx);
 			expect(thirdIdx).toBeGreaterThan(secondIdx);
+		});
+
+		it('keeps single-task takes under the heading with project link (no collector)', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Lone task
+`,
+				sourceFileName: 'Migration Initiative',
+				dailyNoteContent: '',
+				today,
+				cursorLine: 0
+			});
+
+			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Lone task');
+			expect(result.daily).not.toContain('Push [[Migration Initiative]]');
 		});
 
 		it('preserves original order under collector task', async () => {
