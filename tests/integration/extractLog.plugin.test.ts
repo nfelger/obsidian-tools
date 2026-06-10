@@ -184,6 +184,39 @@ Some existing content
     expect(result.source).toContain('[[Target Note#');
   });
 
+  it('uses text before the link in the heading suffix', async () => {
+    const result = await testExtractLogPlugin({
+      source: `
+- Checkin mit Chris zu [[Target Note]]
+  - besprochen: rollout plan
+      `,
+      targetNotes: {
+        'Target Note': `
+## Log
+        `
+      }
+    });
+
+    expect(result.target('Target Note')).toContain('### [[daily]] Checkin mit Chris zu');
+    expect(result.source).toContain('[[Target Note#daily Checkin mit Chris zu|Target Note]]');
+  });
+
+  it('combines text before and after the link in the heading suffix', async () => {
+    const result = await testExtractLogPlugin({
+      source: `
+- Sync [[Target Note]] with infra team
+  - notes here
+      `,
+      targetNotes: {
+        'Target Note': `
+## Log
+        `
+      }
+    });
+
+    expect(result.target('Target Note')).toContain('### [[daily]] Sync with infra team');
+  });
+
   it('handles non-pure link bullets with text after link', async () => {
     const result = await testExtractLogPlugin({
       source: `

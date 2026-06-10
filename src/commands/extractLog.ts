@@ -97,11 +97,13 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 					headingSuffix = stripListPrefix(parentListText).trim();
 				}
 			} else {
-				// CASE 2: Non-pure link - use text after the link
+				// CASE 2: Non-pure link - use the whole line without the link,
+				// so "Checkin mit Chris zu [[Project]]" keeps its meaning
+				const beforeLinkRaw = stripListPrefix(parentText.slice(0, firstLink.index));
 				const afterLinkRaw = parentText.slice(
 					firstLink.index + firstLink.matchText.length
 				);
-				headingSuffix = afterLinkRaw.trim();
+				headingSuffix = `${beforeLinkRaw.trim()} ${afterLinkRaw.trim()}`.trim();
 			}
 		} else {
 			new Notice('Extract log error: No wikilink found on current line.');
