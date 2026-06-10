@@ -13,6 +13,7 @@ import {
 	insertChildrenUnderTask,
 	buildTaskContent,
 	insertMultipleTasksWithDeduplication,
+	selectTransferableChildLines,
 	TaskMarker,
 	TaskState
 } from '../../src/utils/tasks';
@@ -838,6 +839,46 @@ describe('buildTaskContent', () => {
 	it('preserves empty child lines', () => {
 		const result = buildTaskContent('- [ ] Task', ['  - Child', '']);
 		expect(result).toBe('- [ ] Task\n  - Child\n');
+	});
+});
+
+describe('selectTransferableChildLines', () => {
+	it('moves everything when no terminal children', () => {
+		const lines = ['  - note', '  - [ ] open child', '    - detail'];
+		expect(selectTransferableChildLines(lines)).toEqual([true, true, true]);
+	});
+
+	it('keeps completed children and their subtrees behind', () => {
+		const lines = [
+			'  - [x] done child',
+			'    - note under done',
+			'  - [ ] open child'
+		];
+		expect(selectTransferableChildLines(lines)).toEqual([false, false, true]);
+	});
+
+	it('keeps migrated children behind', () => {
+		const lines = ['  - [>] migrated child', '  - note'];
+		expect(selectTransferableChildLines(lines)).toEqual([false, true]);
+	});
+
+	it('moves open grandchildren under open children', () => {
+		const lines = [
+			'  - [ ] open child',
+			'    - [x] done grandchild',
+			'    - [ ] open grandchild'
+		];
+		expect(selectTransferableChildLines(lines)).toEqual([true, false, true]);
+	});
+
+	it('handles tab indentation', () => {
+		const lines = ['\t- [x] done', '\t\t- detail', '\t- [ ] open'];
+		expect(selectTransferableChildLines(lines)).toEqual([false, false, true]);
+	});
+
+	it('keeps blank lines with their surrounding subtree', () => {
+		const lines = ['  - [x] done', '', '    - after blank', '  - note'];
+		expect(selectTransferableChildLines(lines)).toEqual([false, false, false, true]);
 	});
 });
 

@@ -10,9 +10,14 @@ import {
 	TaskMarker
 } from '../utils/tasks';
 import type { TaskInsertItem } from '../types';
-import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
-import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
+import {
+	getActiveMarkdownFile,
+	getListItems,
+	findSelectedTaskLines,
+	getTransferableChildren,
+	removeTransferredChildren
+} from '../utils/commandSetup';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
 /**
@@ -96,7 +101,7 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
-			const children = findChildrenBlockFromListItems(editor, listItems || [], taskLine);
+			const children = getTransferableChildren(editor, listItems, taskLine);
 
 			// Extract task text for deduplication
 			const taskText = extractTaskText(lineText);
@@ -127,14 +132,8 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 			const scheduledLine = markTaskAsScheduled(lineText);
 			editor.setLine(taskLine, scheduledLine);
 
-			// Remove children from source
-			if (children && children.lines.length > 0) {
-				editor.replaceRange(
-					'',
-					{ line: children.startLine, ch: 0 },
-					{ line: children.endLine, ch: 0 }
-				);
-			}
+			// Remove transferred children from source (terminal subtrees stay)
+			removeTransferredChildren(editor, children);
 		}
 
 		// Phase 2: Insert into target in original order

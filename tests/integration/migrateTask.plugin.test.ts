@@ -136,6 +136,33 @@ describe('migrateTask (plugin)', () => {
 			expect(result.target).toContain('Grandchild');
 		});
 
+		it('should leave completed children behind in the source', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Parent task
+  - [x] Done child
+    - note under done
+  - [ ] Open child
+- [ ] Next task
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 0
+			});
+
+			// Source keeps the completed subtree under the migrated parent
+			expect(result.source).toContain('- [>] Parent task');
+			expect(result.source).toContain('- [x] Done child');
+			expect(result.source).toContain('note under done');
+			expect(result.source).not.toContain('- [ ] Open child');
+
+			// Target gets only the open child
+			expect(result.target).toContain('- [ ] Parent task');
+			expect(result.target).toContain('- [ ] Open child');
+			expect(result.target).not.toContain('Done child');
+			expect(result.target).not.toContain('note under done');
+		});
+
 		it('should preserve indentation of children in target', async () => {
 			const result = await testMigrateTaskPlugin({
 				source: `

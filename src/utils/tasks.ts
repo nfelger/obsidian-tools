@@ -319,6 +319,47 @@ export function buildTaskContent(taskLine: string, children: string[]): string {
 	return taskLine + '\n' + children.join('\n');
 }
 
+/**
+ * Decide which lines of a children block travel with their task when it is
+ * migrated/pushed/pulled, and which stay behind in the source.
+ *
+ * Subtrees rooted at a terminal task (completed [x] or migrated [>]) stay —
+ * they are part of the source note's historical record. Everything else
+ * (open/started tasks, notes, their descendants) moves. Blank lines follow
+ * the subtree they appear in.
+ *
+ * @param lines - Children block lines with their original indentation
+ * @returns One flag per line; true = line moves with the task
+ */
+export function selectTransferableChildLines(lines: string[]): boolean[] {
+	const flags: boolean[] = [];
+	let keptSubtreeIndent: number | null = null;
+
+	for (const line of lines) {
+		if (line.trim() === '') {
+			flags.push(keptSubtreeIndent === null);
+			continue;
+		}
+
+		const indent = countIndent(line);
+		if (keptSubtreeIndent !== null && indent > keptSubtreeIndent) {
+			flags.push(false);
+			continue;
+		}
+		keptSubtreeIndent = null;
+
+		const marker = TaskMarker.fromLine(line);
+		if (marker && marker.isTerminal()) {
+			keptSubtreeIndent = indent;
+			flags.push(false);
+		} else {
+			flags.push(true);
+		}
+	}
+
+	return flags;
+}
+
 // === Batch Insertion (order-preserving) ===
 
 /**
