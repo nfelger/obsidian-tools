@@ -70,6 +70,32 @@ describe('migrateTask (plugin)', () => {
 			expect(result.target).toContain('## Todo');
 			expect(result.target).toContain('- [ ] Task to migrate');
 		});
+
+		it('applies the Periodic Notes template when creating the target note', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Task to migrate
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: null, // Target doesn't exist
+				cursorLine: 0,
+				periodicNotesTemplate: `
+# Daily
+
+## Todo
+
+## Log
+`
+			});
+
+			// Template content present
+			expect(result.target).toContain('# Daily');
+			expect(result.target).toContain('## Log');
+			// Task inserted under the template's Todo heading, not a duplicate one
+			expect(result.target!.match(/## Todo/g)).toHaveLength(1);
+			expect(result.target).toContain('- [ ] Task to migrate');
+			expect(result.source).toContain('- [>] Task to migrate');
+		});
 	});
 
 	describe('single line migration - daily notes only', () => {

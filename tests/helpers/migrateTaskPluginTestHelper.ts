@@ -25,6 +25,8 @@ interface TestMigrateTaskOptions {
 	failTargetWrite?: boolean;
 	/** Project note names that wikilinks resolve to (in the default projects folder) */
 	projects?: string[];
+	/** Simulated Periodic Notes template applied when the target note is created */
+	periodicNotesTemplate?: string | null;
 }
 
 interface TestMigrateTaskResult {
@@ -52,7 +54,8 @@ export async function testMigrateTaskPlugin({
 	selectionEndLine = null,
 	diaryFolder = '+Diary',
 	failTargetWrite = false,
-	projects = []
+	projects = [],
+	periodicNotesTemplate = null
 }: TestMigrateTaskOptions): Promise<TestMigrateTaskResult> {
 	// Normalize markdown
 	const normalizedSource = normalizeMarkdown(source);
@@ -240,9 +243,28 @@ export async function testMigrateTaskPlugin({
 		settings
 	} as BulletFlowPlugin;
 
+	// Simulate Periodic Notes template-based creation when configured
+	if (periodicNotesTemplate !== null) {
+		const createFromTemplate = async () => {
+			mockTargetFile = createMockFile({ path: targetPath!, basename: actualTargetFileName! });
+			targetContentState = normalizeMarkdown(periodicNotesTemplate);
+			return mockTargetFile;
+		};
+		(globalThis as any).__periodicNoteCreation = {
+			daily: createFromTemplate,
+			weekly: createFromTemplate,
+			monthly: createFromTemplate,
+			yearly: createFromTemplate
+		};
+	} else {
+		(globalThis as any).__periodicNoteCreation = undefined;
+	}
+
 	// Import and run migrateTask
 	const { migrateTask } = await import('../../src/commands/migrateTask');
 	await migrateTask(mockPlugin);
+
+	(globalThis as any).__periodicNoteCreation = undefined;
 
 	// Cleanup
 	NoticeSpy.mockRestore();

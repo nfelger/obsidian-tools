@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Target notes are created automatically: migrating, pushing, pulling, or taking
   a task no longer fails when tomorrow's (or the target period's) note doesn't
-  exist yet — the note and its folders are created on the fly
+  exist yet — the note and its folders are created on the fly, with the template
+  configured in Daily Notes / Periodic Notes applied
 - Taking several project tasks at once groups them under a single
   `Push [[Project]]` collector bullet instead of repeating the project link on
   every task

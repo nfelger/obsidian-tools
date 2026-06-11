@@ -3,6 +3,8 @@ import type BulletFlowPlugin from '../main';
 import type { ListItem } from '../types';
 import { isIncompleteTask, findTopLevelTasksInRange, selectTransferableChildLines } from './tasks';
 import { findChildrenBlockFromListItems } from './listItems';
+import { parseNoteType } from './periodicNotes';
+import { createPeriodicNoteFromTemplate } from './periodicNoteCreator';
 
 /**
  * Context for working with an active markdown file.
@@ -67,6 +69,23 @@ export function getListItems(plugin: BulletFlowPlugin, file: TFile): ListItem[] 
 export async function getOrCreateFile(plugin: BulletFlowPlugin, path: string): Promise<TFile | null> {
 	const existing = plugin.app.vault.getAbstractFileByPath(path) as TFile;
 	if (existing) return existing;
+
+	// Periodic notes: prefer the Daily Notes / Periodic Notes creation
+	// machinery so the user's configured template is applied
+	const basename = path.split('/').pop()!.replace(/\.md$/, '');
+	const noteInfo = parseNoteType(basename, plugin.settings);
+	if (noteInfo) {
+		const created = await createPeriodicNoteFromTemplate(noteInfo);
+		if (created) {
+			const atExpectedPath = plugin.app.vault.getAbstractFileByPath(path) as TFile;
+			if (atExpectedPath) return atExpectedPath;
+			console.warn(
+				`Bullet Flow: periodic note created at "${created.path}" but expected "${path}" — ` +
+				'check that the filename patterns match the Periodic Notes settings.'
+			);
+			return created;
+		}
+	}
 
 	try {
 		// Ensure parent folders exist, innermost last
