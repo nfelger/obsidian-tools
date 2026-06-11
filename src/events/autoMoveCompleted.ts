@@ -12,6 +12,7 @@ import { Annotation, Extension } from '@codemirror/state';
 import { editorInfoField } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
+import { getPeriodicConfig } from '../utils/periodicNoteCreator';
 import { TaskMarker, TaskState } from '../utils/tasks';
 import { computeAutoMove, findAutoMoveTriggerLine } from '../utils/autoMove';
 
@@ -79,7 +80,7 @@ function performAutoMove(plugin: BulletFlowPlugin, view: EditorView): void {
 	const file = view.state.field(editorInfoField, false)?.file;
 	if (!file) return;
 
-	const noteService = new PeriodicNoteService(plugin.settings);
+	const noteService = new PeriodicNoteService(getPeriodicConfig());
 	const noteInfo = noteService.parseNoteType(file.basename);
 	if (!noteInfo || noteInfo.type !== 'daily') return;
 

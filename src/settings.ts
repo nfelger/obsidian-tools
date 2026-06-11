@@ -60,20 +60,11 @@ export class BulletFlowSettingTab extends PluginSettingTab {
 		// === General Settings ===
 		containerEl.createEl('h2', { text: 'General' });
 
-		new Setting(containerEl)
-			.setName('Diary folder')
-			.setDesc('Base folder for periodic notes')
-			.addText(text => {
-				text
-					.setPlaceholder(DEFAULT_SETTINGS.diaryFolder)
-					.setValue(this.plugin.settings.diaryFolder)
-					.onChange(async (value) => {
-						this.plugin.settings.diaryFolder = value;
-						await this.plugin.saveSettings();
-					});
-				// Add folder suggestions
-				new FolderSuggest(this.app, text.inputEl);
-			});
+		const locationsDesc = containerEl.createEl('p');
+		locationsDesc.appendText(
+			'Periodic note locations (folder and filename format) are read from the ' +
+			'Daily Notes and Periodic Notes plugins — configure them there.'
+		);
 
 		new Setting(containerEl)
 			.setName('Daily note log heading')
@@ -160,73 +151,5 @@ export class BulletFlowSettingTab extends PluginSettingTab {
 					});
 				new FolderSuggest(this.app, text.inputEl);
 			});
-
-		// === Periodic Note Patterns ===
-		containerEl.createEl('h2', { text: 'Periodic Note Patterns' });
-
-		const patternDesc = containerEl.createEl('p');
-		patternDesc.appendText('Path patterns use ');
-		const link = patternDesc.createEl('a', {
-			text: 'moment.js format tokens',
-			href: 'https://momentjs.com/docs/#/displaying/format/'
-		});
-		link.setAttr('target', '_blank');
-		patternDesc.appendText('. Common tokens: ');
-		patternDesc.createEl('code', { text: 'YYYY' });
-		patternDesc.appendText(' (year), ');
-		patternDesc.createEl('code', { text: 'MM' });
-		patternDesc.appendText(' (month), ');
-		patternDesc.createEl('code', { text: 'DD' });
-		patternDesc.appendText(' (day), ');
-		patternDesc.createEl('code', { text: 'ddd' });
-		patternDesc.appendText(' (weekday), ');
-		patternDesc.createEl('code', { text: 'WW' });
-		patternDesc.appendText(' (ISO week), ');
-		patternDesc.createEl('code', { text: 'gggg' });
-		patternDesc.appendText(' (ISO week year)');
-
-		new Setting(containerEl)
-			.setName('Daily note pattern')
-			.setDesc('Path pattern relative to diary folder')
-			.addText(text => text
-				.setPlaceholder(DEFAULT_SETTINGS.dailyNotePattern)
-				.setValue(this.plugin.settings.dailyNotePattern)
-				.onChange(async (value) => {
-					this.plugin.settings.dailyNotePattern = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Weekly note pattern')
-			.setDesc('Path pattern relative to diary folder')
-			.addText(text => text
-				.setPlaceholder(DEFAULT_SETTINGS.weeklyNotePattern)
-				.setValue(this.plugin.settings.weeklyNotePattern)
-				.onChange(async (value) => {
-					this.plugin.settings.weeklyNotePattern = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Monthly note pattern')
-			.setDesc('Path pattern relative to diary folder')
-			.addText(text => text
-				.setPlaceholder(DEFAULT_SETTINGS.monthlyNotePattern)
-				.setValue(this.plugin.settings.monthlyNotePattern)
-				.onChange(async (value) => {
-					this.plugin.settings.monthlyNotePattern = value;
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName('Yearly note pattern')
-			.setDesc('Path pattern relative to diary folder')
-			.addText(text => text
-				.setPlaceholder(DEFAULT_SETTINGS.yearlyNotePattern)
-				.setValue(this.plugin.settings.yearlyNotePattern)
-				.onChange(async (value) => {
-					this.plugin.settings.yearlyNotePattern = value;
-					await this.plugin.saveSettings();
-				}));
 	}
 }

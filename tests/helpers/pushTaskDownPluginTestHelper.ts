@@ -12,6 +12,7 @@ import type { ListItem, BulletFlowSettings } from '../../src/types';
 import { DEFAULT_SETTINGS } from '../../src/types';
 import type BulletFlowPlugin from '../../src/main';
 import { parseNoteType, getLowerNotePath } from '../../src/utils/periodicNotes';
+import { periodicConfigWithFolder, asInterfaceSettings } from './periodicConfig';
 
 interface TestPushTaskDownOptions {
 	source: string;
@@ -63,10 +64,11 @@ export async function testPushTaskDownPlugin({
 	const targetExists = targetContent !== null;
 
 	// Build settings with custom diary folder
-	const settings: BulletFlowSettings = { ...DEFAULT_SETTINGS, diaryFolder };
+	const settings: BulletFlowSettings = { ...DEFAULT_SETTINGS };
+	const periodicConfig = periodicConfigWithFolder(diaryFolder);
 
 	// Calculate paths
-	const noteInfo = parseNoteType(sourceFileName, settings);
+	const noteInfo = parseNoteType(sourceFileName, periodicConfig);
 
 	// Build source path based on note type
 	let sourcePath: string;
@@ -100,7 +102,7 @@ export async function testPushTaskDownPlugin({
 	let calculatedTargetError: string | null = null;
 	if (noteInfo) {
 		try {
-			calculatedTargetPath = getLowerNotePath(noteInfo, today, settings);
+			calculatedTargetPath = getLowerNotePath(noteInfo, today, periodicConfig);
 		} catch (e: any) {
 			calculatedTargetError = e.message;
 		}
@@ -246,8 +248,14 @@ export async function testPushTaskDownPlugin({
 	} as unknown as BulletFlowPlugin;
 
 	// Import and run pushTaskDown
+	// Commands resolve note locations from Daily Notes / Periodic Notes —
+	// mirror the helper's config there
+	(globalThis as any).__periodicNoteSettings = asInterfaceSettings(periodicConfig);
+
 	const { pushTaskDown } = await import('../../src/commands/pushTaskDown');
 	await pushTaskDown(mockPlugin);
+
+	(globalThis as any).__periodicNoteSettings = undefined;
 
 	// Cleanup
 	NoticeSpy.mockRestore();

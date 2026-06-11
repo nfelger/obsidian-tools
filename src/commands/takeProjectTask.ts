@@ -21,6 +21,7 @@ import {
 } from '../utils/commandSetup';
 import { isProjectNote, getProjectName, parseProjectKeywords, findCollectorTask, insertUnderCollectorTask } from '../utils/projects';
 import { PeriodicNoteService } from '../utils/periodicNotes';
+import { getPeriodicConfig } from '../utils/periodicNoteCreator';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
 /**
@@ -58,7 +59,7 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		// Find today's daily note
 		const today = plugin.getToday ? plugin.getToday() : new Date();
-		const noteService = new PeriodicNoteService(plugin.settings);
+		const noteService = new PeriodicNoteService(getPeriodicConfig());
 		const dailyPath = noteService.formatDailyPath(today) + '.md';
 		const dailyFile = await getOrCreateFile(plugin, dailyPath);
 		if (!dailyFile) {

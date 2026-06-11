@@ -13,6 +13,7 @@ import {
 	getLowerNotePath,
 	getHigherNotePath
 } from '../../src/utils/periodicNotes';
+import { periodicConfigWithFolder } from '../helpers/periodicConfig';
 
 describe('parseNoteType', () => {
 	describe('daily notes', () => {
@@ -171,7 +172,7 @@ describe('formatDailyPath', () => {
 
 	it('handles custom diary folder', () => {
 		const date = new Date(2026, 0, 22);
-		const path = formatDailyPath(date, 'Journal');
+		const path = formatDailyPath(date, periodicConfigWithFolder('Journal'));
 		expect(path).toBe('Journal/2026/01/2026-01-22 Thu');
 	});
 });
@@ -306,7 +307,7 @@ describe('getNextNotePath', () => {
 	describe('custom diary folder', () => {
 		it('uses custom diary folder', () => {
 			const noteInfo = { type: 'yearly' as const, year: 2026 };
-			const result = getNextNotePath(noteInfo, 'Journal');
+			const result = getNextNotePath(noteInfo, periodicConfigWithFolder('Journal'));
 			expect(result).toBe('Journal/2027/2027');
 		});
 	});
@@ -515,7 +516,7 @@ describe('getLowerNotePath', () => {
 		it('uses custom diary folder', () => {
 			const today = new Date(2026, 0, 22);
 			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
-			const result = getLowerNotePath(noteInfo, today, { diaryFolder: 'Journal' });
+			const result = getLowerNotePath(noteInfo, today, periodicConfigWithFolder('Journal'));
 			expect(result).toBe('Journal/2026/01/2026-01-22 Thu');
 		});
 	});
@@ -629,7 +630,7 @@ describe('getHigherNotePath', () => {
 	describe('custom settings', () => {
 		it('uses custom diary folder', () => {
 			const noteInfo = { type: 'daily' as const, year: 2026, month: 1, day: 22 };
-			const result = getHigherNotePath(noteInfo, { diaryFolder: 'Journal' });
+			const result = getHigherNotePath(noteInfo, periodicConfigWithFolder('Journal'));
 			expect(result).toBe('Journal/2026/01/2026-01-W04');
 		});
 	});

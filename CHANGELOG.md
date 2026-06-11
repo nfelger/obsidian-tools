@@ -40,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Note locations are now read directly from the Daily Notes / Periodic Notes
+  plugins: the diary folder and filename pattern settings are gone from Bullet
+  Flow — configure folder, format, and template in Periodic Notes and Bullet
+  Flow follows
 - Migrating, pushing, pulling, or taking a task now moves only its incomplete
   children; completed sub-tasks stay in the source note as the day's record
 - Notices now show readable command names ("Migrate task: …") instead of internal

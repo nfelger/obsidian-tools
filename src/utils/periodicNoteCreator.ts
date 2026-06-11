@@ -18,10 +18,43 @@ import {
 	createDailyNote,
 	createWeeklyNote,
 	createMonthlyNote,
-	createYearlyNote
+	createYearlyNote,
+	getPeriodicNoteSettings,
+	type IGranularity
 } from 'obsidian-daily-notes-interface';
-import type { NoteInfo } from '../types';
+import type { NoteInfo, PeriodicConfig, PeriodPathConfig } from '../types';
+import { DEFAULT_PERIODIC_CONFIG } from '../types';
 import { getMondayOfISOWeek } from './periodicNotes';
+
+/**
+ * Resolve the folder/format configuration for all granularities from the
+ * Daily Notes / Periodic Notes plugins. Granularities that aren't enabled
+ * there fall back to Bullet Flow's defaults.
+ */
+export function getPeriodicConfig(): PeriodicConfig {
+	return {
+		daily: resolveGranularity('day', appHasDailyNotesPluginLoaded, DEFAULT_PERIODIC_CONFIG.daily),
+		weekly: resolveGranularity('week', appHasWeeklyNotesPluginLoaded, DEFAULT_PERIODIC_CONFIG.weekly),
+		monthly: resolveGranularity('month', appHasMonthlyNotesPluginLoaded, DEFAULT_PERIODIC_CONFIG.monthly),
+		yearly: resolveGranularity('year', appHasYearlyNotesPluginLoaded, DEFAULT_PERIODIC_CONFIG.yearly)
+	};
+}
+
+function resolveGranularity(
+	granularity: IGranularity,
+	isLoaded: () => boolean,
+	fallback: PeriodPathConfig
+): PeriodPathConfig {
+	try {
+		if (!isLoaded()) return fallback;
+		const settings = getPeriodicNoteSettings(granularity);
+		if (!settings?.format) return fallback;
+		return { folder: (settings.folder ?? '').trim(), format: settings.format };
+	} catch (e) {
+		console.error('getPeriodicConfig error:', e);
+		return fallback;
+	}
+}
 
 /**
  * Create the periodic note described by noteInfo using the user's

@@ -28,9 +28,27 @@ describe('migrateSettings', () => {
 
 	it('preserves unrelated settings', () => {
 		const migrated = migrateSettings({
-			diaryFolder: '+Journal',
+			projectsFolder: 'Projects',
 			periodicNoteTaskTargetHeading: '## Log'
 		});
-		expect(migrated?.diaryFolder).toBe('+Journal');
+		expect(migrated?.projectsFolder).toBe('Projects');
+	});
+
+	it('drops legacy filename pattern settings (now read from Periodic Notes)', () => {
+		const migrated = migrateSettings({
+			settingsVersion: 1,
+			diaryFolder: '+Diary',
+			dailyNotePattern: 'YYYY/MM/YYYY-MM-DD ddd',
+			weeklyNotePattern: 'gggg/MM/gggg-MM-[W]WW',
+			monthlyNotePattern: 'YYYY/YYYY-MM MMM',
+			yearlyNotePattern: 'YYYY/YYYY'
+		} as any) as any;
+
+		expect(migrated.diaryFolder).toBeUndefined();
+		expect(migrated.dailyNotePattern).toBeUndefined();
+		expect(migrated.weeklyNotePattern).toBeUndefined();
+		expect(migrated.monthlyNotePattern).toBeUndefined();
+		expect(migrated.yearlyNotePattern).toBeUndefined();
+		expect(migrated.settingsVersion).toBe(SETTINGS_VERSION);
 	});
 });

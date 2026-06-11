@@ -1,6 +1,7 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
+import { getPeriodicConfig } from '../utils/periodicNoteCreator';
 import {
 	buildTaskContent,
 	dedentLinesByAmount,
@@ -52,7 +53,7 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 
 		const { editor, file } = context;
 
-		const noteService = new PeriodicNoteService(plugin.settings);
+		const noteService = new PeriodicNoteService(getPeriodicConfig());
 		const noteInfo = noteService.parseNoteType(file.basename);
 		if (!noteInfo) {
 			new Notice('Pull task up: This is not a periodic note.');

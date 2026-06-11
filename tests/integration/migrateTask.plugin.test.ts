@@ -548,4 +548,23 @@ title: Note
 		});
 	});
 
+
+	describe('note locations from Periodic Notes', () => {
+		it('resolves folder and format from the Periodic Notes settings', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Task to migrate
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 0,
+				diaryFolder: 'Journal'
+			});
+
+			expect(result.targetPath).toContain('Journal/');
+			expect(result.target).toContain('- [ ] Task to migrate');
+			expect(result.source).toContain('- [>] Task to migrate');
+		});
+	});
+
 });

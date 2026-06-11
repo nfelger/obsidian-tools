@@ -12,6 +12,7 @@ import type { ListItem, BulletFlowSettings } from '../../src/types';
 import { DEFAULT_SETTINGS } from '../../src/types';
 import type BulletFlowPlugin from '../../src/main';
 import { parseNoteType, getNextNotePath } from '../../src/utils/periodicNotes';
+import { periodicConfigWithFolder, asInterfaceSettings } from './periodicConfig';
 
 interface TestMigrateTaskOptions {
 	source: string;
@@ -69,10 +70,11 @@ export async function testMigrateTaskPlugin({
 	const targetExists = targetContent !== null;
 
 	// Build settings with custom diary folder
-	const settings: BulletFlowSettings = { ...DEFAULT_SETTINGS, diaryFolder };
+	const settings: BulletFlowSettings = { ...DEFAULT_SETTINGS };
+	const periodicConfig = periodicConfigWithFolder(diaryFolder);
 
 	// Calculate paths
-	const noteInfo = parseNoteType(sourceFileName, settings);
+	const noteInfo = parseNoteType(sourceFileName, periodicConfig);
 
 	// Build source path based on note type
 	let sourcePath: string;
@@ -93,7 +95,7 @@ export async function testMigrateTaskPlugin({
 	}
 
 	// Calculate target path
-	const calculatedTargetPath = noteInfo ? getNextNotePath(noteInfo, settings) : null;
+	const calculatedTargetPath = noteInfo ? getNextNotePath(noteInfo, periodicConfig) : null;
 	const actualTargetFileName = targetFileName || (calculatedTargetPath ? calculatedTargetPath.split('/').pop() : null);
 	const targetPath = calculatedTargetPath ? `${calculatedTargetPath}.md` : null;
 
@@ -260,9 +262,15 @@ export async function testMigrateTaskPlugin({
 		(globalThis as any).__periodicNoteCreation = undefined;
 	}
 
+	// Commands resolve note locations from Daily Notes / Periodic Notes —
+	// mirror the helper's config there
+	(globalThis as any).__periodicNoteSettings = asInterfaceSettings(periodicConfig);
+
 	// Import and run migrateTask
 	const { migrateTask } = await import('../../src/commands/migrateTask');
 	await migrateTask(mockPlugin);
+
+	(globalThis as any).__periodicNoteSettings = undefined;
 
 	(globalThis as any).__periodicNoteCreation = undefined;
 

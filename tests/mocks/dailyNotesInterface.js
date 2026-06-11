@@ -12,18 +12,21 @@ import { vi } from 'vitest';
  *   { format, folder, template } for getPeriodicNoteSettings.
  */
 const creationConfig = () => globalThis.__periodicNoteCreation || {};
+const settingsConfig = () => globalThis.__periodicNoteSettings || {};
+const hasGranularity = (creationKey, settingsKey) =>
+	!!(creationConfig()[creationKey] || settingsConfig()[settingsKey]);
 
-export const appHasDailyNotesPluginLoaded = vi.fn(() => !!creationConfig().daily);
-export const appHasWeeklyNotesPluginLoaded = vi.fn(() => !!creationConfig().weekly);
-export const appHasMonthlyNotesPluginLoaded = vi.fn(() => !!creationConfig().monthly);
-export const appHasYearlyNotesPluginLoaded = vi.fn(() => !!creationConfig().yearly);
+export const appHasDailyNotesPluginLoaded = vi.fn(() => hasGranularity('daily', 'day'));
+export const appHasWeeklyNotesPluginLoaded = vi.fn(() => hasGranularity('weekly', 'week'));
+export const appHasMonthlyNotesPluginLoaded = vi.fn(() => hasGranularity('monthly', 'month'));
+export const appHasYearlyNotesPluginLoaded = vi.fn(() => hasGranularity('yearly', 'year'));
 
-export const createDailyNote = vi.fn(async (m) => creationConfig().daily(m));
-export const createWeeklyNote = vi.fn(async (m) => creationConfig().weekly(m));
-export const createMonthlyNote = vi.fn(async (m) => creationConfig().monthly(m));
-export const createYearlyNote = vi.fn(async (m) => creationConfig().yearly(m));
+export const createDailyNote = vi.fn(async (m) => creationConfig().daily?.(m));
+export const createWeeklyNote = vi.fn(async (m) => creationConfig().weekly?.(m));
+export const createMonthlyNote = vi.fn(async (m) => creationConfig().monthly?.(m));
+export const createYearlyNote = vi.fn(async (m) => creationConfig().yearly?.(m));
 
 export const getPeriodicNoteSettings = vi.fn((granularity) => {
-	const settings = (globalThis.__periodicNoteSettings || {})[granularity];
+	const settings = settingsConfig()[granularity];
 	return settings || { format: '', folder: '', template: '' };
 });

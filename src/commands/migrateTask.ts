@@ -1,6 +1,7 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
+import { getPeriodicConfig } from '../utils/periodicNoteCreator';
 import { dedentLinesByAmount, insertMultipleUnderTargetHeading, TaskMarker } from '../utils/tasks';
 import { countIndent } from '../utils/indent';
 import { findProjectLinkInAncestors } from '../utils/projects';
@@ -41,7 +42,7 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		const { editor, file } = context;
 
-		const noteService = new PeriodicNoteService(plugin.settings);
+		const noteService = new PeriodicNoteService(getPeriodicConfig());
 		const noteInfo = noteService.parseNoteType(file.basename);
 		if (!noteInfo) {
 			new Notice('Migrate task: This is not a periodic note.');

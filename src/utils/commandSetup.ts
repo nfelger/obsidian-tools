@@ -4,7 +4,7 @@ import type { ListItem } from '../types';
 import { isIncompleteTask, findTopLevelTasksInRange, selectTransferableChildLines } from './tasks';
 import { findChildrenBlockFromListItems } from './listItems';
 import { parseNoteType } from './periodicNotes';
-import { createPeriodicNoteFromTemplate } from './periodicNoteCreator';
+import { createPeriodicNoteFromTemplate, getPeriodicConfig } from './periodicNoteCreator';
 
 /**
  * Context for working with an active markdown file.
@@ -73,7 +73,7 @@ export async function getOrCreateFile(plugin: BulletFlowPlugin, path: string): P
 	// Periodic notes: prefer the Daily Notes / Periodic Notes creation
 	// machinery so the user's configured template is applied
 	const basename = path.split('/').pop()!.replace(/\.md$/, '');
-	const noteInfo = parseNoteType(basename, plugin.settings);
+	const noteInfo = parseNoteType(basename, getPeriodicConfig());
 	if (noteInfo) {
 		const created = await createPeriodicNoteFromTemplate(noteInfo);
 		if (created) {

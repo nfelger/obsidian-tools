@@ -12,6 +12,7 @@ import type { ListItem, BulletFlowSettings } from '../../src/types';
 import { DEFAULT_SETTINGS } from '../../src/types';
 import type BulletFlowPlugin from '../../src/main';
 import { formatDailyPath } from '../../src/utils/periodicNotes';
+import { periodicConfigWithFolder, asInterfaceSettings } from './periodicConfig';
 
 interface TestTakeProjectTaskOptions {
 	source: string;
@@ -63,7 +64,8 @@ export async function testTakeProjectTaskPlugin({
 	};
 
 	// Calculate daily note path
-	const dailyPath = formatDailyPath(today, settings) + '.md';
+	const periodicConfig = periodicConfigWithFolder('+Diary');
+	const dailyPath = formatDailyPath(today, periodicConfig) + '.md';
 	const sourcePath = sourcePathOverride || `${projectsFolder}/${sourceFileName}.md`;
 
 	// Create editor
@@ -185,8 +187,12 @@ export async function testTakeProjectTaskPlugin({
 		getToday: () => today
 	} as unknown as BulletFlowPlugin;
 
+	(globalThis as any).__periodicNoteSettings = asInterfaceSettings(periodicConfig);
+
 	const { takeProjectTask } = await import('../../src/commands/takeProjectTask');
 	await takeProjectTask(mockPlugin);
+
+	(globalThis as any).__periodicNoteSettings = undefined;
 
 	NoticeSpy.mockRestore();
 
