@@ -12,6 +12,7 @@ import type { ListItem, BulletFlowSettings } from '../../src/types';
 import { DEFAULT_SETTINGS } from '../../src/types';
 import type BulletFlowPlugin from '../../src/main';
 import { parseNoteType, getHigherNotePath } from '../../src/utils/periodicNotes';
+import { periodicConfigWithFolder, asInterfaceSettings } from './periodicConfig';
 
 interface TestPullUpOptions {
 	source: string;
@@ -21,6 +22,7 @@ interface TestPullUpOptions {
 	selectionStartLine?: number | null;
 	selectionEndLine?: number | null;
 	diaryFolder?: string;
+	failTargetWrite?: boolean;
 }
 
 interface TestPullUpResult {
@@ -45,7 +47,8 @@ export async function testPullUpPlugin({
 	cursorLine = 0,
 	selectionStartLine = null,
 	selectionEndLine = null,
-	diaryFolder = '+Diary'
+	diaryFolder = '+Diary',
+	failTargetWrite = false
 }: TestPullUpOptions): Promise<TestPullUpResult> {
 	// Normalize markdown
 	const normalizedSource = normalizeMarkdown(source);
@@ -59,10 +62,11 @@ export async function testPullUpPlugin({
 	const targetExists = targetContent !== null;
 
 	// Build settings with custom diary folder
-	const settings: BulletFlowSettings = { ...DEFAULT_SETTINGS, diaryFolder };
+	const settings: BulletFlowSettings = { ...DEFAULT_SETTINGS };
+	const periodicConfig = periodicConfigWithFolder(diaryFolder);
 
 	// Calculate paths
-	const noteInfo = parseNoteType(sourceFileName, settings);
+	const noteInfo = parseNoteType(sourceFileName, periodicConfig);
 
 	// Build source path based on note type
 	let sourcePath: string;
@@ -94,7 +98,7 @@ export async function testPullUpPlugin({
 	// Calculate target path (higher level note)
 	let calculatedTargetPath: string | null = null;
 	if (noteInfo) {
-		calculatedTargetPath = getHigherNotePath(noteInfo, settings);
+		calculatedTargetPath = getHigherNotePath(noteInfo, periodicConfig);
 	}
 	const actualTargetFileName = calculatedTargetPath ? calculatedTargetPath.split('/').pop() : null;
 	const targetPath = calculatedTargetPath ? `${calculatedTargetPath}.md` : null;
@@ -167,7 +171,7 @@ export async function testPullUpPlugin({
 
 	// Override getAbstractFileByPath to check if target exists
 	mockVault.getAbstractFileByPath = vi.fn((path: string) => {
-		if (path === targetPath && targetExists) {
+		if (path === targetPath && (targetExists || mockTargetFile)) {
 			return mockTargetFile;
 		}
 		if (path === sourcePath) {
@@ -176,7 +180,16 @@ export async function testPullUpPlugin({
 		return null;
 	});
 
+	mockVault.createFolder = vi.fn(async () => {});
+	mockVault.create = vi.fn(async (path: string, content: string) => {
+		if (path !== targetPath) throw new Error(`unexpected create: ${path}`);
+		mockTargetFile = createMockFile({ path, basename: actualTargetFileName! });
+		targetContentState = content;
+		return mockTargetFile;
+	});
+
 	mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {
+		if (failTargetWrite) throw new Error('Simulated write failure');
 		if (file === mockTargetFile || file?.path === targetPath) {
 			const currentContent = targetContentState || '';
 			const newContent = await processFn(currentContent);
@@ -227,8 +240,14 @@ export async function testPullUpPlugin({
 	} as unknown as BulletFlowPlugin;
 
 	// Import and run pullTaskUp
+	// Commands resolve note locations from Daily Notes / Periodic Notes —
+	// mirror the helper's config there
+	(globalThis as any).__periodicNoteSettings = asInterfaceSettings(periodicConfig);
+
 	const { pullTaskUp } = await import('../../src/commands/pullTaskUp');
 	await pullTaskUp(mockPlugin);
+
+	(globalThis as any).__periodicNoteSettings = undefined;
 
 	// Cleanup
 	NoticeSpy.mockRestore();

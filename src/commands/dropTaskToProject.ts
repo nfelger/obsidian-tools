@@ -1,6 +1,7 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import {
+	buildTaskContent,
 	dedentLinesByAmount,
 	extractTaskText,
 	insertMultipleTasksWithDeduplication,
@@ -35,22 +36,27 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 
 		// Should not be used from a project note itself
 		if (isProjectNote(file.path, plugin.settings)) {
-			new Notice('dropTaskToProject: Already in a project note.');
+			new Notice('Drop task to project: Already in a project note.');
 			return;
 		}
 
 		const listItems = getListItems(plugin, file);
 		const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
 
-		const taskLines = findSelectedTaskLines(editor, listItems, 'dropTaskToProject');
+		const taskLines = findSelectedTaskLines(editor, listItems, 'Drop task to project');
 		if (!taskLines) return;
 
-		// Process tasks from bottom to top to preserve line numbers during source edits
+		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
 		taskLines.sort((a, b) => b - a);
 
-		// Phase 1: Collect task data and delete from source (bottom-to-top)
+		// Phase 1: Collect task data (read-only — source deletions are deferred
+		// until all project writes have succeeded, so a failure cannot lose tasks)
 		// Group by project file for batch insertion
 		const tasksByProject = new Map<string, { file: TFile; items: TaskInsertItem[] }>();
+		const sourceDeletions: Array<{
+			taskLine: number;
+			children: ReturnType<typeof findChildrenBlockFromListItems>;
+		}> = [];
 		let droppedCount = 0;
 
 		for (const taskLine of taskLines) {
@@ -67,14 +73,14 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 			);
 
 			if (!projectLink) {
-				new Notice(`dropTaskToProject: No project link found for task on line ${taskLine + 1}.`);
+				new Notice(`Drop task to project: No project link found for task on line ${taskLine + 1}.`);
 				continue;
 			}
 
 			// Resolve the project file
 			const projectFile = plugin.app.vault.getAbstractFileByPath(projectLink.link.path) as TFile;
 			if (!projectFile) {
-				new Notice(`dropTaskToProject: Project note not found: ${projectLink.link.path}`);
+				new Notice(`Drop task to project: Project note not found: ${projectLink.link.path}`);
 				continue;
 			}
 
@@ -102,13 +108,10 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 			}
 
 			// Build full task content for new insertions
-			let taskContent = parentLineForProject;
-			if (childrenContent) {
-				const indentedChildren = childrenContent.split('\n').map(line =>
-					line ? '  ' + line : line
-				).join('\n');
-				taskContent += '\n' + indentedChildren;
-			}
+			const taskContent = buildTaskContent(
+				parentLineForProject,
+				childrenContent ? childrenContent.split('\n') : []
+			);
 
 			// Group by project file path
 			const projectPath = projectLink.link.path;
@@ -121,22 +124,7 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 				childrenContent
 			});
 
-			// Delete children from source first (higher line numbers)
-			if (children && children.lines.length > 0) {
-				editor.replaceRange(
-					'',
-					{ line: children.startLine, ch: 0 },
-					{ line: children.endLine, ch: 0 }
-				);
-			}
-
-			// Delete the task line from source
-			editor.replaceRange(
-				'',
-				{ line: taskLine, ch: 0 },
-				{ line: taskLine + 1, ch: 0 }
-			);
-
+			sourceDeletions.push({ taskLine, children });
 			droppedCount++;
 		}
 
@@ -161,20 +149,37 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 			});
 		}
 
+		// Phase 3: Delete tasks from source (bottom-to-top)
+		for (const deletion of sourceDeletions) {
+			// Delete children first (higher line numbers), then the task line
+			if (deletion.children && deletion.children.lines.length > 0) {
+				editor.replaceRange(
+					'',
+					{ line: deletion.children.startLine, ch: 0 },
+					{ line: deletion.children.endLine, ch: 0 }
+				);
+			}
+			editor.replaceRange(
+				'',
+				{ line: deletion.taskLine, ch: 0 },
+				{ line: deletion.taskLine + 1, ch: 0 }
+			);
+		}
+
 		let message: string;
 		if (droppedCount === 1) {
 			message = mergedCount > 0
-				? 'dropTaskToProject: Task returned to project (reopened).'
-				: 'dropTaskToProject: Task added to project.';
+				? 'Drop task to project: Task returned to project (reopened).'
+				: 'Drop task to project: Task added to project.';
 		} else {
 			const parts: string[] = [];
 			if (newCount > 0) parts.push(`${newCount} new`);
 			if (mergedCount > 0) parts.push(`${mergedCount} reopened`);
-			message = `dropTaskToProject: ${droppedCount} tasks dropped to project (${parts.join(', ')}).`;
+			message = `Drop task to project: ${droppedCount} tasks dropped to project (${parts.join(', ')}).`;
 		}
 		new Notice(message);
 	} catch (e: any) {
-		new Notice(`dropTaskToProject ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		new Notice(`Drop task to project error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('dropTaskToProject error:', e);
 	}
 }

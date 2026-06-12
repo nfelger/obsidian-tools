@@ -43,7 +43,7 @@ describe('pushTaskDown (plugin) - integration', () => {
 			expect(result.notice).toMatch(/not.*periodic|periodic note/i);
 		});
 
-		it('should fail if target note does not exist', async () => {
+		it('should create the target note when it does not exist', async () => {
 			const result = await testPushTaskDownPlugin({
 				source: `
 - [ ] Task to push
@@ -54,7 +54,9 @@ describe('pushTaskDown (plugin) - integration', () => {
 				cursorLine: 0
 			});
 
-			expect(result.notice).toMatch(/not exist|doesn't exist|does not exist/i);
+			expect(result.source).toContain('- [<] Task to push');
+			expect(result.target).toContain('## Todo');
+			expect(result.target).toContain('- [ ] Task to push');
 		});
 
 		it('should fail if already at daily level', async () => {
@@ -445,4 +447,26 @@ Some content
 			expect(result.target).toContain('- [ ] New task');
 		});
 	});
+
+	describe('transactional safety', () => {
+		it('leaves the source untouched when the target write fails', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] Task to push
+  - Child note
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: '',
+				today: new Date(2026, 0, 22),
+				cursorLine: 0,
+				failTargetWrite: true
+			});
+
+			expect(result.source).toContain('- [ ] Task to push');
+			expect(result.source).toContain('- Child note');
+			expect(result.source).not.toContain('[<]');
+			expect(result.notice).toMatch(/error/i);
+		});
+	});
+
 });

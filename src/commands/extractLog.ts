@@ -53,14 +53,14 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 
 		const listItems = getListItems(plugin, file);
 		if (listItems.length === 0) {
-			new Notice('extractLog ERROR: No listItems metadata in this file.');
+			new Notice('Extract log error: No listItems metadata in this file.');
 			return;
 		}
 
 		// Find children
 		const children = findChildrenBlockFromListItems(editor, listItems, parentLine);
 		if (!children) {
-			new Notice('extractLog: No children under current bullet (no-op).');
+			new Notice('Extract log: No children under current bullet (no-op).');
 			return;
 		}
 
@@ -97,23 +97,18 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 					headingSuffix = stripListPrefix(parentListText).trim();
 				}
 			} else {
-				// CASE 2: Non-pure link - use text after the link
+				// CASE 2: Non-pure link - use the whole line without the link,
+				// so "Checkin mit Chris zu [[Project]]" keeps its meaning
+				const beforeLinkRaw = stripListPrefix(parentText.slice(0, firstLink.index));
 				const afterLinkRaw = parentText.slice(
 					firstLink.index + firstLink.matchText.length
 				);
-				headingSuffix = afterLinkRaw.trim();
+				headingSuffix = `${beforeLinkRaw.trim()} ${afterLinkRaw.trim()}`.trim();
 			}
 		} else {
-			new Notice('extractLog ERROR: No wikilink found on current line.');
+			new Notice('Extract log error: No wikilink found on current line.');
 			return;
 		}
-
-		// Remove children from source
-		editor.replaceRange(
-			'',
-			{ line: children.startLine, ch: 0 },
-			{ line: children.endLine, ch: 0 }
-		);
 
 		// Build heading line (can contain wikilinks)
 		// Use one level deeper than the target heading
@@ -126,36 +121,30 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 		const rawHeadingTextForLink = dailyNoteName + rawHeadingLineSuffix;
 		const headingTextForLink = stripWikilinksToDisplayText(rawHeadingTextForLink).trim();
 
-		// Update wikilink in parent bullet to point to this heading
-		// Keep visible text exactly as before using an alias
-		if (firstLink) {
-			const inner = firstLink.inner;
-			const p = inner.split('|');
-			const left = p[0]; // original link target (page[#section])
-			const aliasPart = p.length > 1 ? p.slice(1).join('|') : null;
+		// Compute the updated wikilink for the parent bullet (applied after the
+		// target write succeeds). Keep visible text exactly as before via alias.
+		const inner = firstLink.inner;
+		const p = inner.split('|');
+		const left = p[0]; // original link target (page[#section])
+		const aliasPart = p.length > 1 ? p.slice(1).join('|') : null;
 
-			// Base page name (drop any old section)
-			const lp = left.split('#');
-			const page = lp[0];
+		// Base page name (drop any old section)
+		const lp = left.split('#');
+		const page = lp[0];
 
-			// New target with updated section
-			const newLeft = `${page}#${headingTextForLink}`;
+		// New target with updated section
+		const newLeft = `${page}#${headingTextForLink}`;
 
-			// Visible text should stay exactly the same as before:
-			// - if there was an alias, use that
-			// - otherwise use the original left part as-is
-			const displayTextOriginal = aliasPart ? aliasPart : left;
+		// Visible text should stay exactly the same as before:
+		// - if there was an alias, use that
+		// - otherwise use the original left part as-is
+		const displayTextOriginal = aliasPart ? aliasPart : left;
 
-			const newInner = `${newLeft}|${displayTextOriginal}`;
-			const newLink = `[[${newInner}]]`;
-
-			const updatedParentText =
-				parentText.slice(0, firstLink.index) +
-				newLink +
-				parentText.slice(firstLink.index + firstLink.matchText.length);
-
-			editor.setLine(parentLine, updatedParentText);
-		}
+		const newLink = `[[${newLeft}|${displayTextOriginal}]]`;
+		const updatedParentText =
+			parentText.slice(0, firstLink.index) +
+			newLink +
+			parentText.slice(firstLink.index + firstLink.matchText.length);
 
 		// Find target heading in target via metadataCache
 		const targetCache = plugin.app.metadataCache.getFileCache(targetFile);
@@ -197,13 +186,22 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 			}
 		});
 
+		// Target write succeeded — now update the source: remove the extracted
+		// children and point the wikilink at the new section
+		editor.replaceRange(
+			'',
+			{ line: children.startLine, ch: 0 },
+			{ line: children.endLine, ch: 0 }
+		);
+		editor.setLine(parentLine, updatedParentText);
+
 		new Notice(
-			`extractLog: moved child block to "${targetFile.basename}" > ${targetText}`,
+			`Extract log: moved child block to "${targetFile.basename}" > ${targetText}`,
 			NOTICE_TIMEOUT_SUCCESS
 		);
 
 	} catch (e: any) {
-		new Notice(`extractLog ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		new Notice(`Extract log error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('extractLog error:', e);
 	}
 }

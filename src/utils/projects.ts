@@ -7,7 +7,7 @@
 import type { ListItem, BulletFlowSettings, ResolvedLink, LinkResolver } from '../types';
 import { DEFAULT_SETTINGS } from '../types';
 import { buildLineToItemMap } from './listItems';
-import { countIndent, indentLines } from './indent';
+import { countIndent, getLeadingWhitespace, detectIndentUnit, convertIndentUnit, indentLinesWith } from './indent';
 import { findFirstResolvedLink } from './wikilinks';
 
 /**
@@ -203,8 +203,13 @@ export function insertUnderCollectorTask(
 		}
 	}
 
-	// Indent the task content to be a child of the collector (2-space indent)
-	const indentedContent = indentLines(taskContent.split('\n'), collectorIndent + 2).join('\n');
+	// Nest the task content one level under the collector, matching the
+	// file's indentation unit (falling back to the block's own unit, then tabs)
+	const blockLines = taskContent.split('\n');
+	const unit = detectIndentUnit(lines) ?? detectIndentUnit(blockLines) ?? '\t';
+	const converted = convertIndentUnit(blockLines, unit);
+	const prefix = getLeadingWhitespace(lines[collectorLine]) + unit;
+	const indentedContent = indentLinesWith(converted, prefix).join('\n');
 
 	lines.splice(insertLine, 0, indentedContent);
 	return lines.join('\n');

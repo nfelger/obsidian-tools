@@ -114,16 +114,16 @@ describe('findCollectorTask', () => {
 });
 
 describe('insertUnderCollectorTask', () => {
-	it('inserts task as subtask under collector', () => {
+	it('inserts task as subtask using tabs when file has no indentation signal', () => {
 		const content = `- [ ] Push [[Migration Initiative]]
 - [ ] Other task`;
 		const result = insertUnderCollectorTask(content, 0, '- [ ] [[Migration Initiative]] Define rollback');
 		expect(result).toBe(`- [ ] Push [[Migration Initiative]]
-  - [ ] [[Migration Initiative]] Define rollback
+\t- [ ] [[Migration Initiative]] Define rollback
 - [ ] Other task`);
 	});
 
-	it('inserts after existing subtasks', () => {
+	it('inserts after existing subtasks matching their indent unit', () => {
 		const content = `- [ ] Push [[Migration Initiative]]
   - [ ] Existing subtask
 - [ ] Other task`;
@@ -134,14 +134,26 @@ describe('insertUnderCollectorTask', () => {
 - [ ] Other task`);
 	});
 
-	it('handles indented collector task', () => {
+	it('handles indented collector task using the file indent unit', () => {
 		const content = `- Parent
     - [ ] Push [[Migration Initiative]]
     - [ ] Other`;
 		const result = insertUnderCollectorTask(content, 1, '- [ ] [[Migration Initiative]] Task');
 		expect(result).toBe(`- Parent
     - [ ] Push [[Migration Initiative]]
-      - [ ] [[Migration Initiative]] Task
+        - [ ] [[Migration Initiative]] Task
     - [ ] Other`);
+	});
+
+	it('nests under a tab-indented collector with tabs, converting task children', () => {
+		const content = `- Plan
+\t- [ ] Push [[Migration Initiative]]
+- [ ] Other`;
+		const result = insertUnderCollectorTask(content, 1, '- [ ] Define rollback\n  - check constraints');
+		expect(result).toBe(`- Plan
+\t- [ ] Push [[Migration Initiative]]
+\t\t- [ ] Define rollback
+\t\t\t- check constraints
+- [ ] Other`);
 	});
 });

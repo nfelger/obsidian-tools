@@ -13,6 +13,8 @@ import {
 	getLowerNotePath,
 	getHigherNotePath
 } from '../../src/utils/periodicNotes';
+import { periodicConfigWithFolder } from '../helpers/periodicConfig';
+import type { PeriodicConfig } from '../../src/types';
 
 describe('parseNoteType', () => {
 	describe('daily notes', () => {
@@ -171,7 +173,7 @@ describe('formatDailyPath', () => {
 
 	it('handles custom diary folder', () => {
 		const date = new Date(2026, 0, 22);
-		const path = formatDailyPath(date, 'Journal');
+		const path = formatDailyPath(date, periodicConfigWithFolder('Journal'));
 		expect(path).toBe('Journal/2026/01/2026-01-22 Thu');
 	});
 });
@@ -306,7 +308,7 @@ describe('getNextNotePath', () => {
 	describe('custom diary folder', () => {
 		it('uses custom diary folder', () => {
 			const noteInfo = { type: 'yearly' as const, year: 2026 };
-			const result = getNextNotePath(noteInfo, 'Journal');
+			const result = getNextNotePath(noteInfo, periodicConfigWithFolder('Journal'));
 			expect(result).toBe('Journal/2027/2027');
 		});
 	});
@@ -515,7 +517,7 @@ describe('getLowerNotePath', () => {
 		it('uses custom diary folder', () => {
 			const today = new Date(2026, 0, 22);
 			const noteInfo = { type: 'weekly' as const, year: 2026, month: 1, week: 4 };
-			const result = getLowerNotePath(noteInfo, today, { diaryFolder: 'Journal' });
+			const result = getLowerNotePath(noteInfo, today, periodicConfigWithFolder('Journal'));
 			expect(result).toBe('Journal/2026/01/2026-01-22 Thu');
 		});
 	});
@@ -629,8 +631,58 @@ describe('getHigherNotePath', () => {
 	describe('custom settings', () => {
 		it('uses custom diary folder', () => {
 			const noteInfo = { type: 'daily' as const, year: 2026, month: 1, day: 22 };
-			const result = getHigherNotePath(noteInfo, { diaryFolder: 'Journal' });
+			const result = getHigherNotePath(noteInfo, periodicConfigWithFolder('Journal'));
 			expect(result).toBe('Journal/2026/01/2026-01-W04');
 		});
+	});
+});
+
+describe('locale-week formats (ww)', () => {
+	// A vault configured in Periodic Notes with Sunday-start locale weeks:
+	// locale week 23 of 2026 runs Sun May 31 - Sat Jun 6
+	const localeConfig: PeriodicConfig = {
+		daily: { folder: '+Diary', format: 'YYYY/MM/YYYY-MM-DD ddd' },
+		weekly: { folder: '+Diary', format: 'YYYY/MM/YYYY-MM-[W]ww' },
+		monthly: { folder: '+Diary', format: 'YYYY/YYYY-MM MMMM' },
+		yearly: { folder: '+Diary', format: 'YYYY/YYYY' }
+	};
+
+	it('takes the week number from the filename', () => {
+		expect(parseNoteType('2026-05-W23', localeConfig)).toEqual({
+			type: 'weekly',
+			year: 2026,
+			month: 5,
+			week: 23
+		});
+	});
+
+	it('pull up targets the month containing the week start', () => {
+		const noteInfo = parseNoteType('2026-05-W23', localeConfig)!;
+		// Locale W23 starts Sun May 31 → the monthly note is May, not April/June
+		expect(getHigherNotePath(noteInfo, localeConfig)).toBe('+Diary/2026/2026-05 May');
+	});
+
+	it('migrates a weekly note to the next locale week', () => {
+		const noteInfo = parseNoteType('2026-05-W23', localeConfig)!;
+		// Next locale week starts Sun Jun 7 → W24, named by its first day
+		expect(getNextNotePath(noteInfo, localeConfig)).toBe('+Diary/2026/06/2026-06-W24');
+	});
+
+	it('treats Sunday as part of the locale week it starts', () => {
+		const noteInfo = parseNoteType('2026-06-W24', localeConfig)!;
+		// Sun Jun 7 2026 is the first day of locale W24 (but still ISO W23)
+		expect(dateIsInPeriod(new Date(2026, 5, 7), noteInfo, localeConfig)).toBe(true);
+	});
+
+	it('migrates Saturday dailies to the next weekly note', () => {
+		const noteInfo = parseNoteType('2026-06-06 Sat', localeConfig)!;
+		// Saturday is the last day of a locale week → next is the weekly note
+		expect(getNextNotePath(noteInfo, localeConfig)).toBe('+Diary/2026/06/2026-06-W24');
+	});
+
+	it('migrates Sunday dailies to the next daily note', () => {
+		const noteInfo = parseNoteType('2026-06-07 Sun', localeConfig)!;
+		// Sunday starts a locale week → next is just Monday's daily note
+		expect(getNextNotePath(noteInfo, localeConfig)).toBe('+Diary/2026/06/2026-06-08 Mon');
 	});
 });

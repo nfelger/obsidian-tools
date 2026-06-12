@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { countIndent, indentLines, dedentLines } from '../../src/utils/indent';
+import {
+	countIndent,
+	dedentLines,
+	getLeadingWhitespace,
+	detectIndentUnit,
+	convertIndentUnit,
+	indentLinesWith
+} from '../../src/utils/indent';
 
 describe('countIndent', () => {
 	it('should return 0 for non-indented line', () => {
@@ -27,29 +34,102 @@ describe('countIndent', () => {
 	});
 });
 
-describe('indentLines', () => {
-	it('should add spaces to each line', () => {
-		const lines = ['Line 1', 'Line 2'];
-		expect(indentLines(lines, 4)).toEqual(['    Line 1', '    Line 2']);
+describe('getLeadingWhitespace', () => {
+	it('should return empty string for non-indented line', () => {
+		expect(getLeadingWhitespace('- [ ] Task')).toBe('');
 	});
 
-	it('should preserve existing indentation', () => {
-		const lines = ['Line 1', '  Indented'];
-		expect(indentLines(lines, 4)).toEqual(['    Line 1', '      Indented']);
+	it('should return spaces', () => {
+		expect(getLeadingWhitespace('  - Child')).toBe('  ');
 	});
 
-	it('should skip blank lines', () => {
-		const lines = ['Line 1', '', 'Line 2'];
-		expect(indentLines(lines, 4)).toEqual(['    Line 1', '', '    Line 2']);
+	it('should return tabs', () => {
+		expect(getLeadingWhitespace('\t\t- Child')).toBe('\t\t');
 	});
 
-	it('should return copy for zero amount', () => {
-		const lines = ['Line 1'];
-		expect(indentLines(lines, 0)).toEqual(['Line 1']);
+	it('should return mixed whitespace as-is', () => {
+		expect(getLeadingWhitespace('\t  - Child')).toBe('\t  ');
+	});
+});
+
+describe('detectIndentUnit', () => {
+	it('should return null when no line is indented', () => {
+		expect(detectIndentUnit(['- [ ] Task', '- Note'])).toBeNull();
 	});
 
-	it('should handle empty input', () => {
-		expect(indentLines([], 4)).toEqual([]);
+	it('should detect tabs', () => {
+		expect(detectIndentUnit(['- [ ] Task', '\t- Child'])).toBe('\t');
+	});
+
+	it('should prefer tabs when any leading tab is present', () => {
+		expect(detectIndentUnit(['  - Child', '\t- Other'])).toBe('\t');
+	});
+
+	it('should detect two-space indents', () => {
+		expect(detectIndentUnit(['- [ ] Task', '  - Child', '    - Grandchild'])).toBe('  ');
+	});
+
+	it('should detect four-space indents', () => {
+		expect(detectIndentUnit(['- [ ] Task', '    - Child'])).toBe('    ');
+	});
+
+	it('should ignore blank lines', () => {
+		expect(detectIndentUnit(['- Task', '   ', ''])).toBeNull();
+	});
+});
+
+describe('convertIndentUnit', () => {
+	it('should convert space indents to tabs preserving depth', () => {
+		const lines = ['- [ ] Task', '  - Child', '    - Grandchild'];
+		expect(convertIndentUnit(lines, '\t')).toEqual([
+			'- [ ] Task',
+			'\t- Child',
+			'\t\t- Grandchild'
+		]);
+	});
+
+	it('should convert tab indents to spaces preserving depth', () => {
+		const lines = ['- [ ] Task', '\t- Child', '\t\t- Grandchild'];
+		expect(convertIndentUnit(lines, '  ')).toEqual([
+			'- [ ] Task',
+			'  - Child',
+			'    - Grandchild'
+		]);
+	});
+
+	it('should leave lines unchanged when units already match', () => {
+		const lines = ['- Task', '\t- Child'];
+		expect(convertIndentUnit(lines, '\t')).toEqual(['- Task', '\t- Child']);
+	});
+
+	it('should leave unindented content unchanged', () => {
+		const lines = ['- Task', '- Other'];
+		expect(convertIndentUnit(lines, '\t')).toEqual(['- Task', '- Other']);
+	});
+
+	it('should round partial indents up to a full unit', () => {
+		// 3 spaces with a 2-space unit: one full unit + remainder → depth 2
+		const lines = ['- Task', '  - Child', '   - Deeper'];
+		expect(convertIndentUnit(lines, '\t')).toEqual(['- Task', '\t- Child', '\t\t- Deeper']);
+	});
+
+	it('should preserve blank lines', () => {
+		const lines = ['- Task', '', '  - Child'];
+		expect(convertIndentUnit(lines, '\t')).toEqual(['- Task', '', '\t- Child']);
+	});
+});
+
+describe('indentLinesWith', () => {
+	it('should prefix each non-blank line', () => {
+		expect(indentLinesWith(['- A', '\t- B'], '\t')).toEqual(['\t- A', '\t\t- B']);
+	});
+
+	it('should leave blank lines empty', () => {
+		expect(indentLinesWith(['- A', '', '- B'], '  ')).toEqual(['  - A', '', '  - B']);
+	});
+
+	it('should return copy for empty prefix', () => {
+		expect(indentLinesWith(['- A'], '')).toEqual(['- A']);
 	});
 });
 

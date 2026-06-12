@@ -5,6 +5,55 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-06-12
+
+### Added
+
+- Target notes are created automatically: migrating, pushing, pulling, or taking
+  a task no longer fails when tomorrow's (or the target period's) note doesn't
+  exist yet — the note and its folders are created on the fly, with the template
+  configured in Daily Notes / Periodic Notes applied
+- Taking several project tasks at once groups them under a single
+  `Push [[Project]]` collector bullet instead of repeating the project link on
+  every task
+- Migrating a task that sits indented under a project bullet prepends the
+  project wikilink, so the task keeps its context in the target note
+- Extract log headings now include the text before the wikilink, so bullets
+  like "Checkin mit Chris zu [[Project]]" keep their meaning
+
+### Fixed
+
+- Weekly notes using locale weeks (`ww` formats, Sunday-start) now work
+  correctly: the week number is read from the filename, and pull up targets
+  the month containing the week's first day (previously a `2026-05-W23` note
+  could land in April), next/previous week and period checks follow the same
+  week system
+- Moving tasks no longer mixes tabs and spaces — transferred content is re-rendered
+  in the target note's own indentation style, fixing glitchy indent guides
+- Pulling a task up into a note where it already exists nested under another task
+  now places merged children correctly under that task
+- Custom section headings containing characters like `(`, `)`, or `+` are now found
+  instead of being duplicated on every insertion
+- If writing to the target note fails, the source note is left untouched — commands
+  no longer mark tasks as moved (or delete them) before the move has succeeded
+- Vaults configured before 0.11.1 now pick up the `## Todo` task heading default;
+  pull up / push down / migrate no longer land in `## Log`
+- Selecting tasks with multiple cursors now moves tasks from every selection,
+  not just the first
+- Auto-move no longer risks acting on the wrong note when switching panes right
+  after completing a task
+
+### Changed
+
+- Note locations are now read directly from the Daily Notes / Periodic Notes
+  plugins: the diary folder and filename pattern settings are gone from Bullet
+  Flow — configure folder, format, and template in Periodic Notes and Bullet
+  Flow follows
+- Migrating, pushing, pulling, or taking a task now moves only its incomplete
+  children; completed sub-tasks stay in the source note as the day's record
+- Notices now show readable command names ("Migrate task: …") instead of internal
+  identifiers ("migrateTask: …")
+
 ## [0.11.1] - 2026-04-01
 
 ### Fixed

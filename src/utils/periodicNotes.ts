@@ -6,13 +6,14 @@
  */
 
 import { moment } from 'obsidian';
-import type { NoteInfo, BulletFlowSettings } from '../types';
-import { DEFAULT_SETTINGS } from '../types';
+import type { NoteInfo, PeriodicConfig } from '../types';
+import { DEFAULT_PERIODIC_CONFIG } from '../types';
 
 // === Pattern Utilities ===
 
 /**
- * Extract the filename portion from a pattern (after the last /).
+ * Extract the filename portion from a format (after the last /).
+ * Formats may contain slashes for nested subfolders.
  */
 function getFilenamePattern(pattern: string): string {
 	const lastSlash = pattern.lastIndexOf('/');
@@ -20,90 +21,94 @@ function getFilenamePattern(pattern: string): string {
 }
 
 /**
- * Normalize settings input - accepts either a BulletFlowSettings object or a diary folder string.
- * Merges with defaults to ensure all properties are present.
+ * Join a folder and a formatted relative path; folder may be '' (vault root).
  */
-function normalizeSettings(settingsOrFolder?: Partial<BulletFlowSettings> | string): BulletFlowSettings {
-	if (!settingsOrFolder) {
-		return DEFAULT_SETTINGS;
-	}
-	if (typeof settingsOrFolder === 'string') {
-		return { ...DEFAULT_SETTINGS, diaryFolder: settingsOrFolder };
-	}
-	return { ...DEFAULT_SETTINGS, ...settingsOrFolder };
+function joinPath(folder: string, rel: string): string {
+	return folder ? `${folder}/${rel}` : rel;
+}
+
+/**
+ * Whether the weekly format counts weeks in the locale system (`ww`/`w`,
+ * e.g. Sunday-start weeks) instead of ISO weeks (`WW`/`W`, Monday-start).
+ *
+ * The week numbering of the vault follows from this token: all week math
+ * (week → month, next week, period checks) must use the same system.
+ */
+export function usesLocaleWeeks(config: PeriodicConfig): boolean {
+	const tokens = config.weekly.format.replace(/\[[^\]]*\]/g, '');
+	return /w/.test(tokens);
 }
 
 // === Periodic Note Service ===
 
 /**
- * Service for periodic note operations with encapsulated settings.
- *
- * Provides a cleaner API by eliminating settings threading through method calls.
+ * Service for periodic note operations with an encapsulated folder/format
+ * configuration (resolved from the Daily Notes / Periodic Notes plugins).
  */
 export class PeriodicNoteService {
-	constructor(private readonly settings: BulletFlowSettings) {}
+	constructor(private readonly config: PeriodicConfig) {}
 
 	/**
 	 * Parse a periodic note filename to determine its type and date info.
 	 */
 	parseNoteType(filename: string): NoteInfo | null {
-		return parseNoteType(filename, this.settings);
+		return parseNoteType(filename, this.config);
 	}
 
 	/**
 	 * Calculate the path to the next periodic note.
 	 */
 	getNextNotePath(noteInfo: NoteInfo): string {
-		return getNextNotePath(noteInfo, this.settings);
+		return getNextNotePath(noteInfo, this.config);
 	}
 
 	/**
 	 * Get the path to the higher-level periodic note.
 	 */
 	getHigherNotePath(noteInfo: NoteInfo): string | null {
-		return getHigherNotePath(noteInfo, this.settings);
+		return getHigherNotePath(noteInfo, this.config);
 	}
 
 	/**
 	 * Get the path to the lower-level periodic note for the current date.
 	 */
 	getLowerNotePath(noteInfo: NoteInfo, today: Date): string | null {
-		return getLowerNotePath(noteInfo, today, this.settings);
+		return getLowerNotePath(noteInfo, today, this.config);
 	}
 
 	/**
 	 * Check if a date falls within a periodic note's range.
 	 */
 	dateIsInPeriod(date: Date, noteInfo: NoteInfo): boolean {
-		return dateIsInPeriod(date, noteInfo);
+		return dateIsInPeriod(date, noteInfo, this.config);
 	}
 
 	/**
 	 * Format a date as a daily note path.
 	 */
 	formatDailyPath(date: Date): string {
-		return formatDailyPath(date, this.settings);
+		return formatDailyPath(date, this.config);
 	}
 
 	/**
 	 * Format a weekly note path.
 	 */
 	formatWeeklyPath(date: Date, week: number): string {
-		return formatWeeklyPath(date, week, this.settings);
+		return formatWeeklyPath(date, week, this.config);
 	}
 
 	/**
 	 * Format a monthly note path.
 	 */
 	formatMonthlyPath(year: number, month: number): string {
-		return formatMonthlyPath(year, month, this.settings);
+		return formatMonthlyPath(year, month, this.config);
 	}
 
 	/**
 	 * Format a yearly note path.
 	 */
 	formatYearlyPath(year: number): string {
-		return formatYearlyPath(year, this.settings);
+		return formatYearlyPath(year, this.config);
 	}
 }
 
@@ -124,19 +129,21 @@ interface ParseResult {
 function tryParseWithFormat(filename: string, format: string): ParseResult | null {
 	const filenameFormat = getFilenamePattern(format);
 
-	// Handle weekly patterns with [W]WW - extract week number manually
-	// since moment doesn't parse the week from literal text correctly
+	// Handle weekly patterns with [W]WW / [W]ww - extract the week number
+	// manually, since moment ignores week tokens when month/day tokens are
+	// also present (it would silently parse to the 1st of the month)
 	let extractedWeek: number | undefined;
 	let adjustedFilename = filename;
 	let adjustedFormat = filenameFormat;
 
-	if (filenameFormat.includes('[W]WW')) {
-		const weekMatch = filename.match(/W(\d{2})/);
+	const weekToken = filenameFormat.match(/\[W\](W{1,2}|w{1,2})/);
+	if (weekToken) {
+		const weekMatch = filename.match(/W(\d{1,2})/);
 		if (weekMatch) {
 			extractedWeek = parseInt(weekMatch[1], 10);
 			// Replace W## with placeholder for parsing
-			adjustedFilename = filename.replace(/W\d{2}/, 'W00');
-			adjustedFormat = filenameFormat.replace('[W]WW', '[W00]');
+			adjustedFilename = filename.replace(/W\d{1,2}/, 'W00');
+			adjustedFormat = filenameFormat.replace(weekToken[0], '[W00]');
 		} else {
 			return null; // Pattern expects W## but none found
 		}
@@ -152,20 +159,20 @@ function tryParseWithFormat(filename: string, format: string): ParseResult | nul
  * Determine what type of note a filename represents.
  *
  * @param filename - The note's basename (without .md extension)
- * @param settings - Plugin settings with patterns
+ * @param config - Periodic note folder/format configuration
  * @returns Type of note or null if not recognized
  */
 function detectNoteType(
 	filename: string,
-	settings: BulletFlowSettings
+	config: PeriodicConfig
 ): { type: 'daily' | 'weekly' | 'monthly' | 'yearly'; result: ParseResult } | null {
 	// Check each pattern - order matters for disambiguation
 	// Check more specific patterns first (daily has most tokens)
 	const patterns: Array<{ type: 'daily' | 'weekly' | 'monthly' | 'yearly'; pattern: string }> = [
-		{ type: 'daily', pattern: settings.dailyNotePattern },
-		{ type: 'weekly', pattern: settings.weeklyNotePattern },
-		{ type: 'monthly', pattern: settings.monthlyNotePattern },
-		{ type: 'yearly', pattern: settings.yearlyNotePattern }
+		{ type: 'daily', pattern: config.daily.format },
+		{ type: 'weekly', pattern: config.weekly.format },
+		{ type: 'monthly', pattern: config.monthly.format },
+		{ type: 'yearly', pattern: config.yearly.format }
 	];
 
 	for (const { type, pattern } of patterns) {
@@ -182,16 +189,16 @@ function detectNoteType(
  * Parse a periodic note filename to determine its type and date info.
  *
  * @param filename - The note's basename (without .md extension)
- * @param settings - Plugin settings with patterns (optional, uses defaults)
+ * @param config - Periodic note folder/format configuration
  * @returns NoteInfo or null if not a recognized periodic note
  */
 export function parseNoteType(
 	filename: string,
-	settings: BulletFlowSettings = DEFAULT_SETTINGS
+	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
 ): NoteInfo | null {
 	if (!filename) return null;
 
-	const detected = detectNoteType(filename, settings);
+	const detected = detectNoteType(filename, config);
 	if (!detected) return null;
 
 	const { type, result } = detected;
@@ -211,7 +218,7 @@ export function parseNoteType(
 				type: 'weekly',
 				year: parsed.year(), // Use year from the date portion
 				month: parsed.month() + 1,
-				week: extractedWeek ?? parsed.isoWeek()
+				week: extractedWeek ?? (usesLocaleWeeks(config) ? parsed.week() : parsed.isoWeek())
 			};
 
 		case 'monthly':
@@ -284,11 +291,9 @@ export function getMonthAbbrev(month: number): string {
  */
 export function formatDailyPath(
 	date: Date,
-	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS
+	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
 ): string {
-	const settings = normalizeSettings(settingsOrFolder);
-	const path = moment(date).format(settings.dailyNotePattern);
-	return `${settings.diaryFolder}/${path}`;
+	return joinPath(config.daily.folder, moment(date).format(config.daily.format));
 }
 
 /**
@@ -297,13 +302,11 @@ export function formatDailyPath(
 export function formatWeeklyPath(
 	date: Date,
 	week: number,
-	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS
+	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
 ): string {
-	const settings = normalizeSettings(settingsOrFolder);
-	// Use the date but ensure the ISO week is set correctly
-	const m = moment(date).isoWeek(week);
-	const path = m.format(settings.weeklyNotePattern);
-	return `${settings.diaryFolder}/${path}`;
+	// Use the date but ensure the week is set in the vault's week system
+	const m = usesLocaleWeeks(config) ? moment(date).week(week) : moment(date).isoWeek(week);
+	return joinPath(config.weekly.folder, m.format(config.weekly.format));
 }
 
 /**
@@ -312,12 +315,10 @@ export function formatWeeklyPath(
 export function formatMonthlyPath(
 	year: number,
 	month: number,
-	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS
+	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
 ): string {
-	const settings = normalizeSettings(settingsOrFolder);
 	const m = moment().year(year).month(month - 1).date(1);
-	const path = m.format(settings.monthlyNotePattern);
-	return `${settings.diaryFolder}/${path}`;
+	return joinPath(config.monthly.folder, m.format(config.monthly.format));
 }
 
 /**
@@ -325,12 +326,10 @@ export function formatMonthlyPath(
  */
 export function formatYearlyPath(
 	year: number,
-	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS
+	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
 ): string {
-	const settings = normalizeSettings(settingsOrFolder);
 	const m = moment().year(year).month(0).date(1);
-	const path = m.format(settings.yearlyNotePattern);
-	return `${settings.diaryFolder}/${path}`;
+	return joinPath(config.yearly.folder, m.format(config.yearly.format));
 }
 
 /**
@@ -340,7 +339,11 @@ export function formatYearlyPath(
  * @param noteInfo - The note info to check against
  * @returns true if the date is within the note's period
  */
-export function dateIsInPeriod(date: Date, noteInfo: NoteInfo): boolean {
+export function dateIsInPeriod(
+	date: Date,
+	noteInfo: NoteInfo,
+	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
+): boolean {
 	const { type, year, month, day, week } = noteInfo;
 
 	switch (type) {
@@ -353,17 +356,18 @@ export function dateIsInPeriod(date: Date, noteInfo: NoteInfo): boolean {
 
 		case 'weekly': {
 			if (week === undefined) return false;
-			// Get ISO week year - use moment for consistency
 			const m = moment(date);
-			const dateWeek = m.isoWeek();
-			const dateWeekYear = m.isoWeekYear();
+			if (usesLocaleWeeks(config)) {
+				const noteWeekYear = moment().weekYear(year).week(week).weekYear();
+				return m.week() === week && m.weekYear() === noteWeekYear;
+			}
 			// The year in noteInfo is the display year, but for comparison
 			// we need to use the ISO week year
 			const noteWeekYear = moment()
 				.isoWeekYear(year)
 				.isoWeek(week)
 				.isoWeekYear();
-			return dateWeek === week && dateWeekYear === noteWeekYear;
+			return m.isoWeek() === week && m.isoWeekYear() === noteWeekYear;
 		}
 
 		case 'monthly':
@@ -382,17 +386,15 @@ export function dateIsInPeriod(date: Date, noteInfo: NoteInfo): boolean {
  *
  * @param noteInfo - The current note's info
  * @param today - The current date
- * @param settingsOrFolder - Plugin settings or diary folder string
+ * @param config - Periodic note folder/format configuration
  * @returns Path to target note, or null if at lowest level (daily)
  * @throws Error if source period doesn't contain today
  */
 export function getLowerNotePath(
 	noteInfo: NoteInfo,
 	today: Date,
-	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS
+	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
 ): string | null {
-	const settings = normalizeSettings(settingsOrFolder);
-
 	// Validate that today is within the source period
 	if (!dateIsInPeriod(today, noteInfo)) {
 		throw new Error('Current date is not within the source period');
@@ -401,16 +403,16 @@ export function getLowerNotePath(
 	switch (noteInfo.type) {
 		case 'yearly':
 			// Yearly → current month
-			return formatMonthlyPath(today.getFullYear(), today.getMonth() + 1, settings);
+			return formatMonthlyPath(today.getFullYear(), today.getMonth() + 1, config);
 
 		case 'monthly':
-			// Monthly → current week
-			const week = getISOWeekNumber(today);
-			return formatWeeklyPath(today, week, settings);
+			// Monthly → current week (in the vault's week system)
+			const week = usesLocaleWeeks(config) ? moment(today).week() : getISOWeekNumber(today);
+			return formatWeeklyPath(today, week, config);
 
 		case 'weekly':
 			// Weekly → current day
-			return formatDailyPath(today, settings);
+			return formatDailyPath(today, config);
 
 		case 'daily':
 			// Already at lowest level
@@ -431,15 +433,13 @@ export function getLowerNotePath(
  * - Yearly → null (already at highest)
  *
  * @param noteInfo - The current note's info
- * @param settingsOrFolder - Plugin settings or diary folder string
+ * @param config - Periodic note folder/format configuration
  * @returns Path to target note, or null if at highest level (yearly)
  */
 export function getHigherNotePath(
 	noteInfo: NoteInfo,
-	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS
+	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
 ): string | null {
-	const settings = normalizeSettings(settingsOrFolder);
-
 	switch (noteInfo.type) {
 		case 'daily': {
 			// Daily → Weekly (week containing that day)
@@ -451,20 +451,22 @@ export function getHigherNotePath(
 			const m = moment(date);
 			// Get Thursday of this week (determines ISO week year and month)
 			const thursday = m.clone().isoWeekday(4);
-			// Format using the weekly pattern directly - moment handles week 53 correctly
-			const path = thursday.format(settings.weeklyNotePattern);
-			return `${settings.diaryFolder}/${path}`;
+			// Format using the weekly format directly - moment handles week 53 correctly
+			return joinPath(config.weekly.folder, thursday.format(config.weekly.format));
 		}
 
 		case 'weekly': {
-			// Weekly → Monthly (month containing Thursday of that week)
+			// Weekly → Monthly. ISO weeks belong to the month of their
+			// Thursday; locale weeks to the month of their first day (which
+			// is also how their notes are named).
 			const { year, week } = noteInfo;
 			if (year === undefined || week === undefined) {
 				return null;
 			}
-			// Use moment to get Thursday of this specific ISO week
-			const thursday = moment().isoWeekYear(year).isoWeek(week).isoWeekday(4);
-			return formatMonthlyPath(thursday.year(), thursday.month() + 1, settings);
+			const ref = usesLocaleWeeks(config)
+				? moment().weekYear(year).week(week).weekday(0)
+				: moment().isoWeekYear(year).isoWeek(week).isoWeekday(4);
+			return formatMonthlyPath(ref.year(), ref.month() + 1, config);
 		}
 
 		case 'monthly': {
@@ -473,7 +475,7 @@ export function getHigherNotePath(
 			if (year === undefined) {
 				return null;
 			}
-			return formatYearlyPath(year, settings);
+			return formatYearlyPath(year, config);
 		}
 
 		case 'yearly':
@@ -487,10 +489,8 @@ export function getHigherNotePath(
 
 export function getNextNotePath(
 	noteInfo: NoteInfo,
-	settingsOrFolder: BulletFlowSettings | string = DEFAULT_SETTINGS
+	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
 ): string {
-
-	const settings = normalizeSettings(settingsOrFolder);
 	const { type, year, month, day, week } = noteInfo;
 
 	switch (type) {
@@ -499,24 +499,34 @@ export function getNextNotePath(
 				return '';
 			}
 			const date = new Date(year, month - 1, day);
-			if (isLastDayOfWeek(date)) {
-				// Sunday → next weekly note
-				const nextDate = new Date(year, month - 1, day + 1);
+			const localeWeeks = usesLocaleWeeks(config);
+			const lastDayOfWeek = localeWeeks ? date.getDay() === 6 : isLastDayOfWeek(date);
+			const nextDate = new Date(year, month - 1, day + 1);
+			if (lastDayOfWeek) {
+				// Last day of the week → next weekly note
+				if (localeWeeks) {
+					// nextDate is the first day of the next locale week —
+					// formatting it directly renders all tokens consistently
+					return joinPath(config.weekly.folder, moment(nextDate).format(config.weekly.format));
+				}
 				const nextWeek = getISOWeekNumber(nextDate);
 				// Use Thursday to determine the month for the weekly note path
 				const thursdayOfNextWeek = new Date(nextDate);
 				thursdayOfNextWeek.setDate(thursdayOfNextWeek.getDate() + 3);
-				return formatWeeklyPath(thursdayOfNextWeek, nextWeek, settings);
+				return formatWeeklyPath(thursdayOfNextWeek, nextWeek, config);
 			} else {
 				// Normal case → next daily note
-				const nextDate = new Date(year, month - 1, day + 1);
-				return formatDailyPath(nextDate, settings);
+				return formatDailyPath(nextDate, config);
 			}
 		}
 
 		case 'weekly': {
 			if (year === undefined || week === undefined) {
 				return '';
+			}
+			if (usesLocaleWeeks(config)) {
+				const startOfNextWeek = moment().weekYear(year).week(week).weekday(0).add(7, 'days');
+				return joinPath(config.weekly.folder, startOfNextWeek.format(config.weekly.format));
 			}
 			const mondayOfCurrentWeek = getMondayOfISOWeek(year, week);
 			const mondayOfNextWeek = new Date(mondayOfCurrentWeek);
@@ -527,7 +537,7 @@ export function getNextNotePath(
 			thursdayOfNextWeek.setDate(thursdayOfNextWeek.getDate() + 3);
 
 			const nextWeek = getISOWeekNumber(mondayOfNextWeek);
-			return formatWeeklyPath(thursdayOfNextWeek, nextWeek, settings);
+			return formatWeeklyPath(thursdayOfNextWeek, nextWeek, config);
 		}
 
 		case 'monthly': {
@@ -536,10 +546,10 @@ export function getNextNotePath(
 			}
 			if (isDecember(month)) {
 				// December → next yearly note
-				return formatYearlyPath(year + 1, settings);
+				return formatYearlyPath(year + 1, config);
 			} else {
 				// Normal case → next monthly note
-				return formatMonthlyPath(year, month + 1, settings);
+				return formatMonthlyPath(year, month + 1, config);
 			}
 		}
 
@@ -547,7 +557,7 @@ export function getNextNotePath(
 			if (year === undefined) {
 				return '';
 			}
-			return formatYearlyPath(year + 1, settings);
+			return formatYearlyPath(year + 1, config);
 		}
 
 		default:

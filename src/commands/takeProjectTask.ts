@@ -5,15 +5,23 @@ import {
 	dedentLinesByAmount,
 	extractTaskText,
 	insertMultipleTasksWithDeduplication,
+	insertUnderTargetHeading,
 	markTaskAsScheduled,
 	TaskMarker
 } from '../utils/tasks';
 import type { TaskInsertItem } from '../types';
-import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
-import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
+import {
+	getActiveMarkdownFile,
+	getOrCreateFile,
+	getListItems,
+	findSelectedTaskLines,
+	getTransferableChildren,
+	removeTransferredChildren
+} from '../utils/commandSetup';
 import { isProjectNote, getProjectName, parseProjectKeywords, findCollectorTask, insertUnderCollectorTask } from '../utils/projects';
 import { PeriodicNoteService } from '../utils/periodicNotes';
+import { getPeriodicConfig } from '../utils/periodicNoteCreator';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
 /**
@@ -39,43 +47,49 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		// Verify this is a project note
 		if (!isProjectNote(file.path, plugin.settings)) {
-			new Notice('takeProjectTask: This is not a project note.');
+			new Notice('Take project task: This is not a project note.');
 			return;
 		}
 
 		const projectName = getProjectName(file.path, plugin.settings);
 		if (!projectName) {
-			new Notice('takeProjectTask: Cannot determine project name.');
+			new Notice('Take project task: Cannot determine project name.');
 			return;
 		}
 
 		// Find today's daily note
 		const today = plugin.getToday ? plugin.getToday() : new Date();
-		const noteService = new PeriodicNoteService(plugin.settings);
+		const noteService = new PeriodicNoteService(getPeriodicConfig());
 		const dailyPath = noteService.formatDailyPath(today) + '.md';
-		const dailyFile = plugin.app.vault.getAbstractFileByPath(dailyPath) as TFile;
+		const dailyFile = await getOrCreateFile(plugin, dailyPath);
 		if (!dailyFile) {
-			new Notice(`takeProjectTask: Today's daily note does not exist: ${dailyPath}`);
+			new Notice(`Take project task: Could not create today's daily note: ${dailyPath}`);
 			return;
 		}
 
 		const listItems = getListItems(plugin, file);
 
-		const taskLines = findSelectedTaskLines(editor, listItems, 'takeProjectTask');
+		const taskLines = findSelectedTaskLines(editor, listItems, 'Take project task');
 		if (!taskLines) return;
 
-		// Process tasks from bottom to top to preserve line numbers during source edits
+		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
 		taskLines.sort((a, b) => b - a);
 
 		// Parse collector keywords
 		const keywords = parseProjectKeywords(plugin.settings.projectKeywords);
 
-		// Phase 1: Collect task data and modify source (bottom-to-top)
+		// Phase 1: Collect task data (read-only — source edits are deferred
+		// until the daily note write has succeeded)
 		const collectedTasks: Array<TaskInsertItem & { taskContentForCollector: string }> = [];
+		const sourceEdits: Array<{
+			taskLine: number;
+			scheduledLine: string;
+			children: ReturnType<typeof getTransferableChildren>;
+		}> = [];
 
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
-			const children = findChildrenBlockFromListItems(editor, listItems || [], taskLine);
+			const children = getTransferableChildren(editor, listItems, taskLine);
 
 			// Extract task text for deduplication
 			const taskText = extractTaskText(lineText);
@@ -101,15 +115,13 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 			// The collector task already identifies the project, so prepending [[Project]] is redundant noise
 			const taskContentForCollector = buildTaskContent(
 				parentLineForTarget,
-				childrenContent ? childrenContent.split('\n') : [],
-				2
+				childrenContent ? childrenContent.split('\n') : []
 			);
 
 			// Build full task content for heading insertion
 			const taskContent = buildTaskContent(
 				parentLineWithLink,
-				childrenContent ? childrenContent.split('\n') : [],
-				2
+				childrenContent ? childrenContent.split('\n') : []
 			);
 
 			// The task text for deduplication should include the project link
@@ -122,18 +134,7 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 				taskContentForCollector
 			});
 
-			// Mark source line as scheduled
-			const scheduledLine = markTaskAsScheduled(lineText);
-			editor.setLine(taskLine, scheduledLine);
-
-			// Remove children from source
-			if (children && children.lines.length > 0) {
-				editor.replaceRange(
-					'',
-					{ line: children.startLine, ch: 0 },
-					{ line: children.endLine, ch: 0 }
-				);
-			}
+			sourceEdits.push({ taskLine, scheduledLine: markTaskAsScheduled(lineText), children });
 		}
 
 		// Phase 2: Insert into target in original order
@@ -143,20 +144,29 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 		let mergedCount = 0;
 		let newCount = 0;
 
+		const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
 		await plugin.app.vault.process(dailyFile, (data: string) => {
 			// Check for collector task
-			const collectorLine = findCollectorTask(data, projectName, keywords);
+			let collectorLine = findCollectorTask(data, projectName, keywords);
+			let content = data;
+
+			// Taking several tasks at once: group them under a collector so the
+			// project link appears once instead of on every task
+			if (collectorLine === null && collectedTasks.length > 1) {
+				const keyword = keywords[0] ?? 'Push';
+				content = insertUnderTargetHeading(content, `- [ ] ${keyword} [[${projectName}]]`, targetHeading);
+				collectorLine = findCollectorTask(content, projectName, [keyword]);
+			}
 
 			if (collectorLine !== null) {
 				// Batch insert under collector as a single block (preserves order)
 				const block = collectedTasks.map(t => t.taskContentForCollector).join('\n');
 				newCount = collectedTasks.length;
-				return insertUnderCollectorTask(data, collectorLine, block);
+				return insertUnderCollectorTask(content, collectorLine, block);
 			} else {
 				// Batch insert with deduplication under heading (preserves order)
-				const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
 				const result = insertMultipleTasksWithDeduplication(
-					data,
+					content,
 					collectedTasks,
 					targetHeading
 				);
@@ -166,21 +176,28 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 			}
 		});
 
+		// Phase 3: Mark source tasks as scheduled and remove transferred children
+		// (bottom-to-top; terminal subtrees stay)
+		for (const edit of sourceEdits) {
+			editor.setLine(edit.taskLine, edit.scheduledLine);
+			removeTransferredChildren(editor, edit.children);
+		}
+
 		const taskCount = taskLines.length;
 		let message: string;
 		if (taskCount === 1) {
 			message = mergedCount > 0
-				? 'takeProjectTask: Task merged with existing in daily note.'
-				: 'takeProjectTask: Task taken to daily note.';
+				? 'Take project task: Task merged with existing in daily note.'
+				: 'Take project task: Task taken to daily note.';
 		} else {
 			const parts: string[] = [];
 			if (newCount > 0) parts.push(`${newCount} new`);
 			if (mergedCount > 0) parts.push(`${mergedCount} merged`);
-			message = `takeProjectTask: ${taskCount} tasks taken to daily note (${parts.join(', ')}).`;
+			message = `Take project task: ${taskCount} tasks taken to daily note (${parts.join(', ')}).`;
 		}
 		new Notice(message);
 	} catch (e: any) {
-		new Notice(`takeProjectTask ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		new Notice(`Take project task error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('takeProjectTask error:', e);
 	}
 }

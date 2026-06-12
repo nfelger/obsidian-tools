@@ -56,7 +56,7 @@ describe('migrateTask (plugin)', () => {
 			expect(result.notice).toMatch(/not.*periodic|periodic note/i);
 		});
 
-		it('should fail if target note does not exist', async () => {
+		it('should create the target note when it does not exist', async () => {
 			const result = await testMigrateTaskPlugin({
 				source: `
 - [ ] Task to migrate
@@ -66,7 +66,35 @@ describe('migrateTask (plugin)', () => {
 				cursorLine: 0
 			});
 
-			expect(result.notice).toMatch(/not exist|doesn't exist|does not exist/i);
+			expect(result.source).toContain('- [>] Task to migrate');
+			expect(result.target).toContain('## Todo');
+			expect(result.target).toContain('- [ ] Task to migrate');
+		});
+
+		it('applies the Periodic Notes template when creating the target note', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Task to migrate
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: null, // Target doesn't exist
+				cursorLine: 0,
+				periodicNotesTemplate: `
+# Daily
+
+## Todo
+
+## Log
+`
+			});
+
+			// Template content present
+			expect(result.target).toContain('# Daily');
+			expect(result.target).toContain('## Log');
+			// Task inserted under the template's Todo heading, not a duplicate one
+			expect(result.target!.match(/## Todo/g)).toHaveLength(1);
+			expect(result.target).toContain('- [ ] Task to migrate');
+			expect(result.source).toContain('- [>] Task to migrate');
 		});
 	});
 
@@ -134,6 +162,33 @@ describe('migrateTask (plugin)', () => {
 			expect(result.target).toContain('Child 1');
 			expect(result.target).toContain('Child task');
 			expect(result.target).toContain('Grandchild');
+		});
+
+		it('should leave completed children behind in the source', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Parent task
+  - [x] Done child
+    - note under done
+  - [ ] Open child
+- [ ] Next task
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 0
+			});
+
+			// Source keeps the completed subtree under the migrated parent
+			expect(result.source).toContain('- [>] Parent task');
+			expect(result.source).toContain('- [x] Done child');
+			expect(result.source).toContain('note under done');
+			expect(result.source).not.toContain('- [ ] Open child');
+
+			// Target gets only the open child
+			expect(result.target).toContain('- [ ] Parent task');
+			expect(result.target).toContain('- [ ] Open child');
+			expect(result.target).not.toContain('Done child');
+			expect(result.target).not.toContain('note under done');
 		});
 
 		it('should preserve indentation of children in target', async () => {
@@ -419,4 +474,97 @@ title: Note
 			expect(result.target).not.toContain('Task B');
 		});
 	});
+
+	describe('transactional safety', () => {
+		it('leaves the source untouched when the target write fails', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Task to migrate
+  - Child note
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 0,
+				failTargetWrite: true
+			});
+
+			expect(result.source).toContain('- [ ] Task to migrate');
+			expect(result.source).toContain('- Child note');
+			expect(result.source).not.toContain('[>]');
+			expect(result.notice).toMatch(/error/i);
+		});
+	});
+
+
+	describe('project context', () => {
+		it('prepends the project link when the task sits under a project bullet', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [[Migration Initiative]]
+  - [ ] Write runbook
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 1,
+				projects: ['Migration Initiative']
+			});
+
+			// Source: nested task marked migrated, line text unchanged otherwise
+			expect(result.source).toContain('- [>] Write runbook');
+
+			// Target: project context restored via prepended link
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Write runbook');
+		});
+
+		it('does not prepend when the link is already on the task line', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] [[Migration Initiative]] Write runbook
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 0,
+				projects: ['Migration Initiative']
+			});
+
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Write runbook');
+			expect(result.target).not.toContain('[[Migration Initiative]] [[Migration Initiative]]');
+		});
+
+		it('does not prepend for non-project ancestor bullets', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [[Some Random Note]]
+  - [ ] Unrelated task
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 1,
+				projects: []
+			});
+
+			expect(result.target).toContain('- [ ] Unrelated task');
+			expect(result.target).not.toContain('[[Some Random Note]] Unrelated task');
+		});
+	});
+
+
+	describe('note locations from Periodic Notes', () => {
+		it('resolves folder and format from the Periodic Notes settings', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Task to migrate
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '',
+				cursorLine: 0,
+				diaryFolder: 'Journal'
+			});
+
+			expect(result.targetPath).toContain('Journal/');
+			expect(result.target).toContain('- [ ] Task to migrate');
+			expect(result.source).toContain('- [>] Task to migrate');
+		});
+	});
+
 });

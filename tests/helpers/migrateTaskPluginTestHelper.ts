@@ -12,6 +12,7 @@ import type { ListItem, BulletFlowSettings } from '../../src/types';
 import { DEFAULT_SETTINGS } from '../../src/types';
 import type BulletFlowPlugin from '../../src/main';
 import { parseNoteType, getNextNotePath } from '../../src/utils/periodicNotes';
+import { periodicConfigWithFolder, asInterfaceSettings } from './periodicConfig';
 
 interface TestMigrateTaskOptions {
 	source: string;
@@ -22,6 +23,11 @@ interface TestMigrateTaskOptions {
 	selectionStartLine?: number | null;
 	selectionEndLine?: number | null;
 	diaryFolder?: string;
+	failTargetWrite?: boolean;
+	/** Project note names that wikilinks resolve to (in the default projects folder) */
+	projects?: string[];
+	/** Simulated Periodic Notes template applied when the target note is created */
+	periodicNotesTemplate?: string | null;
 }
 
 interface TestMigrateTaskResult {
@@ -47,7 +53,10 @@ export async function testMigrateTaskPlugin({
 	cursorLine = 0,
 	selectionStartLine = null,
 	selectionEndLine = null,
-	diaryFolder = '+Diary'
+	diaryFolder = '+Diary',
+	failTargetWrite = false,
+	projects = [],
+	periodicNotesTemplate = null
 }: TestMigrateTaskOptions): Promise<TestMigrateTaskResult> {
 	// Normalize markdown
 	const normalizedSource = normalizeMarkdown(source);
@@ -61,10 +70,11 @@ export async function testMigrateTaskPlugin({
 	const targetExists = targetContent !== null;
 
 	// Build settings with custom diary folder
-	const settings: BulletFlowSettings = { ...DEFAULT_SETTINGS, diaryFolder };
+	const settings: BulletFlowSettings = { ...DEFAULT_SETTINGS };
+	const periodicConfig = periodicConfigWithFolder(diaryFolder);
 
 	// Calculate paths
-	const noteInfo = parseNoteType(sourceFileName, settings);
+	const noteInfo = parseNoteType(sourceFileName, periodicConfig);
 
 	// Build source path based on note type
 	let sourcePath: string;
@@ -85,7 +95,7 @@ export async function testMigrateTaskPlugin({
 	}
 
 	// Calculate target path
-	const calculatedTargetPath = noteInfo ? getNextNotePath(noteInfo, settings) : null;
+	const calculatedTargetPath = noteInfo ? getNextNotePath(noteInfo, periodicConfig) : null;
 	const actualTargetFileName = targetFileName || (calculatedTargetPath ? calculatedTargetPath.split('/').pop() : null);
 	const targetPath = calculatedTargetPath ? `${calculatedTargetPath}.md` : null;
 
@@ -157,7 +167,7 @@ export async function testMigrateTaskPlugin({
 
 	// Override getAbstractFileByPath to check if target exists
 	mockVault.getAbstractFileByPath = vi.fn((path: string) => {
-		if (path === targetPath && targetExists) {
+		if (path === targetPath && (targetExists || mockTargetFile)) {
 			return mockTargetFile;
 		}
 		if (path === sourcePath) {
@@ -166,7 +176,16 @@ export async function testMigrateTaskPlugin({
 		return null;
 	});
 
+	mockVault.createFolder = vi.fn(async () => {});
+	mockVault.create = vi.fn(async (path: string, content: string) => {
+		if (path !== targetPath) throw new Error(`unexpected create: ${path}`);
+		mockTargetFile = createMockFile({ path, basename: actualTargetFileName! });
+		targetContentState = content;
+		return mockTargetFile;
+	});
+
 	mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {
+		if (failTargetWrite) throw new Error('Simulated write failure');
 		if (file === mockTargetFile || file?.path === targetPath) {
 			const currentContent = targetContentState || '';
 			const newContent = await processFn(currentContent);
@@ -176,9 +195,19 @@ export async function testMigrateTaskPlugin({
 		return '';
 	});
 
+	// Map project wikilinks to files in the projects folder
+	const linkDests = new Map<string, any>();
+	for (const name of projects) {
+		linkDests.set(name, createMockFile({
+			path: `1 Projekte/${name}.md`,
+			basename: name
+		}));
+	}
+
 	// Create metadata cache
 	const mockMetadataCache = createMockMetadataCache({
-		fileCache
+		fileCache,
+		linkDests
 	});
 
 	// Create workspace
@@ -216,9 +245,34 @@ export async function testMigrateTaskPlugin({
 		settings
 	} as BulletFlowPlugin;
 
+	// Simulate Periodic Notes template-based creation when configured
+	if (periodicNotesTemplate !== null) {
+		const createFromTemplate = async () => {
+			mockTargetFile = createMockFile({ path: targetPath!, basename: actualTargetFileName! });
+			targetContentState = normalizeMarkdown(periodicNotesTemplate);
+			return mockTargetFile;
+		};
+		(globalThis as any).__periodicNoteCreation = {
+			daily: createFromTemplate,
+			weekly: createFromTemplate,
+			monthly: createFromTemplate,
+			yearly: createFromTemplate
+		};
+	} else {
+		(globalThis as any).__periodicNoteCreation = undefined;
+	}
+
+	// Commands resolve note locations from Daily Notes / Periodic Notes —
+	// mirror the helper's config there
+	(globalThis as any).__periodicNoteSettings = asInterfaceSettings(periodicConfig);
+
 	// Import and run migrateTask
 	const { migrateTask } = await import('../../src/commands/migrateTask');
 	await migrateTask(mockPlugin);
+
+	(globalThis as any).__periodicNoteSettings = undefined;
+
+	(globalThis as any).__periodicNoteCreation = undefined;
 
 	// Cleanup
 	NoticeSpy.mockRestore();

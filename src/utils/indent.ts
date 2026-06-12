@@ -15,17 +15,63 @@ export function countIndent(line: string): number {
 }
 
 /**
- * Add a fixed amount of leading whitespace to all non-blank lines.
- *
- * @param lines - Lines to indent
- * @param amount - Number of spaces to prepend
- * @returns Indented lines
+ * Get the leading whitespace of a line (spaces and tabs, verbatim).
  */
-export function indentLines(lines: string[], amount: number): string[] {
-	if (!lines || lines.length === 0 || amount <= 0) return lines.slice();
+export function getLeadingWhitespace(line: string): string {
+	return line.slice(0, countIndent(line));
+}
 
-	const prefix = ' '.repeat(amount);
-	return lines.map(line => line.trim() === '' ? '' : prefix + line);
+/**
+ * Detect the indentation unit used by a block of lines.
+ *
+ * Returns '\t' if any line starts with a tab, otherwise the smallest
+ * positive space indent found, or null when no line is indented.
+ */
+export function detectIndentUnit(lines: string[]): string | null {
+	let minSpaces = Infinity;
+	for (const line of lines) {
+		if (line.trim() === '') continue;
+		const ws = getLeadingWhitespace(line);
+		if (!ws) continue;
+		if (ws.includes('\t')) return '\t';
+		minSpaces = Math.min(minSpaces, ws.length);
+	}
+	return isFinite(minSpaces) ? ' '.repeat(minSpaces) : null;
+}
+
+/**
+ * Re-render the leading indentation of a block in a different unit,
+ * preserving each line's depth. Partial indents (smaller than one source
+ * unit) round up to a full unit so children stay children.
+ *
+ * Lines keep their content untouched; only leading whitespace changes.
+ */
+export function convertIndentUnit(lines: string[], toUnit: string): string[] {
+	const fromUnit = detectIndentUnit(lines);
+	if (!fromUnit || fromUnit === toUnit) return lines.slice();
+
+	return lines.map(line => {
+		if (line.trim() === '') return line;
+		const ws = getLeadingWhitespace(line);
+		if (!ws) return line;
+
+		let depth = 0;
+		let i = 0;
+		while (ws.startsWith(fromUnit, i)) {
+			depth++;
+			i += fromUnit.length;
+		}
+		if (i < ws.length) depth++; // partial indent → one level deeper
+		return toUnit.repeat(depth) + line.slice(ws.length);
+	});
+}
+
+/**
+ * Prefix all non-blank lines with the given whitespace string.
+ */
+export function indentLinesWith(lines: string[], prefix: string): string[] {
+	if (!lines || lines.length === 0 || !prefix) return lines.slice();
+	return lines.map(line => line.trim() === '' ? line : prefix + line);
 }
 
 /**

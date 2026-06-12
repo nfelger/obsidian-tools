@@ -72,42 +72,51 @@ export interface NoteInfo {
 	week?: number;
 }
 
+/**
+ * Where one periodic note granularity lives: vault folder plus a moment.js
+ * filename format (which may contain `/` for nested subfolders).
+ */
+export interface PeriodPathConfig {
+	folder: string;
+	format: string;
+}
+
+/**
+ * Folder/format configuration for all four granularities.
+ *
+ * Resolved at command time from the Daily Notes / Periodic Notes plugins via
+ * `getPeriodicConfig()` — Bullet Flow no longer keeps its own copy of these
+ * settings. The defaults below apply when those plugins aren't available.
+ */
+export interface PeriodicConfig {
+	daily: PeriodPathConfig;
+	weekly: PeriodPathConfig;
+	monthly: PeriodPathConfig;
+	yearly: PeriodPathConfig;
+}
+
+export const DEFAULT_PERIODIC_CONFIG: PeriodicConfig = {
+	daily: { folder: '+Diary', format: 'YYYY/MM/YYYY-MM-DD ddd' },
+	weekly: { folder: '+Diary', format: 'gggg/MM/gggg-MM-[W]WW' },
+	monthly: { folder: '+Diary', format: 'YYYY/YYYY-MM MMM' },
+	yearly: { folder: '+Diary', format: 'YYYY/YYYY' }
+};
+
 // === Plugin Settings ===
 
 /**
  * Plugin settings that are user-configurable via the settings tab.
  *
- * Note patterns use moment.js format tokens:
- * @see https://momentjs.com/docs/#/displaying/format/
- *
- * Common tokens:
- * - YYYY - 4-digit year
- * - MM - 2-digit month (01-12)
- * - DD - 2-digit day (01-31)
- * - ddd - 3-letter weekday (Mon, Tue, etc.)
- * - MMM - 3-letter month (Jan, Feb, etc.)
- * - WW - ISO week number (01-53)
- * - gggg - ISO week-numbering year
- * - [text] - Literal text (escaped)
+ * Periodic note locations (folder and filename format) are NOT part of these
+ * settings — they are resolved from the Daily Notes / Periodic Notes plugins
+ * at command time (see PeriodicConfig and getPeriodicConfig).
  */
 export interface BulletFlowSettings {
-	/** Base folder for periodic notes (e.g., '+Diary') */
-	diaryFolder: string;
+	/** Schema version of saved settings; bump when defaults change meaning */
+	settingsVersion: number;
 
 	/** Target section heading in periodic notes (e.g., '## Log', '### Inbox') */
 	periodicNoteTaskTargetHeading: string;
-
-	/** Daily note path pattern using moment.js format (e.g., 'YYYY/MM/YYYY-MM-DD ddd') */
-	dailyNotePattern: string;
-
-	/** Weekly note path pattern using moment.js format (e.g., 'gggg/MM/gggg-MM-[W]WW') */
-	weeklyNotePattern: string;
-
-	/** Monthly note path pattern using moment.js format (e.g., 'YYYY/YYYY-MM MMM') */
-	monthlyNotePattern: string;
-
-	/** Yearly note path pattern using moment.js format (e.g., 'YYYY/YYYY') */
-	yearlyNotePattern: string;
 
 	/** Target section heading for Extract Log (e.g., '## Log') */
 	logExtractionTargetHeading: string;
@@ -128,20 +137,53 @@ export interface BulletFlowSettings {
 	projectArchiveFolder: string;
 }
 
+export const SETTINGS_VERSION = 2;
+
 export const DEFAULT_SETTINGS: BulletFlowSettings = {
-	diaryFolder: '+Diary',
+	settingsVersion: SETTINGS_VERSION,
 	periodicNoteTaskTargetHeading: '## Todo',
 	logExtractionTargetHeading: '## Log',
-	dailyNotePattern: 'YYYY/MM/YYYY-MM-DD ddd',
-	weeklyNotePattern: 'gggg/MM/gggg-MM-[W]WW',
-	monthlyNotePattern: 'YYYY/YYYY-MM MMM',
-	yearlyNotePattern: 'YYYY/YYYY',
 	projectNoteTaskTargetHeading: '## Todo',
 	projectsFolder: '1 Projekte',
 	projectKeywords: '"Push", "Finish"',
 	dailyNoteLogHeading: '## Log',
 	projectArchiveFolder: '4 Archive'
 };
+
+/**
+ * Migrate saved settings from older plugin versions.
+ *
+ * - Unversioned (pre-0.11.1): `## Log` was the default task target heading;
+ *   a saved `## Log` is treated as that old default and updated to `## Todo`.
+ * - Version < 2: filename pattern settings (diary folder, per-granularity
+ *   patterns) moved out of Bullet Flow — they are now read from the Daily
+ *   Notes / Periodic Notes plugins, so stored copies are dropped.
+ *
+ * @param data - Raw data from loadData(), or null on fresh installs
+ * @returns Migrated data (same object shape), or null if data was null
+ */
+export function migrateSettings(
+	data: (Partial<BulletFlowSettings> & Record<string, unknown>) | null
+): Partial<BulletFlowSettings> | null {
+	if (!data) return null;
+
+	if (data.settingsVersion === undefined) {
+		if (data.periodicNoteTaskTargetHeading === '## Log') {
+			data.periodicNoteTaskTargetHeading = '## Todo';
+		}
+	}
+
+	if ((data.settingsVersion as number ?? 0) < 2) {
+		delete data.diaryFolder;
+		delete data.dailyNotePattern;
+		delete data.weeklyNotePattern;
+		delete data.monthlyNotePattern;
+		delete data.yearlyNotePattern;
+		data.settingsVersion = SETTINGS_VERSION;
+	}
+
+	return data;
+}
 
 // === Task Insertion ===
 

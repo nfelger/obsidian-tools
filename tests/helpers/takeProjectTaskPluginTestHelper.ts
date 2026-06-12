@@ -12,6 +12,7 @@ import type { ListItem, BulletFlowSettings } from '../../src/types';
 import { DEFAULT_SETTINGS } from '../../src/types';
 import type BulletFlowPlugin from '../../src/main';
 import { formatDailyPath } from '../../src/utils/periodicNotes';
+import { periodicConfigWithFolder, asInterfaceSettings } from './periodicConfig';
 
 interface TestTakeProjectTaskOptions {
 	source: string;
@@ -24,6 +25,7 @@ interface TestTakeProjectTaskOptions {
 	selectionEndLine?: number | null;
 	projectsFolder?: string;
 	projectKeywords?: string;
+	failTargetWrite?: boolean;
 }
 
 interface TestTakeProjectTaskResult {
@@ -45,7 +47,8 @@ export async function testTakeProjectTaskPlugin({
 	selectionStartLine = null,
 	selectionEndLine = null,
 	projectsFolder = '1 Projekte',
-	projectKeywords = '"Push", "Finish"'
+	projectKeywords = '"Push", "Finish"',
+	failTargetWrite = false
 }: TestTakeProjectTaskOptions): Promise<TestTakeProjectTaskResult> {
 	const normalizedSource = normalizeMarkdown(source);
 	const listItems = parseMarkdownToListItems(normalizedSource) as ListItem[];
@@ -61,7 +64,8 @@ export async function testTakeProjectTaskPlugin({
 	};
 
 	// Calculate daily note path
-	const dailyPath = formatDailyPath(today, settings) + '.md';
+	const periodicConfig = periodicConfigWithFolder('+Diary');
+	const dailyPath = formatDailyPath(today, periodicConfig) + '.md';
 	const sourcePath = sourcePathOverride || `${projectsFolder}/${sourceFileName}.md`;
 
 	// Create editor
@@ -128,12 +132,21 @@ export async function testTakeProjectTaskPlugin({
 	const mockVault = createMockVault({ files: allFiles });
 
 	mockVault.getAbstractFileByPath = vi.fn((path: string) => {
-		if (path === dailyPath && dailyExists) return mockDailyFile;
+		if (path === dailyPath && (dailyExists || mockDailyFile)) return mockDailyFile;
 		if (path === sourcePath) return mockSourceFile;
 		return null;
 	});
 
+	mockVault.createFolder = vi.fn(async () => {});
+	mockVault.create = vi.fn(async (path: string, content: string) => {
+		if (path !== dailyPath) throw new Error(`unexpected create: ${path}`);
+		mockDailyFile = createMockFile({ path, basename: path.split('/').pop()!.replace('.md', '') });
+		dailyContentState = content;
+		return mockDailyFile;
+	});
+
 	mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {
+		if (failTargetWrite) throw new Error('Simulated write failure');
 		if (file === mockDailyFile || file?.path === dailyPath) {
 			const currentContent = dailyContentState || '';
 			const newContent = await processFn(currentContent);
@@ -174,8 +187,12 @@ export async function testTakeProjectTaskPlugin({
 		getToday: () => today
 	} as unknown as BulletFlowPlugin;
 
+	(globalThis as any).__periodicNoteSettings = asInterfaceSettings(periodicConfig);
+
 	const { takeProjectTask } = await import('../../src/commands/takeProjectTask');
 	await takeProjectTask(mockPlugin);
+
+	(globalThis as any).__periodicNoteSettings = undefined;
 
 	NoticeSpy.mockRestore();
 

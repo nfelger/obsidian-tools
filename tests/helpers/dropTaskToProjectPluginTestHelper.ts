@@ -21,6 +21,7 @@ interface TestDropTaskToProjectOptions {
 	selectionStartLine?: number | null;
 	selectionEndLine?: number | null;
 	projectsFolder?: string;
+	failTargetWrite?: boolean;
 }
 
 interface TestDropTaskToProjectResult {
@@ -39,7 +40,8 @@ export async function testDropTaskToProjectPlugin({
 	cursorLine = 0,
 	selectionStartLine = null,
 	selectionEndLine = null,
-	projectsFolder = '1 Projekte'
+	projectsFolder = '1 Projekte',
+	failTargetWrite = false
 }: TestDropTaskToProjectOptions): Promise<TestDropTaskToProjectResult> {
 	const normalizedSource = normalizeMarkdown(source);
 	const listItems = parseMarkdownToListItems(normalizedSource) as ListItem[];
@@ -126,6 +128,7 @@ export async function testDropTaskToProjectPlugin({
 	});
 
 	mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {
+		if (failTargetWrite) throw new Error('Simulated write failure');
 		const projectName = file.basename;
 		const currentContent = projectContents.get(projectName) || '';
 		const newContent = await processFn(currentContent);

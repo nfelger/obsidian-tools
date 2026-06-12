@@ -18,7 +18,7 @@ describe('finishProject (plugin)', () => {
 				sourcePath: '+Diary/2026/02/2026-02-18 Wed.md'
 			});
 
-			expect(result.notice).toBe('finishProject: Not a project note.');
+			expect(result.notice).toBe('Finish project: Not a project note.');
 			expect(result.renamePath).toBeNull();
 		});
 
@@ -29,7 +29,7 @@ describe('finishProject (plugin)', () => {
 				targetFileExists: true
 			});
 
-			expect(result.notice).toBe('finishProject: 4 Archive/✅ My Project.md already exists.');
+			expect(result.notice).toBe('Finish project: 4 Archive/✅ My Project.md already exists.');
 			expect(result.renamePath).toBeNull();
 			expect(result.content).not.toContain('completed:');
 		});
@@ -40,7 +40,7 @@ describe('finishProject (plugin)', () => {
 				sourceFileName: '✅ Already Done'
 			});
 
-			expect(result.notice).toBe('finishProject: Project is already finished.');
+			expect(result.notice).toBe('Finish project: Project is already finished.');
 			expect(result.renamePath).toBeNull();
 		});
 	});
@@ -152,7 +152,7 @@ completed: 2025-01-01
 				sourceFileName: 'Migration Initiative'
 			});
 
-			expect(result.notice).toBe('finishProject: Migration Initiative archived.');
+			expect(result.notice).toBe('Finish project: Migration Initiative archived.');
 		});
 	});
 });

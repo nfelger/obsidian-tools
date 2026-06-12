@@ -2,7 +2,7 @@
  * Utilities for working with tasks in markdown.
  */
 
-import { countIndent } from './indent';
+import { countIndent, getLeadingWhitespace, detectIndentUnit, convertIndentUnit, indentLinesWith } from './indent';
 import { DEFAULT_SETTINGS } from '../types';
 import type { InsertTaskResult, TaskInsertItem, ListItem } from '../types';
 export { TaskState, TaskMarker, isIncompleteTask, markTaskAsScheduled, isScheduledTask, markScheduledAsOpen } from './taskMarker';
@@ -128,7 +128,8 @@ export function findSectionRange(
 	heading: string
 ): { start: number; end: number } | null {
 	const { level, text } = parseTargetHeading(heading);
-	const headingRegex = new RegExp(`^${'#'.repeat(level)} ${text}\\s*$`);
+	const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const headingRegex = new RegExp(`^${'#'.repeat(level)} ${escapedText}\\s*$`);
 
 	let targetLineIdx = -1;
 	for (let i = 0; i < lines.length; i++) {
@@ -275,19 +276,20 @@ export function insertChildrenUnderTask(
 	const taskLine = lines[taskLineNumber];
 	const taskIndent = countIndent(taskLine);
 
-	// Find the end of the task's children block
+	// Find the end of the task's children block. Blank lines only belong to
+	// the block when a more-indented line follows them — trailing blanks
+	// (e.g. the file's final newline) are not part of the block.
 	let insertLineNumber = taskLineNumber + 1;
-	while (insertLineNumber < lines.length) {
-		const currentLine = lines[insertLineNumber];
-		// Empty lines are part of the block
+	let scan = taskLineNumber + 1;
+	while (scan < lines.length) {
+		const currentLine = lines[scan];
 		if (currentLine.trim() === '') {
-			insertLineNumber++;
+			scan++;
 			continue;
 		}
-		// Check if this line is still a child (more indented than task)
-		const currentIndent = countIndent(currentLine);
-		if (currentIndent > taskIndent) {
-			insertLineNumber++;
+		if (countIndent(currentLine) > taskIndent) {
+			scan++;
+			insertLineNumber = scan;
 		} else {
 			break;
 		}
@@ -302,17 +304,60 @@ export function insertChildrenUnderTask(
 
 
 /**
- * Build a task line with its children, applying consistent indentation.
+ * Build a task line with its children.
+ *
+ * Children must already carry their indentation relative to the task line
+ * (i.e. dedented by the task's own indent). Their whitespace is preserved
+ * verbatim — no unit is mixed in here; unit conversion happens at insertion
+ * time against the target file.
  *
  * @param taskLine - The task line itself (e.g. "- [ ] Do something")
- * @param children - Child lines (already stripped of leading whitespace)
- * @param indent - Number of spaces to prepend to each non-empty child line
+ * @param children - Child lines, indented relative to the task line
  */
-export function buildTaskContent(taskLine: string, children: string[], indent: number): string {
+export function buildTaskContent(taskLine: string, children: string[]): string {
 	if (children.length === 0) return taskLine;
-	const indentStr = ' '.repeat(indent);
-	const childText = children.map(line => line ? indentStr + line : line).join('\n');
-	return taskLine + '\n' + childText;
+	return taskLine + '\n' + children.join('\n');
+}
+
+/**
+ * Decide which lines of a children block travel with their task when it is
+ * migrated/pushed/pulled, and which stay behind in the source.
+ *
+ * Subtrees rooted at a terminal task (completed [x] or migrated [>]) stay —
+ * they are part of the source note's historical record. Everything else
+ * (open/started tasks, notes, their descendants) moves. Blank lines follow
+ * the subtree they appear in.
+ *
+ * @param lines - Children block lines with their original indentation
+ * @returns One flag per line; true = line moves with the task
+ */
+export function selectTransferableChildLines(lines: string[]): boolean[] {
+	const flags: boolean[] = [];
+	let keptSubtreeIndent: number | null = null;
+
+	for (const line of lines) {
+		if (line.trim() === '') {
+			flags.push(keptSubtreeIndent === null);
+			continue;
+		}
+
+		const indent = countIndent(line);
+		if (keptSubtreeIndent !== null && indent > keptSubtreeIndent) {
+			flags.push(false);
+			continue;
+		}
+		keptSubtreeIndent = null;
+
+		const marker = TaskMarker.fromLine(line);
+		if (marker && marker.isTerminal()) {
+			keptSubtreeIndent = indent;
+			flags.push(false);
+		} else {
+			flags.push(true);
+		}
+	}
+
+	return flags;
 }
 
 // === Batch Insertion (order-preserving) ===
@@ -334,7 +379,10 @@ export function insertMultipleUnderTargetHeading(
 	targetHeading: string = DEFAULT_SETTINGS.periodicNoteTaskTargetHeading
 ): string {
 	if (taskContents.length === 0) return content;
-	const block = taskContents.join('\n');
+	const targetUnit = detectIndentUnit(content.split('\n'));
+	const block = taskContents
+		.map(tc => targetUnit ? convertIndentUnit(tc.split('\n'), targetUnit).join('\n') : tc)
+		.join('\n');
 	return insertUnderTargetHeading(content, block, targetHeading);
 }
 
@@ -373,9 +421,15 @@ export function insertMultipleTasksWithDeduplication(
 			}
 
 			if (task.childrenContent) {
-				const indentedChildren = task.childrenContent.split('\n').map(line =>
-					line ? '  ' + line : line
-				).join('\n');
+				// Children carry one level of indent relative to their task.
+				// Re-render them in the target's unit and nest them under the
+				// matched task by prefixing its own leading whitespace.
+				const resultLines = result.split('\n');
+				const childLines = task.childrenContent.split('\n');
+				const targetUnit = detectIndentUnit(resultLines);
+				const converted = targetUnit ? convertIndentUnit(childLines, targetUnit) : childLines;
+				const matchedWs = getLeadingWhitespace(resultLines[match.lineNumber]);
+				const indentedChildren = indentLinesWith(converted, matchedWs).join('\n');
 				result = insertChildrenUnderTask(result, match.lineNumber, indentedChildren);
 			}
 

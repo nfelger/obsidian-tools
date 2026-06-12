@@ -20,6 +20,7 @@ interface TestExtractLogOptions {
   cursorLine?: number;
   fileName?: string;
   settings?: Partial<BulletFlowSettings>;
+  failTargetWrite?: boolean;
 }
 
 interface TestExtractLogResult {
@@ -45,7 +46,8 @@ export async function testExtractLogPlugin({
   targetNotes = {},
   cursorLine = 0,
   fileName = 'daily.md',
-  settings: settingsOverride = {}
+  settings: settingsOverride = {},
+  failTargetWrite = false
 }: TestExtractLogOptions): Promise<TestExtractLogResult> {
   // Normalize markdown
   const normalizedSource = normalizeMarkdown(source);
@@ -138,6 +140,7 @@ export async function testExtractLogPlugin({
     return allFiles.find((f: any) => f.path === path) || null;
   });
   mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {
+    if (failTargetWrite) throw new Error('Simulated write failure');
     const targetName = file.basename;
     const currentContent = targetContents.get(targetName) || '';
     const newContent = await processFn(currentContent);

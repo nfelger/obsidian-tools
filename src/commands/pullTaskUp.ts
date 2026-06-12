@@ -1,6 +1,7 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
+import { getPeriodicConfig } from '../utils/periodicNoteCreator';
 import {
 	buildTaskContent,
 	dedentLinesByAmount,
@@ -9,9 +10,15 @@ import {
 	markTaskAsScheduled
 } from '../utils/tasks';
 import type { TaskInsertItem } from '../types';
-import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
-import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
+import {
+	getActiveMarkdownFile,
+	getOrCreateFile,
+	getListItems,
+	findSelectedTaskLines,
+	getTransferableChildren,
+	removeTransferredChildren
+} from '../utils/commandSetup';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
 /**
@@ -46,47 +53,53 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 
 		const { editor, file } = context;
 
-		const noteService = new PeriodicNoteService(plugin.settings);
+		const noteService = new PeriodicNoteService(getPeriodicConfig());
 		const noteInfo = noteService.parseNoteType(file.basename);
 		if (!noteInfo) {
-			new Notice('pullTaskUp: This is not a periodic note.');
+			new Notice('Pull task up: This is not a periodic note.');
 			return;
 		}
 
 		// Check if already at yearly level
 		if (noteInfo.type === 'yearly') {
-			new Notice('pullTaskUp: Cannot pull up from yearly note (already at highest level).');
+			new Notice('Pull task up: Cannot pull up from yearly note (already at highest level).');
 			return;
 		}
 
 		// Calculate target path (higher level note)
 		const higherPath = noteService.getHigherNotePath(noteInfo);
 		if (!higherPath) {
-			new Notice('pullTaskUp: Cannot determine target note.');
+			new Notice('Pull task up: Cannot determine target note.');
 			return;
 		}
 
 		const targetPath = higherPath + '.md';
-		const targetFile = plugin.app.vault.getAbstractFileByPath(targetPath) as TFile;
+		const targetFile = await getOrCreateFile(plugin, targetPath);
 		if (!targetFile) {
-			new Notice(`pullTaskUp: Target note does not exist: ${targetPath}`);
+			new Notice(`Pull task up: Could not create target note: ${targetPath}`);
 			return;
 		}
 
 		const listItems = getListItems(plugin, file);
 
-		const taskLines = findSelectedTaskLines(editor, listItems, 'pullTaskUp');
+		const taskLines = findSelectedTaskLines(editor, listItems, 'Pull task up');
 		if (!taskLines) return;
 
-		// Process tasks from bottom to top to preserve line numbers during source edits
+		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
 		taskLines.sort((a, b) => b - a);
 
-		// Phase 1: Collect task data and modify source (bottom-to-top)
+		// Phase 1: Collect task data (read-only — source edits are deferred
+		// until the target write has succeeded)
 		const collectedTasks: TaskInsertItem[] = [];
+		const sourceEdits: Array<{
+			taskLine: number;
+			scheduledLine: string;
+			children: ReturnType<typeof getTransferableChildren>;
+		}> = [];
 
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
-			const children = findChildrenBlockFromListItems(editor, listItems || [], taskLine);
+			const children = getTransferableChildren(editor, listItems, taskLine);
 
 			// Extract task text for deduplication
 			const taskText = extractTaskText(lineText);
@@ -103,24 +116,11 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 			const parentLineStripped = lineText.slice(parentIndent);
 			const taskContent = buildTaskContent(
 				parentLineStripped,
-				childrenContent ? childrenContent.split('\n') : [],
-				2
+				childrenContent ? childrenContent.split('\n') : []
 			);
 
 			collectedTasks.push({ taskText, taskContent, childrenContent });
-
-			// Mark source line as scheduled
-			const scheduledLine = markTaskAsScheduled(lineText);
-			editor.setLine(taskLine, scheduledLine);
-
-			// Remove children from source
-			if (children && children.lines.length > 0) {
-				editor.replaceRange(
-					'',
-					{ line: children.startLine, ch: 0 },
-					{ line: children.endLine, ch: 0 }
-				);
-			}
+			sourceEdits.push({ taskLine, scheduledLine: markTaskAsScheduled(lineText), children });
 		}
 
 		// Phase 2: Insert into target in original order
@@ -137,21 +137,28 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 			return result.content;
 		});
 
+		// Phase 3: Mark source tasks as scheduled and remove transferred children
+		// (bottom-to-top; terminal subtrees stay)
+		for (const edit of sourceEdits) {
+			editor.setLine(edit.taskLine, edit.scheduledLine);
+			removeTransferredChildren(editor, edit.children);
+		}
+
 		const taskCount = taskLines.length;
 		let message: string;
 		if (taskCount === 1) {
 			message = mergedCount > 0
-				? 'pullTaskUp: Task merged with existing in higher note.'
-				: 'pullTaskUp: Task pulled to higher note.';
+				? 'Pull task up: Task merged with existing in higher note.'
+				: 'Pull task up: Task pulled to higher note.';
 		} else {
 			const parts: string[] = [];
 			if (newCount > 0) parts.push(`${newCount} new`);
 			if (mergedCount > 0) parts.push(`${mergedCount} merged`);
-			message = `pullTaskUp: ${taskCount} tasks pulled to higher note (${parts.join(', ')}).`;
+			message = `Pull task up: ${taskCount} tasks pulled to higher note (${parts.join(', ')}).`;
 		}
 		new Notice(message);
 	} catch (e: any) {
-		new Notice(`pullTaskUp ERROR: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		new Notice(`Pull task up error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('pullTaskUp error:', e);
 	}
 }
