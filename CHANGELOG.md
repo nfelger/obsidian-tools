@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Weekly notes using locale weeks (`ww` formats, Sunday-start) now work
+  correctly: the week number is read from the filename, and pull up targets
+  the month containing the week's first day (previously a `2026-05-W23` note
+  could land in April), next/previous week and period checks follow the same
+  week system
 - Moving tasks no longer mixes tabs and spaces — transferred content is re-rendered
   in the target note's own indentation style, fixing glitchy indent guides
 - Pulling a task up into a note where it already exists nested under another task

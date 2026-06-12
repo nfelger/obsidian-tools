@@ -24,7 +24,7 @@ import {
 } from 'obsidian-daily-notes-interface';
 import type { NoteInfo, PeriodicConfig, PeriodPathConfig } from '../types';
 import { DEFAULT_PERIODIC_CONFIG } from '../types';
-import { getMondayOfISOWeek } from './periodicNotes';
+import { getMondayOfISOWeek, usesLocaleWeeks } from './periodicNotes';
 
 /**
  * Resolve the folder/format configuration for all granularities from the
@@ -75,7 +75,11 @@ export async function createPeriodicNoteFromTemplate(noteInfo: NoteInfo): Promis
 			case 'weekly': {
 				if (!appHasWeeklyNotesPluginLoaded()) return null;
 				if (noteInfo.week === undefined) return null;
-				return (await createWeeklyNote(moment(getMondayOfISOWeek(noteInfo.year, noteInfo.week)))) ?? null;
+				// Key the note by the week's first day in the vault's week system
+				const weekStart = usesLocaleWeeks(getPeriodicConfig())
+					? moment().weekYear(noteInfo.year).week(noteInfo.week).weekday(0)
+					: moment(getMondayOfISOWeek(noteInfo.year, noteInfo.week));
+				return (await createWeeklyNote(weekStart)) ?? null;
 			}
 			case 'monthly': {
 				if (!appHasMonthlyNotesPluginLoaded()) return null;
