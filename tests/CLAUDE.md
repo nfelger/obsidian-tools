@@ -42,6 +42,14 @@ const result = await testExtractLog({
 - `createMockVault()` — mock vault with read/write operations
 - `createMockApp()` — full mock app (vault + workspace + cache)
 
+`tests/mocks/dailyNotesInterface.js` mocks the `obsidian-daily-notes-interface`
+package (aliased in vitest.config.js). Control it via globals:
+`globalThis.__periodicNoteSettings` ({ day/week/month/year → { format, folder,
+template } }) feeds `getPeriodicConfig()`; `globalThis.__periodicNoteCreation`
+({ daily/weekly/monthly/yearly → async creator }) simulates template-based note
+creation. Unset = plugins not available (commands fall back to defaults and plain
+file creation). `tests/helpers/periodicConfig.ts` builds matching configs.
+
 Global stubs needed in test setup:
 
 ```javascript

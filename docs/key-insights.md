@@ -13,10 +13,17 @@ Functions: `getISOWeekNumber()`, `getMondayOfISOWeek()` in `src/utils/periodicNo
 verified correct against ISO 8601 spec and date-fns. Don't reimplement.
 
 **Migration boundary rules:**
-- Daily (Sunday) → next Weekly
+- Daily (last day of week) → next Weekly
 - Weekly → always next Weekly
 - Monthly (December) → next Yearly
 - Yearly → always next Yearly
+
+**Week systems:** the weekly format token decides everything. `WW`/`W` = ISO weeks
+(Monday-start, Thursday determines the month, Sunday is the migration boundary);
+`ww`/`w` = locale weeks (Sunday-start in `en`, the week's first day determines the
+month, Saturday is the migration boundary). `usesLocaleWeeks()` in
+`src/utils/periodicNotes.ts` is the single switch — never hardcode `isoWeek`
+in new week math.
 
 ## Wikilink Parsing
 

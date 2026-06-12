@@ -4,7 +4,7 @@
 
 import { countIndent, getLeadingWhitespace, detectIndentUnit, convertIndentUnit, indentLinesWith } from './indent';
 import { DEFAULT_SETTINGS } from '../types';
-import type { InsertTaskResult, TaskInsertItem, ListItem } from '../types';
+import type { TaskInsertItem, ListItem } from '../types';
 export { TaskState, TaskMarker, isIncompleteTask, markTaskAsScheduled, isScheduledTask, markScheduledAsOpen } from './taskMarker';
 import { TaskMarker, TaskState, isIncompleteTask, isScheduledTask, markScheduledAsOpen } from './taskMarker';
 

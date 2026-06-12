@@ -56,12 +56,6 @@ export interface ParsedWikilink {
 	alias: string | null;
 }
 
-export interface WikilinkMatch {
-	index: number;
-	matchText: string;
-	inner: string;
-}
-
 // === Periodic Notes ===
 
 export interface NoteInfo {
@@ -186,15 +180,6 @@ export function migrateSettings(
 }
 
 // === Task Insertion ===
-
-/**
- * Result of inserting a task with deduplication.
- */
-export interface InsertTaskResult {
-	content: string;
-	wasMerged: boolean;
-	reopenedScheduled: boolean;
-}
 
 /**
  * Data for a task to be inserted into a target note.

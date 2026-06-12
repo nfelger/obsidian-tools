@@ -5,15 +5,18 @@ Scope: full review of Bullet Flow (plugin source, tests, docs, tooling), with a 
 improvement plan. Findings marked **[confirmed]** were reproduced against the actual
 plugin code; others are based on code reading.
 
-> **Implementation status (same branch, 2026-06-10):** Phases 0–2 are implemented.
-> Fixed: §3.1, §3.2, §3.3, §3.4, §3.6, §3.7, §3.8, §3.11, notice prefixes (§4.2),
-> doc drift (§5). Deliberately **not** done after re-evaluation: §3.9 (collector
-> duplicates cannot arise — a task in the project is `[<]` after taking and cannot
-> be re-taken until reopened, which removes the daily copy) and §3.10 (in this
-> workflow open tasks legitimately live in the daily Log section, so file-wide
-> dedup matching is desired behavior). §3.5 (cache-freshness guard) remains open —
-> a reliable guard needs a design that avoids false positives on mixed indents.
-> Phases 3–5 remain open.
+> **Implementation status (v0.12.0, released 2026-06-12):** Phases 0–2 fully
+> implemented (§3.1–§3.4, §3.6–§3.8, §3.11, notice prefixes, doc drift), plus from
+> Phases 3–4: target-note auto-creation with Periodic Notes templates (§4.1),
+> collector grouping on multi-take, project-link prepending on migrate, extract-log
+> whole-line headings, and note locations resolved from Daily Notes / Periodic
+> Notes (pattern settings removed). Locale-week (`ww`) support added across the
+> week pipeline. Deliberately **not** done after re-evaluation: §3.9 (collector
+> duplicates cannot arise given the `[<]` state machine) and §3.10 (open tasks
+> legitimately live in the daily Log, so file-wide dedup matching is desired).
+> Still open: §3.5 (cache-freshness guard), the shared transfer engine, Phase 5
+> release hygiene. Next steps live in
+> [the roadmap](../plans/2026-06-12-next-features-roadmap.md).
 
 ---
 

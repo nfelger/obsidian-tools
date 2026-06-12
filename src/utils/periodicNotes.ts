@@ -270,20 +270,6 @@ export function getMondayOfISOWeek(year: number, week: number): Date {
 	return moment().isoWeekYear(year).isoWeek(week).startOf('isoWeek').toDate();
 }
 
-/**
- * Get weekday abbreviation for a date
- */
-export function getWeekdayAbbrev(date: Date): string {
-	return moment(date).format('ddd');
-}
-
-/**
- * Get month abbreviation (1-indexed: 1=Jan, 12=Dec)
- */
-export function getMonthAbbrev(month: number): string {
-	return moment().month(month - 1).format('MMM');
-}
-
 // === Path Generation ===
 
 /**

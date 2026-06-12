@@ -30,7 +30,8 @@ obsidian-tools/
 │       ├── commandSetup.ts       # Common command setup
 │       ├── taskMarker.ts         # TaskState enum + TaskMarker class
 │       ├── tasks.ts              # Task utilities; re-exports from taskMarker.ts
-│       ├── periodicNotes.ts      # PeriodicNoteService
+│       ├── periodicNotes.ts      # PeriodicNoteService (paths, week math)
+│       ├── periodicNoteCreator.ts # Daily Notes / Periodic Notes plugin boundary
 │       ├── wikilinks.ts          # LinkResolver + wikilink parsing
 │       ├── listItems.ts          # List item operations
 │       ├── indent.ts             # Indentation utilities
@@ -74,8 +75,9 @@ use wikilinks as the paper trail
 **Domain patterns — use these, don't bypass:**
 - `TaskMarker` (`src/utils/taskMarker.ts`) — type-safe task state transitions; never manipulate
   task markers as raw strings. See @docs/key-insights.md for extensibility guide.
-- `PeriodicNoteService` (`src/utils/periodicNotes.ts`) — encapsulates settings for periodic
-  note operations; no parameter threading
+- `PeriodicNoteService` (`src/utils/periodicNotes.ts`) — periodic note paths and week math;
+  construct with `getPeriodicConfig()` (`src/utils/periodicNoteCreator.ts`), which resolves
+  folder/format per granularity from the Daily Notes / Periodic Notes plugins
 - `LinkResolver` interface (`src/types.ts`) — keeps Obsidian types out of domain logic;
   use `ObsidianLinkResolver` as the infrastructure adapter
 

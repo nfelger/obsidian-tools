@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseWikilinkText, findWikilinkMatches, stripWikilinksToDisplayText } from '../../src/utils/wikilinks';
+import { parseWikilinkText, stripWikilinksToDisplayText } from '../../src/utils/wikilinks';
 
 describe('parseWikilinkText', () => {
 	it('should parse simple link', () => {
@@ -54,46 +54,6 @@ describe('parseWikilinkText', () => {
 			section: null,
 			alias: 'Display|Text'
 		});
-	});
-});
-
-describe('findWikilinkMatches', () => {
-	it('should find single wikilink', () => {
-		const matches = findWikilinkMatches('Some text [[Note]] more text');
-		expect(matches).toHaveLength(1);
-		expect(matches[0]).toEqual({
-			index: 10,
-			matchText: '[[Note]]',
-			inner: 'Note'
-		});
-	});
-
-	it('should find multiple wikilinks', () => {
-		const matches = findWikilinkMatches('[[Note1]] and [[Note2]]');
-		expect(matches).toHaveLength(2);
-		expect(matches[0].inner).toBe('Note1');
-		expect(matches[1].inner).toBe('Note2');
-	});
-
-	it('should ignore embeds (![[ ]])', () => {
-		const matches = findWikilinkMatches('Text ![[Embed]] and [[Link]]');
-		expect(matches).toHaveLength(1);
-		expect(matches[0].inner).toBe('Link');
-	});
-
-	it('should handle no matches', () => {
-		const matches = findWikilinkMatches('No links here');
-		expect(matches).toHaveLength(0);
-	});
-
-	it('should handle wikilinks with section', () => {
-		const matches = findWikilinkMatches('[[Note#Section]]');
-		expect(matches[0].inner).toBe('Note#Section');
-	});
-
-	it('should handle wikilinks with alias', () => {
-		const matches = findWikilinkMatches('[[Note|Alias]]');
-		expect(matches[0].inner).toBe('Note|Alias');
 	});
 });
 

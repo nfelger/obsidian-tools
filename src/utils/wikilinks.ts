@@ -1,5 +1,5 @@
 import type { MetadataCache, Vault } from 'obsidian';
-import type { ParsedWikilink, WikilinkMatch, ResolvedLink, LinkResolver } from '../types';
+import type { ParsedWikilink, ResolvedLink, LinkResolver } from '../types';
 import { stripListPrefix } from './listItems';
 
 // === Link Resolver Implementation ===
@@ -92,33 +92,6 @@ export function parseWikilinkText(inner: string): ParsedWikilink {
 	const section = linkParts.length > 1 ? linkParts.slice(1).join('#') : null;
 
 	return { linkPath, section, alias };
-}
-
-/**
- * Find all wikilink matches in a line of text.
- * Ignores embeds (![[...]]).
- */
-export function findWikilinkMatches(lineText: string): WikilinkMatch[] {
-	const wikiRegex = /\[\[([^\]]+)\]\]/g;
-	const matches: WikilinkMatch[] = [];
-	let match;
-
-	while ((match = wikiRegex.exec(lineText)) !== null) {
-		const index = match.index;
-
-		// Ignore embeds (![[...]])
-		if (index > 0 && lineText.charAt(index - 1) === '!') {
-			continue;
-		}
-
-		matches.push({
-			index,
-			matchText: match[0],
-			inner: match[1]
-		});
-	}
-
-	return matches;
 }
 
 /**

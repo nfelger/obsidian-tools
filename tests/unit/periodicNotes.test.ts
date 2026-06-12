@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
 	parseNoteType,
-	getWeekdayAbbrev,
-	getMonthAbbrev,
 	isLastDayOfWeek,
 	isDecember,
 	getISOWeekNumber,
@@ -146,18 +144,6 @@ describe('parseNoteType', () => {
 	});
 });
 
-describe('getWeekdayAbbrev', () => {
-	it('returns correct abbreviation for each day', () => {
-		expect(getWeekdayAbbrev(new Date(2026, 0, 4))).toBe('Sun'); // Sunday
-		expect(getWeekdayAbbrev(new Date(2026, 0, 5))).toBe('Mon'); // Monday
-		expect(getWeekdayAbbrev(new Date(2026, 0, 6))).toBe('Tue'); // Tuesday
-		expect(getWeekdayAbbrev(new Date(2026, 0, 7))).toBe('Wed'); // Wednesday
-		expect(getWeekdayAbbrev(new Date(2026, 0, 8))).toBe('Thu'); // Thursday
-		expect(getWeekdayAbbrev(new Date(2026, 0, 9))).toBe('Fri'); // Friday
-		expect(getWeekdayAbbrev(new Date(2026, 0, 10))).toBe('Sat'); // Saturday
-	});
-});
-
 describe('formatDailyPath', () => {
 	it('formats date as daily note path', () => {
 		const date = new Date(2026, 0, 22); // Jan 22, 2026 (Thursday)
@@ -175,15 +161,6 @@ describe('formatDailyPath', () => {
 		const date = new Date(2026, 0, 22);
 		const path = formatDailyPath(date, periodicConfigWithFolder('Journal'));
 		expect(path).toBe('Journal/2026/01/2026-01-22 Thu');
-	});
-});
-
-describe('getMonthAbbrev', () => {
-	it('returns correct abbreviation for each month', () => {
-		expect(getMonthAbbrev(1)).toBe('Jan');
-		expect(getMonthAbbrev(2)).toBe('Feb');
-		expect(getMonthAbbrev(6)).toBe('Jun');
-		expect(getMonthAbbrev(12)).toBe('Dec');
 	});
 });
 
