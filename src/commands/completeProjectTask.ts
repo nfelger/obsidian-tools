@@ -6,7 +6,8 @@ import {
 	findTaskMatch,
 	findSectionRange,
 	parseTargetHeading,
-	TaskMarker
+	TaskMarker,
+	TaskState
 } from '../utils/tasks';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent, detectIndentUnit, convertIndentUnit } from '../utils/indent';
@@ -140,7 +141,7 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 						mismatches.push(`"${entry.taskText}" has no matching task in [[${projectName}]]`);
 						continue;
 					}
-					if (match.state === 'completed') {
+					if (match.state === TaskState.Completed) {
 						mismatches.push(`"${entry.taskText}" is already completed in [[${projectName}]]`);
 						continue;
 					}

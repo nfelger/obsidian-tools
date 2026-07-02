@@ -39,6 +39,14 @@ export enum TaskState {
 }
 
 /**
+ * A task found by text search, with its file-absolute line and state.
+ */
+export interface TaskMatch {
+	lineNumber: number;
+	state: TaskState;
+}
+
+/**
  * Task marker value object with state transition methods.
  */
 export class TaskMarker {

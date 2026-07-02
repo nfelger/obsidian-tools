@@ -4,9 +4,9 @@
 
 import { countIndent, getLeadingWhitespace, detectIndentUnit, convertIndentUnit, indentLinesWith } from './indent';
 import { DEFAULT_SETTINGS } from '../types';
-import type { TaskInsertItem, ListItem, TaskMatch } from '../types';
+import type { TaskInsertItem, ListItem } from '../types';
 export { TaskState, TaskMarker, isIncompleteTask, markTaskAsScheduled, isScheduledTask, markScheduledAsOpen } from './taskMarker';
-import { TaskMarker, TaskState, isIncompleteTask, markScheduledAsOpen } from './taskMarker';
+import { TaskMarker, TaskState, isIncompleteTask, markScheduledAsOpen, type TaskMatch } from './taskMarker';
 
 // === Task Utilities ===
 
@@ -222,13 +222,14 @@ export function extractTaskText(line: string): string {
 }
 
 /**
- * Find a task matching the given text, classified by lifecycle state.
+ * Find a task matching the given text, reporting its actual TaskState.
  *
- * An open or started match ('open') or a scheduled match ('scheduled') is
- * returned immediately; a completed match is only returned as a fallback
- * when no open or scheduled copy exists, so callers can distinguish
- * "not found" from "already completed". Scoped to a heading's section when
- * one is given, otherwise searches the whole file.
+ * An open, started, or scheduled match is returned immediately; a completed
+ * match is only returned as a fallback when no such copy exists, so callers
+ * can distinguish "not found" from "already completed". Migrated tasks are
+ * never matched — they're terminal history, not something to merge into.
+ * Scoped to a heading's section when one is given, otherwise searches the
+ * whole file.
  *
  * @param content - The file content to search
  * @param taskText - The task text to find (without checkbox)
@@ -257,10 +258,11 @@ export function findTaskMatch(
 		if (extractTaskText(lines[i]) !== taskText) continue;
 		const marker = TaskMarker.fromLine(lines[i]);
 		if (!marker) continue;
-		if (marker.isIncomplete()) return { lineNumber: i, state: 'open' };
-		if (marker.state === TaskState.Scheduled) return { lineNumber: i, state: 'scheduled' };
+		if (marker.isIncomplete() || marker.state === TaskState.Scheduled) {
+			return { lineNumber: i, state: marker.state };
+		}
 		if (marker.state === TaskState.Completed && !completedMatch) {
-			completedMatch = { lineNumber: i, state: 'completed' };
+			completedMatch = { lineNumber: i, state: marker.state };
 		}
 	}
 	return completedMatch;
@@ -427,8 +429,8 @@ export function insertMultipleTasksWithDeduplication(
 
 		// A completed match is treated as no match: dedup only merges into
 		// open/scheduled copies, so a duplicate is added as a new task.
-		if (match && match.state !== 'completed') {
-			if (match.state === 'scheduled') {
+		if (match && match.state !== TaskState.Completed) {
+			if (match.state === TaskState.Scheduled) {
 				const lines = result.split('\n');
 				lines[match.lineNumber] = markScheduledAsOpen(lines[match.lineNumber]);
 				result = lines.join('\n');

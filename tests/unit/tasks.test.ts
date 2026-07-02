@@ -568,7 +568,7 @@ describe('findTaskMatch', () => {
 - [ ] Buy groceries
 - [ ] Walk dog`;
 			const result = findTaskMatch(content, 'Buy groceries');
-			expect(result).toEqual({ lineNumber: 1, state: 'open' });
+			expect(result).toEqual({ lineNumber: 1, state: TaskState.Open });
 		});
 
 		it('finds a scheduled task by text', () => {
@@ -576,14 +576,14 @@ describe('findTaskMatch', () => {
 - [<] Scheduled task
 - [ ] Other task`;
 			const result = findTaskMatch(content, 'Scheduled task');
-			expect(result).toEqual({ lineNumber: 1, state: 'scheduled' });
+			expect(result).toEqual({ lineNumber: 1, state: TaskState.Scheduled });
 		});
 
 		it('finds a started task by text', () => {
 			const content = `## Log
 - [/] Started task`;
 			const result = findTaskMatch(content, 'Started task');
-			expect(result).toEqual({ lineNumber: 1, state: 'open' });
+			expect(result).toEqual({ lineNumber: 1, state: TaskState.Started });
 		});
 
 		it('returns null when task not found', () => {
@@ -603,7 +603,7 @@ describe('findTaskMatch', () => {
 - [x] Completed task
 - [ ] Other task`;
 			const result = findTaskMatch(content, 'Completed task');
-			expect(result).toEqual({ lineNumber: 1, state: 'completed' });
+			expect(result).toEqual({ lineNumber: 1, state: TaskState.Completed });
 		});
 
 		it('prefers an open match over a completed duplicate', () => {
@@ -611,7 +611,7 @@ describe('findTaskMatch', () => {
 - [x] Draft rollout plan
 - [ ] Draft rollout plan`;
 			const result = findTaskMatch(content, 'Draft rollout plan');
-			expect(result).toEqual({ lineNumber: 2, state: 'open' });
+			expect(result).toEqual({ lineNumber: 2, state: TaskState.Open });
 		});
 
 		it('ignores migrated tasks', () => {
@@ -626,7 +626,7 @@ describe('findTaskMatch', () => {
 - Some note
 - [ ] Duplicate task`;
 			const result = findTaskMatch(content, 'Duplicate task');
-			expect(result).toEqual({ lineNumber: 1, state: 'open' });
+			expect(result).toEqual({ lineNumber: 1, state: TaskState.Open });
 		});
 
 		it('finds task regardless of indentation', () => {
@@ -634,7 +634,7 @@ describe('findTaskMatch', () => {
 - [ ] Parent
   - [ ] Indented task`;
 			const result = findTaskMatch(content, 'Indented task');
-			expect(result).toEqual({ lineNumber: 2, state: 'open' });
+			expect(result).toEqual({ lineNumber: 2, state: TaskState.Open });
 		});
 	});
 
@@ -653,17 +653,17 @@ describe('findTaskMatch', () => {
 
 		it('finds a scheduled task inside the section', () => {
 			const match = findTaskMatch(content, 'Draft rollout plan', '## Todo');
-			expect(match).toEqual({ lineNumber: 3, state: 'scheduled' });
+			expect(match).toEqual({ lineNumber: 3, state: TaskState.Scheduled });
 		});
 
 		it('finds an open task inside the section', () => {
 			const match = findTaskMatch(content, 'Write runbook', '## Todo');
-			expect(match).toEqual({ lineNumber: 4, state: 'open' });
+			expect(match).toEqual({ lineNumber: 4, state: TaskState.Open });
 		});
 
 		it('reports a completed match when no open/scheduled copy exists', () => {
 			const match = findTaskMatch(content, 'Old finished thing', '## Todo');
-			expect(match).toEqual({ lineNumber: 5, state: 'completed' });
+			expect(match).toEqual({ lineNumber: 5, state: TaskState.Completed });
 		});
 
 		it('prefers the open/scheduled copy over a completed duplicate', () => {
@@ -673,7 +673,7 @@ describe('findTaskMatch', () => {
 - [<] Draft rollout plan
 `.trim();
 			const match = findTaskMatch(dup, 'Draft rollout plan', '## Todo');
-			expect(match).toEqual({ lineNumber: 2, state: 'scheduled' });
+			expect(match).toEqual({ lineNumber: 2, state: TaskState.Scheduled });
 		});
 
 		it('ignores matches outside the section', () => {
