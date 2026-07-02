@@ -10,14 +10,14 @@
     {
       "id": 1,
       "subject": "Task 2: completeProjectTask command with integration tests",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [0],
       "description": "**Goal:** The command: resolve project per task, mark project copy [x], append log entry (extract-log shape), complete source task in place.\n\n**Files:** src/commands/completeProjectTask.ts, tests/helpers/completeProjectTaskPluginTestHelper.ts, tests/integration/completeProjectTask.plugin.test.ts\n\n```json:metadata\n{\"files\": [\"src/commands/completeProjectTask.ts\", \"tests/helpers/completeProjectTaskPluginTestHelper.ts\", \"tests/integration/completeProjectTask.plugin.test.ts\"], \"verifyCommand\": \"npm test\", \"acceptanceCriteria\": [\"three-phase ordering\", \"mismatch best-effort behavior\", \"per-project grouping\", \"log entry shape\"], \"requiresUserVerification\": false}\n```"
     },
     {
       "id": 2,
       "subject": "Task 3: Registration — command, hotkey c, CHANGELOG",
-      "status": "pending",
+      "status": "completed",
       "blockedBy": [1],
       "description": "**Goal:** Wire the command into main.ts, HOTKEY_BINDINGS (key c), HotkeyModal COMMAND_REGISTRY; update hotkeyModal tests to 8 bindings; add Unreleased CHANGELOG entry.\n\n**Files:** src/config.ts, src/ui/HotkeyModal.ts, src/main.ts, CHANGELOG.md, tests/unit/hotkeyModal.test.ts\n\n```json:metadata\n{\"files\": [\"src/config.ts\", \"src/ui/HotkeyModal.ts\", \"src/main.ts\", \"CHANGELOG.md\", \"tests/unit/hotkeyModal.test.ts\"], \"verifyCommand\": \"npm test && npx tsc --noEmit\", \"acceptanceCriteria\": [\"c binding works\", \"8 bindings\", \"CHANGELOG entry\"], \"requiresUserVerification\": false}\n```"
     }

@@ -5,6 +5,7 @@ import { pushTaskDown } from './commands/pushTaskDown';
 import { pullTaskUp } from './commands/pullTaskUp';
 import { takeProjectTask } from './commands/takeProjectTask';
 import { dropTaskToProject } from './commands/dropTaskToProject';
+import { completeProjectTask } from './commands/completeProjectTask';
 import { finishProject } from './commands/finishProject';
 import { HotkeyModal } from './ui/HotkeyModal';
 import { BulletFlowSettingTab } from './settings';
@@ -74,6 +75,13 @@ export default class BulletFlowPlugin extends Plugin {
 			id: 'drop-task-to-project',
 			name: 'Drop task to project note',
 			callback: () => dropTaskToProject(this)
+		});
+
+		// Complete Project Task command
+		this.addCommand({
+			id: 'complete-project-task',
+			name: 'Complete project task',
+			callback: () => completeProjectTask(this)
 		});
 
 		// Finish Project command

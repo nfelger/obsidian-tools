@@ -73,6 +73,7 @@ export const HOTKEY_BINDINGS = [
 	{ key: 'x', label: 'Extract log', commandId: 'extractLog' },
 	{ key: 't', label: 'Take project task', commandId: 'takeProjectTask' },
 	{ key: 'p', label: 'Drop task to project', commandId: 'dropTaskToProject' },
+	{ key: 'c', label: 'Complete project task', commandId: 'completeProjectTask' },
 	{ key: 'f', label: 'Finish project', commandId: 'finishProject' },
 ] as const;
 

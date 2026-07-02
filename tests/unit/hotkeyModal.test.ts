@@ -18,12 +18,16 @@ vi.mock('../../src/commands/extractLog', () => ({
 vi.mock('../../src/commands/finishProject', () => ({
 	finishProject: vi.fn()
 }));
+vi.mock('../../src/commands/completeProjectTask', () => ({
+	completeProjectTask: vi.fn()
+}));
 
 import { migrateTask } from '../../src/commands/migrateTask';
 import { pushTaskDown } from '../../src/commands/pushTaskDown';
 import { pullTaskUp } from '../../src/commands/pullTaskUp';
 import { extractLog } from '../../src/commands/extractLog';
 import { finishProject } from '../../src/commands/finishProject';
+import { completeProjectTask } from '../../src/commands/completeProjectTask';
 
 describe('HotkeyModal', () => {
 	let modal: HotkeyModal;
@@ -81,9 +85,17 @@ describe('HotkeyModal', () => {
 			expect(finishBinding?.label).toBe('Finish project');
 		});
 
-		it('should have exactly 7 bindings', () => {
+		it('should have binding for complete project task (c)', () => {
 			const bindings = modal.getBindings();
-			expect(bindings).toHaveLength(7);
+			const completeBinding = bindings.find(b => b.key === 'c');
+
+			expect(completeBinding).toBeDefined();
+			expect(completeBinding?.label).toBe('Complete project task');
+		});
+
+		it('should have exactly 8 bindings', () => {
+			const bindings = modal.getBindings();
+			expect(bindings).toHaveLength(8);
 		});
 	});
 
@@ -92,8 +104,8 @@ describe('HotkeyModal', () => {
 			modal.open();
 
 			// Check that scope.register was called for each binding
-			expect(modal.scope.keys).toHaveLength(7);
-			expect(modal.scope.keys.map((k: any) => k.key)).toEqual(['m', 'd', 'u', 'x', 't', 'p', 'f']);
+			expect(modal.scope.keys).toHaveLength(8);
+			expect(modal.scope.keys.map((k: any) => k.key)).toEqual(['m', 'd', 'u', 'x', 't', 'p', 'c', 'f']);
 		});
 
 		it('should execute migrateTask when m is pressed', () => {
@@ -149,6 +161,17 @@ describe('HotkeyModal', () => {
 			handler?.callback(mockEvent);
 
 			expect(finishProject).toHaveBeenCalledWith(mockPlugin);
+		});
+
+		it('should execute completeProjectTask when c is pressed', () => {
+			modal.open();
+
+			const handler = modal.scope.keys.find((k: any) => k.key === 'c');
+			const mockEvent = { preventDefault: vi.fn() } as unknown as KeyboardEvent;
+
+			handler?.callback(mockEvent);
+
+			expect(completeProjectTask).toHaveBeenCalledWith(mockPlugin);
 		});
 
 		it('should close modal before executing command', () => {

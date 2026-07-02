@@ -7,6 +7,7 @@ import { pushTaskDown } from '../commands/pushTaskDown';
 import { pullTaskUp } from '../commands/pullTaskUp';
 import { takeProjectTask } from '../commands/takeProjectTask';
 import { dropTaskToProject } from '../commands/dropTaskToProject';
+import { completeProjectTask } from '../commands/completeProjectTask';
 import { finishProject } from '../commands/finishProject';
 
 interface HotkeyBinding {
@@ -24,6 +25,7 @@ const COMMAND_REGISTRY: Record<CommandId, CommandFn> = {
 	'extractLog': extractLog,
 	'takeProjectTask': takeProjectTask,
 	'dropTaskToProject': dropTaskToProject,
+	'completeProjectTask': completeProjectTask,
 	'finishProject': finishProject,
 };
 
