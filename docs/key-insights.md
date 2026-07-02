@@ -63,9 +63,10 @@ Indentation is handled as a *unit* (`'\t'` or N spaces), not a character count:
   leading tab exists, otherwise the smallest positive space indent.
 - Transferred blocks are re-rendered in the **target file's** unit via
   `convertIndentUnit()` at insertion time (`insertMultipleUnderTargetHeading`,
-  the dedup merge path, `insertUnderCollectorTask`). When the target has no
-  indentation signal, the source unit is preserved; when extra nesting must be
-  *added* and neither side has a signal, tabs are used (Obsidian's default).
+  the dedup merge path, `insertUnderCollectorTask`, `insertBlockAfterHeading`).
+  When the target has no indentation signal, the source unit is preserved; when
+  extra nesting must be *added* and neither side has a signal, tabs are used
+  (Obsidian's default).
 - Children merged under an existing task are prefixed with that task's own
   leading whitespace, so hierarchy stays correct for nested matches.
 

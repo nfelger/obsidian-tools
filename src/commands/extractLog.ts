@@ -10,7 +10,7 @@ import { dedentLines } from '../utils/indent';
 import { findChildrenBlockFromListItems, getListItemAtLine, stripListPrefix } from '../utils/listItems';
 import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
 import { NOTICE_TIMEOUT_SUCCESS, NOTICE_TIMEOUT_ERROR } from '../config';
-import { parseTargetHeading } from '../utils/tasks';
+import { insertBlockAfterHeading, parseTargetHeading } from '../utils/tasks';
 
 /**
  * Copy text to clipboard with error handling.
@@ -146,45 +146,15 @@ export async function extractLog(plugin: BulletFlowPlugin): Promise<void> {
 			newLink +
 			parentText.slice(firstLink.index + firstLink.matchText.length);
 
-		// Find target heading in target via metadataCache
-		const targetCache = plugin.app.metadataCache.getFileCache(targetFile);
-		let targetHeadingLine: number | null = null;
-
-		if (targetCache && targetCache.headings) {
-			for (const heading of targetCache.headings) {
-				if (heading.level === targetLevel && heading.heading === targetText) {
-					targetHeadingLine = heading.position.start.line;
-					break;
-				}
-			}
-		}
-
 		// Build block that goes into target section (with blank lines around heading)
 		const blockLines = ['', headingLine, ''].concat(dedentedChildrenLines);
 
-		// Update target file using vault.process (atomic)
-		await plugin.app.vault.process(targetFile, (data: string) => {
-			const lines = data.split('\n');
-
-			if (targetHeadingLine !== null && targetHeadingLine < lines.length) {
-				// Target heading exists - insert after it (reverse-chronological log)
-				const insertAt = targetHeadingLine + 1;
-				lines.splice(insertAt, 0, ...blockLines);
-				return lines.join('\n');
-			} else {
-				// No target heading - create it at the end
-				const newLines = lines.slice();
-				if (
-					newLines.length > 0 &&
-					newLines[newLines.length - 1].trim() !== ''
-				) {
-					newLines.push('');
-				}
-				newLines.push(plugin.settings.logExtractionTargetHeading);
-				newLines.push(...blockLines);
-				return newLines.join('\n');
-			}
-		});
+		// Update target file using vault.process (atomic). The heading is
+		// located in the live content, not the metadata cache, so a stale
+		// cache cannot misplace the block.
+		await plugin.app.vault.process(targetFile, (data: string) =>
+			insertBlockAfterHeading(data, blockLines, plugin.settings.logExtractionTargetHeading)
+		);
 
 		// Target write succeeded — now update the source: remove the extracted
 		// children and point the wikilink at the new section

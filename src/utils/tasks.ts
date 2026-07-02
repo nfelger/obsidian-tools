@@ -202,6 +202,41 @@ export function insertUnderTargetHeading(
 	return lines.join('\n');
 }
 
+/**
+ * Insert a block directly after a heading (reverse-chronological placement),
+ * creating the heading at the end of the file when it doesn't exist.
+ *
+ * The block is re-rendered in the target content's indentation unit. This is
+ * the log-entry shape shared by extract log and complete project task —
+ * contrast with insertUnderTargetHeading, which appends at the END of the
+ * section and creates a missing heading after the frontmatter.
+ *
+ * @param content - The target file content (string or pre-split lines)
+ * @param blockLines - The block to insert, including any surrounding blank lines
+ * @param targetHeading - The heading to insert after (e.g., "## Log")
+ * @returns Updated file content
+ */
+export function insertBlockAfterHeading(
+	content: string | string[],
+	blockLines: string[],
+	targetHeading: string
+): string {
+	const lines = Array.isArray(content) ? content.slice() : content.split('\n');
+	const targetUnit = detectIndentUnit(lines);
+	const converted = targetUnit ? convertIndentUnit(blockLines, targetUnit) : blockLines;
+
+	const range = findSectionRange(lines, targetHeading);
+	if (range) {
+		lines.splice(range.start + 1, 0, ...converted);
+	} else {
+		if (lines.length > 0 && lines[lines.length - 1].trim() !== '') {
+			lines.push('');
+		}
+		lines.push(targetHeading, ...converted);
+	}
+	return lines.join('\n');
+}
+
 // === Deduplication and Task Transfer Helpers ===
 
 /**

@@ -4,13 +4,13 @@ import {
 	dedentLinesByAmount,
 	extractTaskText,
 	findTaskMatch,
-	findSectionRange,
+	insertBlockAfterHeading,
 	parseTargetHeading,
 	TaskMarker,
 	TaskState
 } from '../utils/tasks';
 import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from '../utils/listItems';
-import { countIndent, detectIndentUnit, convertIndentUnit } from '../utils/indent';
+import { countIndent } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
 import { findProjectLinkInAncestors, isProjectNote, stripProjectPrefix } from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
@@ -138,23 +138,10 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 					lines[match.lineNumber] = new TaskMarker(TaskState.Completed).applyToLine(lines[match.lineNumber]);
 				}
 
-				// Append the log entry after the heading (reverse-chronological),
-				// re-rendered in the project note's own indent unit
-				const targetUnit = detectIndentUnit(lines);
-				const rawEntryLines = entries.flatMap(e => e.entryLines);
-				const entryLines = targetUnit ? convertIndentUnit(rawEntryLines, targetUnit) : rawEntryLines;
+				// Append the log entry
+				const entryLines = entries.flatMap(e => e.entryLines);
 				const blockLines = ['', `${subHeadingPrefix} [[${file.basename}]]`, ''].concat(entryLines);
-
-				const range = findSectionRange(lines, logHeading);
-				if (range) {
-					lines.splice(range.start + 1, 0, ...blockLines);
-				} else {
-					if (lines.length > 0 && lines[lines.length - 1].trim() !== '') {
-						lines.push('');
-					}
-					lines.push(logHeading, ...blockLines);
-				}
-				return lines.join('\n');
+				return insertBlockAfterHeading(lines, blockLines, logHeading);
 			});
 		}
 

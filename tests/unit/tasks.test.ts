@@ -4,6 +4,7 @@ import {
 	dedentLinesByAmount,
 	findSectionRange,
 	insertUnderTargetHeading,
+	insertBlockAfterHeading,
 	findTopLevelTasksInRange,
 	markTaskAsScheduled,
 	markScheduledAsOpen,
@@ -331,6 +332,54 @@ Sub content`;
 
 		// New task should be appended after subsection content (end of ## Log section)
 		expect(newTaskIdx).toBeGreaterThan(subIdx);
+	});
+});
+
+describe('insertBlockAfterHeading', () => {
+	it('inserts the block directly after the heading (reverse-chronological)', () => {
+		const content = `## Log
+
+### Older entry
+
+- old note`;
+		const result = insertBlockAfterHeading(content, ['', '### New entry', '', '- new note'], '## Log');
+		expect(result).toBe(`## Log
+
+### New entry
+
+- new note
+
+### Older entry
+
+- old note`);
+	});
+
+	it('creates the heading at the end of the file when missing', () => {
+		const content = `## Todo
+- [ ] Task`;
+		const result = insertBlockAfterHeading(content, ['', '### Entry', '', '- note'], '## Log');
+		expect(result).toBe(`## Todo
+- [ ] Task
+
+## Log
+
+### Entry
+
+- note`);
+	});
+
+	it('re-renders the block in the target indentation unit', () => {
+		const content = `## Log
+- existing
+\t- tab child`;
+		const result = insertBlockAfterHeading(content, ['- new', '  - space child'], '## Log');
+		expect(result).toContain('\t- space child');
+		expect(result).not.toContain('  - space child');
+	});
+
+	it('accepts pre-split lines in place of a content string', () => {
+		const result = insertBlockAfterHeading(['## Log'], ['- note'], '## Log');
+		expect(result).toBe('## Log\n- note');
 	});
 });
 
