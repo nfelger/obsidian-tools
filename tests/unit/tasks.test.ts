@@ -992,7 +992,7 @@ describe('findMatchingTaskInSection', () => {
 	});
 
 	it('ignores matches outside the section', () => {
-		const match = findMatchingTaskInSection(content, 'Draft rollout plan', '## Somewhere Else');
+		const match = findMatchingTaskInSection(content, 'Write runbook', '## Log');
 		expect(match).toBeNull();
 	});
 
