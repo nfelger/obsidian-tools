@@ -114,6 +114,13 @@ export class TaskMarker {
 	}
 
 	/**
+	 * Create a completed marker.
+	 */
+	toCompleted(): TaskMarker {
+		return new TaskMarker(TaskState.Completed);
+	}
+
+	/**
 	 * Render the marker as a string (e.g., "[ ]", "[>]").
 	 */
 	render(): string {

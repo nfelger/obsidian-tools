@@ -255,6 +255,43 @@ export function findMatchingTask(
 }
 
 /**
+ * Find a matching task by text within a single heading section.
+ *
+ * Unlike findMatchingTask, this also reports completed matches so callers
+ * can distinguish "not found" from "already completed". Open/scheduled
+ * matches win over completed ones.
+ *
+ * @param content - The file content to search
+ * @param taskText - The task text to find (without checkbox)
+ * @param heading - The section heading (e.g., "## Todo")
+ * @returns Match with file-absolute line number and state, or null
+ */
+export function findMatchingTaskInSection(
+	content: string,
+	taskText: string,
+	heading: string
+): { lineNumber: number; state: 'open' | 'scheduled' | 'completed' } | null {
+	if (!taskText) return null;
+
+	const lines = content.split('\n');
+	const range = findSectionRange(lines, heading);
+	if (!range) return null;
+
+	let completedMatch: { lineNumber: number; state: 'completed' } | null = null;
+	for (let i = range.start + 1; i < range.end; i++) {
+		if (extractTaskText(lines[i]) !== taskText) continue;
+		const marker = TaskMarker.fromLine(lines[i]);
+		if (!marker) continue;
+		if (marker.isIncomplete()) return { lineNumber: i, state: 'open' };
+		if (marker.state === TaskState.Scheduled) return { lineNumber: i, state: 'scheduled' };
+		if (marker.state === TaskState.Completed && !completedMatch) {
+			completedMatch = { lineNumber: i, state: 'completed' };
+		}
+	}
+	return completedMatch;
+}
+
+/**
  * Insert children content under an existing task line.
  * Children are inserted after the task and any existing children.
  *

@@ -10,6 +10,7 @@ import {
 	markScheduledAsOpen,
 	extractTaskText,
 	findMatchingTask,
+	findMatchingTaskInSection,
 	insertChildrenUnderTask,
 	buildTaskContent,
 	insertMultipleTasksWithDeduplication,
@@ -941,5 +942,61 @@ describe('insertMultipleTasksWithDeduplication', () => {
 		}], '## Todo');
 
 		expect(result.content).toContain('- [ ] New task\n\t- child');
+	});
+});
+
+describe('TaskMarker.toCompleted', () => {
+	it('renders [x] and applies to a line', () => {
+		const marker = TaskMarker.fromLine('- [<] Draft rollout plan')!;
+		expect(marker.toCompleted().render()).toBe('[x]');
+		expect(marker.toCompleted().applyToLine('- [<] Draft rollout plan')).toBe('- [x] Draft rollout plan');
+	});
+});
+
+describe('findMatchingTaskInSection', () => {
+	const content = `
+# Project
+
+## Todo
+- [<] Draft rollout plan
+- [ ] Write runbook
+- [x] Old finished thing
+
+## Log
+- [<] Draft rollout plan
+`.trim();
+
+	it('finds a scheduled task inside the section', () => {
+		const match = findMatchingTaskInSection(content, 'Draft rollout plan', '## Todo');
+		expect(match).toEqual({ lineNumber: 3, state: 'scheduled' });
+	});
+
+	it('finds an open task inside the section', () => {
+		const match = findMatchingTaskInSection(content, 'Write runbook', '## Todo');
+		expect(match).toEqual({ lineNumber: 4, state: 'open' });
+	});
+
+	it('reports a completed match when no open/scheduled copy exists', () => {
+		const match = findMatchingTaskInSection(content, 'Old finished thing', '## Todo');
+		expect(match).toEqual({ lineNumber: 5, state: 'completed' });
+	});
+
+	it('prefers the open/scheduled copy over a completed duplicate', () => {
+		const dup = `
+## Todo
+- [x] Draft rollout plan
+- [<] Draft rollout plan
+`.trim();
+		const match = findMatchingTaskInSection(dup, 'Draft rollout plan', '## Todo');
+		expect(match).toEqual({ lineNumber: 2, state: 'scheduled' });
+	});
+
+	it('ignores matches outside the section', () => {
+		const match = findMatchingTaskInSection(content, 'Draft rollout plan', '## Somewhere Else');
+		expect(match).toBeNull();
+	});
+
+	it('returns null when the section is missing', () => {
+		expect(findMatchingTaskInSection('- [ ] Draft rollout plan', 'Draft rollout plan', '## Todo')).toBeNull();
 	});
 });
