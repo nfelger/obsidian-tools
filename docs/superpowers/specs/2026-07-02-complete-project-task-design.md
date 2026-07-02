@@ -1,7 +1,7 @@
 # Design: Complete Project Task
 
 Date: 2026-07-02
-Status: Approved for implementation (decisions follow the suggestions in
+Status: Implemented (decisions follow the suggestions in
 [the roadmap](../plans/2026-06-12-next-features-roadmap.md) §1).
 
 ## Problem
@@ -105,7 +105,8 @@ No new settings: reuses `projectNoteTaskTargetHeading` and
 - No project link for a task: per-task notice, task skipped, others proceed.
 - Project file missing (broken link): per-task notice, task skipped.
 - Mismatch notices as described under Decisions.
-- Success notice reports counts: completed in project, logged, mismatches.
+- Success notice reports the number of tasks completed and the project names,
+  with per-task mismatch details appended when any occurred.
 
 ## Testing
 
