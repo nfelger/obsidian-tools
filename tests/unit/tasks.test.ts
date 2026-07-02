@@ -9,8 +9,7 @@ import {
 	isScheduledTask,
 	markScheduledAsOpen,
 	extractTaskText,
-	findMatchingTask,
-	findMatchingTaskInSection,
+	findTaskMatch,
 	insertChildrenUnderTask,
 	buildTaskContent,
 	insertMultipleTasksWithDeduplication,
@@ -562,71 +561,129 @@ describe('extractTaskText', () => {
 	});
 });
 
-describe('findMatchingTask', () => {
-	it('finds incomplete task by text', () => {
-		const content = `## Log
+describe('findTaskMatch', () => {
+	describe('whole-file search (no heading)', () => {
+		it('finds an incomplete task by text', () => {
+			const content = `## Log
 - [ ] Buy groceries
 - [ ] Walk dog`;
-		const result = findMatchingTask(content, 'Buy groceries');
-		expect(result).toEqual({ lineNumber: 1, isScheduled: false });
-	});
+			const result = findTaskMatch(content, 'Buy groceries');
+			expect(result).toEqual({ lineNumber: 1, state: 'open' });
+		});
 
-	it('finds scheduled task by text', () => {
-		const content = `## Log
+		it('finds a scheduled task by text', () => {
+			const content = `## Log
 - [<] Scheduled task
 - [ ] Other task`;
-		const result = findMatchingTask(content, 'Scheduled task');
-		expect(result).toEqual({ lineNumber: 1, isScheduled: true });
-	});
+			const result = findTaskMatch(content, 'Scheduled task');
+			expect(result).toEqual({ lineNumber: 1, state: 'scheduled' });
+		});
 
-	it('finds started task by text', () => {
-		const content = `## Log
+		it('finds a started task by text', () => {
+			const content = `## Log
 - [/] Started task`;
-		const result = findMatchingTask(content, 'Started task');
-		expect(result).toEqual({ lineNumber: 1, isScheduled: false });
-	});
+			const result = findTaskMatch(content, 'Started task');
+			expect(result).toEqual({ lineNumber: 1, state: 'open' });
+		});
 
-	it('returns null when task not found', () => {
-		const content = `## Log
+		it('returns null when task not found', () => {
+			const content = `## Log
 - [ ] Other task`;
-		expect(findMatchingTask(content, 'Missing task')).toBeNull();
-	});
+			expect(findTaskMatch(content, 'Missing task')).toBeNull();
+		});
 
-	it('returns null for empty task text', () => {
-		const content = `## Log
+		it('returns null for empty task text', () => {
+			const content = `## Log
 - [ ] Task`;
-		expect(findMatchingTask(content, '')).toBeNull();
-	});
+			expect(findTaskMatch(content, '')).toBeNull();
+		});
 
-	it('ignores completed tasks', () => {
-		const content = `## Log
+		it('falls back to a completed match when no open or scheduled copy exists', () => {
+			const content = `## Log
 - [x] Completed task
 - [ ] Other task`;
-		// Should not match the completed task
-		expect(findMatchingTask(content, 'Completed task')).toBeNull();
-	});
+			const result = findTaskMatch(content, 'Completed task');
+			expect(result).toEqual({ lineNumber: 1, state: 'completed' });
+		});
 
-	it('ignores migrated tasks', () => {
-		const content = `## Log
+		it('prefers an open match over a completed duplicate', () => {
+			const content = `## Log
+- [x] Draft rollout plan
+- [ ] Draft rollout plan`;
+			const result = findTaskMatch(content, 'Draft rollout plan');
+			expect(result).toEqual({ lineNumber: 2, state: 'open' });
+		});
+
+		it('ignores migrated tasks', () => {
+			const content = `## Log
 - [>] Migrated task`;
-		expect(findMatchingTask(content, 'Migrated task')).toBeNull();
-	});
+			expect(findTaskMatch(content, 'Migrated task')).toBeNull();
+		});
 
-	it('finds first matching task when duplicates exist', () => {
-		const content = `## Log
+		it('finds first matching task when duplicates exist', () => {
+			const content = `## Log
 - [ ] Duplicate task
 - Some note
 - [ ] Duplicate task`;
-		const result = findMatchingTask(content, 'Duplicate task');
-		expect(result).toEqual({ lineNumber: 1, isScheduled: false });
-	});
+			const result = findTaskMatch(content, 'Duplicate task');
+			expect(result).toEqual({ lineNumber: 1, state: 'open' });
+		});
 
-	it('finds task regardless of indentation', () => {
-		const content = `## Log
+		it('finds task regardless of indentation', () => {
+			const content = `## Log
 - [ ] Parent
   - [ ] Indented task`;
-		const result = findMatchingTask(content, 'Indented task');
-		expect(result).toEqual({ lineNumber: 2, isScheduled: false });
+			const result = findTaskMatch(content, 'Indented task');
+			expect(result).toEqual({ lineNumber: 2, state: 'open' });
+		});
+	});
+
+	describe('section-scoped search (heading given)', () => {
+		const content = `
+# Project
+
+## Todo
+- [<] Draft rollout plan
+- [ ] Write runbook
+- [x] Old finished thing
+
+## Log
+- [<] Draft rollout plan
+`.trim();
+
+		it('finds a scheduled task inside the section', () => {
+			const match = findTaskMatch(content, 'Draft rollout plan', '## Todo');
+			expect(match).toEqual({ lineNumber: 3, state: 'scheduled' });
+		});
+
+		it('finds an open task inside the section', () => {
+			const match = findTaskMatch(content, 'Write runbook', '## Todo');
+			expect(match).toEqual({ lineNumber: 4, state: 'open' });
+		});
+
+		it('reports a completed match when no open/scheduled copy exists', () => {
+			const match = findTaskMatch(content, 'Old finished thing', '## Todo');
+			expect(match).toEqual({ lineNumber: 5, state: 'completed' });
+		});
+
+		it('prefers the open/scheduled copy over a completed duplicate', () => {
+			const dup = `
+## Todo
+- [x] Draft rollout plan
+- [<] Draft rollout plan
+`.trim();
+			const match = findTaskMatch(dup, 'Draft rollout plan', '## Todo');
+			expect(match).toEqual({ lineNumber: 2, state: 'scheduled' });
+		});
+
+		it('ignores matches outside the section', () => {
+			const match = findTaskMatch(content, 'Write runbook', '## Log');
+			expect(match).toBeNull();
+		});
+
+		it('returns null when the section is missing', () => {
+			expect(findTaskMatch('- [ ] Draft rollout plan', 'Draft rollout plan', '## Todo')).toBeNull();
+		});
 	});
 });
 
@@ -953,50 +1010,3 @@ describe('TaskMarker.toCompleted', () => {
 	});
 });
 
-describe('findMatchingTaskInSection', () => {
-	const content = `
-# Project
-
-## Todo
-- [<] Draft rollout plan
-- [ ] Write runbook
-- [x] Old finished thing
-
-## Log
-- [<] Draft rollout plan
-`.trim();
-
-	it('finds a scheduled task inside the section', () => {
-		const match = findMatchingTaskInSection(content, 'Draft rollout plan', '## Todo');
-		expect(match).toEqual({ lineNumber: 3, state: 'scheduled' });
-	});
-
-	it('finds an open task inside the section', () => {
-		const match = findMatchingTaskInSection(content, 'Write runbook', '## Todo');
-		expect(match).toEqual({ lineNumber: 4, state: 'open' });
-	});
-
-	it('reports a completed match when no open/scheduled copy exists', () => {
-		const match = findMatchingTaskInSection(content, 'Old finished thing', '## Todo');
-		expect(match).toEqual({ lineNumber: 5, state: 'completed' });
-	});
-
-	it('prefers the open/scheduled copy over a completed duplicate', () => {
-		const dup = `
-## Todo
-- [x] Draft rollout plan
-- [<] Draft rollout plan
-`.trim();
-		const match = findMatchingTaskInSection(dup, 'Draft rollout plan', '## Todo');
-		expect(match).toEqual({ lineNumber: 2, state: 'scheduled' });
-	});
-
-	it('ignores matches outside the section', () => {
-		const match = findMatchingTaskInSection(content, 'Write runbook', '## Log');
-		expect(match).toBeNull();
-	});
-
-	it('returns null when the section is missing', () => {
-		expect(findMatchingTaskInSection('- [ ] Draft rollout plan', 'Draft rollout plan', '## Todo')).toBeNull();
-	});
-});

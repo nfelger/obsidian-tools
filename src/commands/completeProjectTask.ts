@@ -3,7 +3,7 @@ import type BulletFlowPlugin from '../main';
 import {
 	dedentLinesByAmount,
 	extractTaskText,
-	findMatchingTaskInSection,
+	findTaskMatch,
 	findSectionRange,
 	parseTargetHeading,
 	TaskMarker
@@ -135,7 +135,7 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 				let content = data;
 
 				for (const entry of entries) {
-					const match = findMatchingTaskInSection(content, entry.taskText, todoHeading);
+					const match = findTaskMatch(content, entry.taskText, todoHeading);
 					if (!match) {
 						mismatches.push(`"${entry.taskText}" has no matching task in [[${projectName}]]`);
 						continue;

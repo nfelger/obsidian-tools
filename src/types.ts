@@ -190,3 +190,18 @@ export interface TaskInsertItem {
 	childrenContent: string;
 }
 
+// === Task Matching ===
+
+/**
+ * Lifecycle classification of a task found by text search.
+ */
+export type TaskMatchState = 'open' | 'scheduled' | 'completed';
+
+/**
+ * A task found by text search, with its file-absolute line and state.
+ */
+export interface TaskMatch {
+	lineNumber: number;
+	state: TaskMatchState;
+}
+

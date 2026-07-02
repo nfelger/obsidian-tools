@@ -4,9 +4,9 @@
 
 import { countIndent, getLeadingWhitespace, detectIndentUnit, convertIndentUnit, indentLinesWith } from './indent';
 import { DEFAULT_SETTINGS } from '../types';
-import type { TaskInsertItem, ListItem } from '../types';
+import type { TaskInsertItem, ListItem, TaskMatch } from '../types';
 export { TaskState, TaskMarker, isIncompleteTask, markTaskAsScheduled, isScheduledTask, markScheduledAsOpen } from './taskMarker';
-import { TaskMarker, TaskState, isIncompleteTask, isScheduledTask, markScheduledAsOpen } from './taskMarker';
+import { TaskMarker, TaskState, isIncompleteTask, markScheduledAsOpen } from './taskMarker';
 
 // === Task Utilities ===
 
@@ -222,63 +222,38 @@ export function extractTaskText(line: string): string {
 }
 
 /**
- * Find a matching task in content by task text.
- * Searches for tasks that are either incomplete ([ ] or [/]) or scheduled ([<]).
+ * Find a task matching the given text, classified by lifecycle state.
+ *
+ * An open or started match ('open') or a scheduled match ('scheduled') is
+ * returned immediately; a completed match is only returned as a fallback
+ * when no open or scheduled copy exists, so callers can distinguish
+ * "not found" from "already completed". Scoped to a heading's section when
+ * one is given, otherwise searches the whole file.
  *
  * @param content - The file content to search
  * @param taskText - The task text to find (without checkbox)
- * @returns Object with line number and scheduled status, or null if not found
+ * @param heading - Optional section heading (e.g., "## Todo") to scope the search to
+ * @returns The match with file-absolute line number and state, or null
  */
-export function findMatchingTask(
-	content: string,
-	taskText: string
-): { lineNumber: number; isScheduled: boolean } | null {
-	if (!taskText) return null;
-
-	const lines = content.split('\n');
-	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i];
-		const lineText = extractTaskText(line);
-
-		if (lineText === taskText) {
-			// Check if it's an incomplete or scheduled task (not completed)
-			if (isIncompleteTask(line) || isScheduledTask(line)) {
-				return {
-					lineNumber: i,
-					isScheduled: isScheduledTask(line)
-				};
-			}
-		}
-	}
-
-	return null;
-}
-
-/**
- * Find a matching task by text within a single heading section.
- *
- * Unlike findMatchingTask, this also reports completed matches so callers
- * can distinguish "not found" from "already completed". Open/scheduled
- * matches win over completed ones.
- *
- * @param content - The file content to search
- * @param taskText - The task text to find (without checkbox)
- * @param heading - The section heading (e.g., "## Todo")
- * @returns Match with file-absolute line number and state, or null
- */
-export function findMatchingTaskInSection(
+export function findTaskMatch(
 	content: string,
 	taskText: string,
-	heading: string
-): { lineNumber: number; state: 'open' | 'scheduled' | 'completed' } | null {
+	heading?: string
+): TaskMatch | null {
 	if (!taskText) return null;
 
 	const lines = content.split('\n');
-	const range = findSectionRange(lines, heading);
-	if (!range) return null;
+	let start = 0;
+	let end = lines.length;
+	if (heading !== undefined) {
+		const range = findSectionRange(lines, heading);
+		if (!range) return null;
+		start = range.start + 1;
+		end = range.end;
+	}
 
-	let completedMatch: { lineNumber: number; state: 'completed' } | null = null;
-	for (let i = range.start + 1; i < range.end; i++) {
+	let completedMatch: TaskMatch | null = null;
+	for (let i = start; i < end; i++) {
 		if (extractTaskText(lines[i]) !== taskText) continue;
 		const marker = TaskMarker.fromLine(lines[i]);
 		if (!marker) continue;
@@ -448,10 +423,12 @@ export function insertMultipleTasksWithDeduplication(
 	const newTaskContents: string[] = [];
 
 	for (const task of tasks) {
-		const match = findMatchingTask(result, task.taskText);
+		const match = findTaskMatch(result, task.taskText);
 
-		if (match) {
-			if (match.isScheduled) {
+		// A completed match is treated as no match: dedup only merges into
+		// open/scheduled copies, so a duplicate is added as a new task.
+		if (match && match.state !== 'completed') {
+			if (match.state === 'scheduled') {
 				const lines = result.split('\n');
 				lines[match.lineNumber] = markScheduledAsOpen(lines[match.lineNumber]);
 				result = lines.join('\n');
