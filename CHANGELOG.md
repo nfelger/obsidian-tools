@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   entry with the task and its notes is added to the project note (`c` in the
   command menu)
 
+### Fixed
+
+- Tasks prefixed with an aliased project link (`[[Project|Alias]]`) now match
+  their project copy when completed or dropped back, instead of being treated
+  as missing
+
 ## [0.12.1] - 2026-06-12
 
 ### Improved

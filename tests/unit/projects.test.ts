@@ -5,7 +5,8 @@ import {
 	getProjectName,
 	parseProjectKeywords,
 	findCollectorTask,
-	insertUnderCollectorTask
+	insertUnderCollectorTask,
+	stripProjectPrefix
 } from '../../src/utils/projects';
 
 describe('isProjectNote', () => {
@@ -48,6 +49,29 @@ describe('getProjectName', () => {
 
 	it('handles filenames without .md extension gracefully', () => {
 		expect(getProjectName('1 Projekte/NoExtension')).toBe('NoExtension');
+	});
+});
+
+describe('stripProjectPrefix', () => {
+	it('strips a plain project link prefix', () => {
+		expect(stripProjectPrefix('[[Migration Initiative]] Draft plan', 'Migration Initiative'))
+			.toBe('Draft plan');
+	});
+
+	it('strips an aliased project link prefix', () => {
+		expect(stripProjectPrefix('[[Migration Initiative|MI]] Draft plan', 'Migration Initiative'))
+			.toBe('Draft plan');
+	});
+
+	it('leaves text without the prefix unchanged', () => {
+		expect(stripProjectPrefix('Draft plan for [[Migration Initiative]]', 'Migration Initiative'))
+			.toBe('Draft plan for [[Migration Initiative]]');
+		expect(stripProjectPrefix('[[Other Project]] Draft plan', 'Migration Initiative'))
+			.toBe('[[Other Project]] Draft plan');
+	});
+
+	it('handles project names with special regex characters', () => {
+		expect(stripProjectPrefix('[[My (Project)|MP]] Task', 'My (Project)')).toBe('Task');
 	});
 });
 

@@ -103,6 +103,33 @@ describe('dropTaskToProject', () => {
 			expect(project).toContain('- [ ] Define rollback strategy');
 			expect(project).not.toContain('[<]');
 		});
+
+		it('reopens the scheduled copy when the daily task uses an aliased project link', async () => {
+			const result = await testDropTaskToProjectPlugin({
+				source: `
+- [ ] [[Migration Initiative|MI]] Define rollback strategy
+`,
+				sourceFileName: '2026-01-30 Fri',
+				sourcePath: '+Diary/2026/01/2026-01-30 Fri.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+- [<] Define rollback strategy
+`
+				},
+				cursorLine: 0
+			});
+
+			// Source: deleted
+			expect(result.source).not.toContain('Define rollback strategy');
+
+			// Project: reopened, not duplicated, alias link stripped
+			const project = result.project('Migration Initiative')!;
+			expect(project).toContain('- [ ] Define rollback strategy');
+			expect(project).not.toContain('[<]');
+			expect(project).not.toContain('|MI');
+			expect(project.match(/Define rollback strategy/g)).toHaveLength(1);
+		});
 	});
 
 	describe('validation', () => {

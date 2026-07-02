@@ -39,6 +39,34 @@ describe('completeProjectTask', () => {
 			expect(project.slice(logIdx)).toContain('agreed on phased approach');
 		});
 
+		it('matches the project copy when the daily task uses an aliased project link', async () => {
+			const result = await testCompleteProjectTaskPlugin({
+				source: `
+- [ ] [[Migration Initiative|MI]] Draft rollout plan
+`,
+				sourceFileName: '2026-07-02 Thu',
+				sourcePath: '+Diary/2026/07/2026-07-02 Thu.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+- [<] Draft rollout plan
+
+## Log
+`
+				},
+				cursorLine: 0
+			});
+
+			expect(result.source).toContain('- [x] [[Migration Initiative|MI]] Draft rollout plan');
+
+			const project = result.project('Migration Initiative')!;
+			expect(project).toContain('- [x] Draft rollout plan');
+			expect(project).not.toContain('[<]');
+			// The aliased link is stripped from the log-entry copy too
+			expect(project).not.toContain('|MI');
+			expect(result.notices.some(n => n.includes('no matching task'))).toBe(false);
+		});
+
 		it('resolves the project from a Push [[Project]] collector ancestor', async () => {
 			const result = await testCompleteProjectTaskPlugin({
 				source: `

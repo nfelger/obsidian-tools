@@ -2,7 +2,7 @@ import { MarkdownView, Notice, TFile, Editor } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import type { ListItem } from '../types';
 import { isIncompleteTask, findTopLevelTasksInRange, selectTransferableChildLines } from './tasks';
-import { findChildrenBlockFromListItems } from './listItems';
+import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from './listItems';
 import { parseNoteType } from './periodicNotes';
 import { createPeriodicNoteFromTemplate, getPeriodicConfig } from './periodicNoteCreator';
 
@@ -131,12 +131,7 @@ export function getTransferableChildren(
 	const block = findChildrenBlockFromListItems(editor, listItems || [], taskLine);
 	if (!block) return null;
 
-	// getRange ends at column 0 of the exclusive end line, so the split
-	// always yields a trailing empty string that is not a real block line
-	let rawLines = block.lines;
-	if (rawLines.length > 0 && rawLines[rawLines.length - 1] === '') {
-		rawLines = rawLines.slice(0, -1);
-	}
+	const rawLines = withoutTrailingEmptyLine(block.lines);
 
 	const flags = selectTransferableChildLines(rawLines);
 	const lines = rawLines.filter((_, i) => flags[i]);

@@ -125,6 +125,8 @@ percentages go out of date immediately. Describe *what*, not *how many*.
 must not reference `TFile` or other Obsidian types — use the adapter pattern.
 
 **All shared types live in `src/types.ts`.** Import with `import type { TypeName } from '../types'`.
+Exception: the task state machine types (`TaskState`, `TaskMatch`) live with their logic in
+`src/utils/taskMarker.ts` and are re-exported through `src/utils/tasks.ts`.
 
 ## Documentation: CHANGELOG
 

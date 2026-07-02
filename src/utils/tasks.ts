@@ -5,7 +5,8 @@
 import { countIndent, getLeadingWhitespace, detectIndentUnit, convertIndentUnit, indentLinesWith } from './indent';
 import { DEFAULT_SETTINGS } from '../types';
 import type { TaskInsertItem, ListItem } from '../types';
-export { TaskState, TaskMarker, isIncompleteTask, markTaskAsScheduled, isScheduledTask, markScheduledAsOpen } from './taskMarker';
+export { TaskState, TaskMarker, isIncompleteTask, markTaskAsScheduled, markScheduledAsOpen } from './taskMarker';
+export type { TaskMatch } from './taskMarker';
 import { TaskMarker, TaskState, isIncompleteTask, markScheduledAsOpen, type TaskMatch } from './taskMarker';
 
 // === Task Utilities ===
@@ -222,32 +223,33 @@ export function extractTaskText(line: string): string {
 }
 
 /**
- * Find a task matching the given text, reporting its actual TaskState.
+ * Find a live (open, started, or scheduled) task matching the given text,
+ * reporting its actual TaskState.
  *
- * An open, started, or scheduled match is returned immediately; a completed
- * match is only returned as a fallback when no such copy exists, so callers
- * can distinguish "not found" from "already completed". Migrated tasks are
- * never matched — they're terminal history, not something to merge into.
- * Scoped to a heading's section when one is given, otherwise searches the
- * whole file.
+ * With `includeCompleted`, a completed match is also returned — but only as
+ * a fallback when no live copy exists — so callers can distinguish "not
+ * found" from "already completed". Migrated tasks are never matched —
+ * they're terminal history, not something to merge into. Scoped to a
+ * heading's section when one is given, otherwise searches the whole file.
  *
- * @param content - The file content to search
+ * @param content - The file content to search (string or pre-split lines)
  * @param taskText - The task text to find (without checkbox)
- * @param heading - Optional section heading (e.g., "## Todo") to scope the search to
+ * @param options - heading: section to scope the search to (e.g., "## Todo");
+ *   includeCompleted: also report a completed copy when no live one exists
  * @returns The match with file-absolute line number and state, or null
  */
 export function findTaskMatch(
-	content: string,
+	content: string | string[],
 	taskText: string,
-	heading?: string
+	options: { heading?: string; includeCompleted?: boolean } = {}
 ): TaskMatch | null {
 	if (!taskText) return null;
 
-	const lines = content.split('\n');
+	const lines = Array.isArray(content) ? content : content.split('\n');
 	let start = 0;
 	let end = lines.length;
-	if (heading !== undefined) {
-		const range = findSectionRange(lines, heading);
+	if (options.heading !== undefined) {
+		const range = findSectionRange(lines, options.heading);
 		if (!range) return null;
 		start = range.start + 1;
 		end = range.end;
@@ -258,10 +260,10 @@ export function findTaskMatch(
 		if (extractTaskText(lines[i]) !== taskText) continue;
 		const marker = TaskMarker.fromLine(lines[i]);
 		if (!marker) continue;
-		if (marker.isIncomplete() || marker.state === TaskState.Scheduled) {
+		if (marker.isIncomplete() || marker.isScheduled()) {
 			return { lineNumber: i, state: marker.state };
 		}
-		if (marker.state === TaskState.Completed && !completedMatch) {
+		if (options.includeCompleted && marker.state === TaskState.Completed && !completedMatch) {
 			completedMatch = { lineNumber: i, state: marker.state };
 		}
 	}
@@ -427,9 +429,7 @@ export function insertMultipleTasksWithDeduplication(
 	for (const task of tasks) {
 		const match = findTaskMatch(result, task.taskText);
 
-		// A completed match is treated as no match: dedup only merges into
-		// open/scheduled copies, so a duplicate is added as a new task.
-		if (match && match.state !== TaskState.Completed) {
+		if (match) {
 			if (match.state === TaskState.Scheduled) {
 				const lines = result.split('\n');
 				lines[match.lineNumber] = markScheduledAsOpen(lines[match.lineNumber]);

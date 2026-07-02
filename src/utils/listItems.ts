@@ -121,3 +121,18 @@ export function findChildrenBlockFromListItems(
 		lines: text.split('\n')
 	};
 }
+
+/**
+ * Remove the spurious trailing empty string that findChildrenBlockFromListItems'
+ * getRange call yields when the block ends at column 0 of the exclusive end
+ * line (absent when the block ends at the last line of the file).
+ *
+ * Callers that copy children verbatim use this; callers that want the raw
+ * range (including its trailing blank separator) keep block.lines as-is.
+ */
+export function withoutTrailingEmptyLine(lines: string[]): string[] {
+	if (lines.length > 0 && lines[lines.length - 1] === '') {
+		return lines.slice(0, -1);
+	}
+	return lines.slice();
+}

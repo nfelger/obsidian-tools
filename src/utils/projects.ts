@@ -106,6 +106,20 @@ export function findProjectLinkInAncestors(
 }
 
 /**
+ * Strip a leading [[ProjectName]] or [[ProjectName|Alias]] prefix from task
+ * text (the part after the checkbox).
+ * e.g., "[[Project]] Task text" → "Task text"
+ *
+ * Used to recover the project note's version of a task text from its
+ * daily-note copy, which takeProjectTask prefixes with the project link.
+ */
+export function stripProjectPrefix(taskText: string, projectName: string): string {
+	const escaped = projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const pattern = new RegExp(`^\\[\\[${escaped}(?:\\|[^\\]]*)?\\]\\]\\s+`);
+	return taskText.replace(pattern, '');
+}
+
+/**
  * Parse the projectKeywords setting into an array of keyword strings.
  *
  * The setting format is comma-separated, quote-enclosed: "Push", "Finish"

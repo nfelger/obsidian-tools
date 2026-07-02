@@ -1,12 +1,11 @@
 /**
  * TaskState enum and TaskMarker class — the BuJo task state machine.
  *
- * When adding a new task type, update ALL five locations:
+ * When adding a new task type, update ALL four locations:
  *   1. TaskState enum — add the new state value
  *   2. TaskMarker.fromLine() — add the character in the switch
  *   3. TaskMarker.isIncomplete() — decide if the new state is "incomplete"
  *   4. TaskMarker.isTerminal() — decide if the new state is terminal
- *   5. canMigrate() / canReopen() — if the new state participates in those transitions
  * See docs/key-insights.md for details.
  */
 
@@ -64,20 +63,6 @@ export class TaskMarker {
 	}
 
 	/**
-	 * Check if this task can be migrated (open or started).
-	 */
-	canMigrate(): boolean {
-		return this.state === TaskState.Open || this.state === TaskState.Started;
-	}
-
-	/**
-	 * Check if this task can be reopened (scheduled only).
-	 */
-	canReopen(): boolean {
-		return this.state === TaskState.Scheduled;
-	}
-
-	/**
 	 * Check if this task is incomplete (open or started).
 	 */
 	isIncomplete(): boolean {
@@ -120,13 +105,6 @@ export class TaskMarker {
 	}
 
 	/**
-	 * Create a completed marker.
-	 */
-	toCompleted(): TaskMarker {
-		return new TaskMarker(TaskState.Completed);
-	}
-
-	/**
 	 * Render the marker as a string (e.g., "[ ]", "[>]").
 	 */
 	render(): string {
@@ -149,12 +127,13 @@ export class TaskMarker {
 	}
 
 	/**
-	 * Strip a [[ProjectName]] prefix from a task line's content.
+	 * Strip a [[ProjectName]] or [[ProjectName|Alias]] prefix from a task
+	 * line's content.
 	 * e.g., "- [ ] [[Project]] Task text" → "- [ ] Task text"
 	 */
 	static stripProjectLink(line: string, projectName: string): string {
 		const escaped = projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		const pattern = new RegExp(`(- \\[.\\]\\s*)\\[\\[${escaped}\\]\\]\\s*`);
+		const pattern = new RegExp(`(- \\[.\\]\\s*)\\[\\[${escaped}(?:\\|[^\\]]*)?\\]\\]\\s*`);
 		return line.replace(pattern, '$1');
 	}
 }
@@ -171,13 +150,6 @@ export class TaskMarker {
  */
 export function isIncompleteTask(line: string): boolean {
 	return TaskMarker.fromLine(line)?.isIncomplete() ?? false;
-}
-
-/**
- * Check if a line is a scheduled task (marked with [<]).
- */
-export function isScheduledTask(line: string): boolean {
-	return TaskMarker.fromLine(line)?.isScheduled() ?? false;
 }
 
 /**

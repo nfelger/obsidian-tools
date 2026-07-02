@@ -6,7 +6,6 @@ import {
 	insertUnderTargetHeading,
 	findTopLevelTasksInRange,
 	markTaskAsScheduled,
-	isScheduledTask,
 	markScheduledAsOpen,
 	extractTaskText,
 	findTaskMatch,
@@ -464,32 +463,14 @@ describe('markTaskAsScheduled', () => {
 
 // === Deduplication Helpers for pullUp ===
 
-describe('isScheduledTask', () => {
-	it('detects scheduled tasks', () => {
-		expect(isScheduledTask('- [<] Scheduled task')).toBe(true);
-		expect(isScheduledTask('  - [<] Indented scheduled')).toBe(true);
-		expect(isScheduledTask('\t- [<] Tab-indented')).toBe(true);
-	});
-
-	it('rejects open tasks', () => {
-		expect(isScheduledTask('- [ ] Open task')).toBe(false);
-	});
-
-	it('rejects started tasks', () => {
-		expect(isScheduledTask('- [/] Started task')).toBe(false);
-	});
-
-	it('rejects completed tasks', () => {
-		expect(isScheduledTask('- [x] Completed task')).toBe(false);
-	});
-
-	it('rejects migrated tasks', () => {
-		expect(isScheduledTask('- [>] Migrated task')).toBe(false);
-	});
-
-	it('rejects non-task items', () => {
-		expect(isScheduledTask('- Regular bullet')).toBe(false);
-		expect(isScheduledTask('Just text')).toBe(false);
+describe('TaskMarker.isScheduled', () => {
+	it('detects only scheduled tasks', () => {
+		expect(TaskMarker.fromLine('- [<] Scheduled task')?.isScheduled()).toBe(true);
+		expect(TaskMarker.fromLine('\t- [<] Tab-indented')?.isScheduled()).toBe(true);
+		expect(TaskMarker.fromLine('- [ ] Open task')?.isScheduled()).toBe(false);
+		expect(TaskMarker.fromLine('- [/] Started task')?.isScheduled()).toBe(false);
+		expect(TaskMarker.fromLine('- [x] Completed task')?.isScheduled()).toBe(false);
+		expect(TaskMarker.fromLine('- [>] Migrated task')?.isScheduled()).toBe(false);
 	});
 });
 
@@ -598,19 +579,26 @@ describe('findTaskMatch', () => {
 			expect(findTaskMatch(content, '')).toBeNull();
 		});
 
-		it('falls back to a completed match when no open or scheduled copy exists', () => {
+		it('ignores completed tasks by default', () => {
 			const content = `## Log
 - [x] Completed task
 - [ ] Other task`;
-			const result = findTaskMatch(content, 'Completed task');
+			expect(findTaskMatch(content, 'Completed task')).toBeNull();
+		});
+
+		it('falls back to a completed match only when asked and no live copy exists', () => {
+			const content = `## Log
+- [x] Completed task
+- [ ] Other task`;
+			const result = findTaskMatch(content, 'Completed task', { includeCompleted: true });
 			expect(result).toEqual({ lineNumber: 1, state: TaskState.Completed });
 		});
 
-		it('prefers an open match over a completed duplicate', () => {
+		it('prefers a live match over a completed duplicate', () => {
 			const content = `## Log
 - [x] Draft rollout plan
 - [ ] Draft rollout plan`;
-			const result = findTaskMatch(content, 'Draft rollout plan');
+			const result = findTaskMatch(content, 'Draft rollout plan', { includeCompleted: true });
 			expect(result).toEqual({ lineNumber: 2, state: TaskState.Open });
 		});
 
@@ -645,45 +633,35 @@ describe('findTaskMatch', () => {
 ## Todo
 - [<] Draft rollout plan
 - [ ] Write runbook
-- [x] Old finished thing
 
 ## Log
 - [<] Draft rollout plan
 `.trim();
 
 		it('finds a scheduled task inside the section', () => {
-			const match = findTaskMatch(content, 'Draft rollout plan', '## Todo');
+			const match = findTaskMatch(content, 'Draft rollout plan', { heading: '## Todo' });
 			expect(match).toEqual({ lineNumber: 3, state: TaskState.Scheduled });
 		});
 
 		it('finds an open task inside the section', () => {
-			const match = findTaskMatch(content, 'Write runbook', '## Todo');
+			const match = findTaskMatch(content, 'Write runbook', { heading: '## Todo' });
 			expect(match).toEqual({ lineNumber: 4, state: TaskState.Open });
 		});
 
-		it('reports a completed match when no open/scheduled copy exists', () => {
-			const match = findTaskMatch(content, 'Old finished thing', '## Todo');
-			expect(match).toEqual({ lineNumber: 5, state: TaskState.Completed });
-		});
-
-		it('prefers the open/scheduled copy over a completed duplicate', () => {
-			const dup = `
-## Todo
-- [x] Draft rollout plan
-- [<] Draft rollout plan
-`.trim();
-			const match = findTaskMatch(dup, 'Draft rollout plan', '## Todo');
-			expect(match).toEqual({ lineNumber: 2, state: TaskState.Scheduled });
-		});
-
 		it('ignores matches outside the section', () => {
-			const match = findTaskMatch(content, 'Write runbook', '## Log');
+			const match = findTaskMatch(content, 'Write runbook', { heading: '## Log' });
 			expect(match).toBeNull();
 		});
 
 		it('returns null when the section is missing', () => {
-			expect(findTaskMatch('- [ ] Draft rollout plan', 'Draft rollout plan', '## Todo')).toBeNull();
+			expect(findTaskMatch('- [ ] Draft rollout plan', 'Draft rollout plan', { heading: '## Todo' })).toBeNull();
 		});
+	});
+
+	it('accepts pre-split lines in place of a content string', () => {
+		const lines = ['## Todo', '- [<] Draft rollout plan'];
+		const match = findTaskMatch(lines, 'Draft rollout plan', { heading: '## Todo' });
+		expect(match).toEqual({ lineNumber: 1, state: TaskState.Scheduled });
 	});
 });
 
@@ -835,6 +813,12 @@ describe('TaskMarker', () => {
 			const marker = new TaskMarker(TaskState.Scheduled);
 			expect(marker.applyToLine('  - [ ] Task')).toBe('  - [<] Task');
 		});
+
+		it('marks any task state as completed', () => {
+			const marker = new TaskMarker(TaskState.Completed);
+			expect(marker.applyToLine('- [<] Task')).toBe('- [x] Task');
+			expect(marker.applyToLine('- [/] Task')).toBe('- [x] Task');
+		});
 	});
 
 	describe('prependToContent', () => {
@@ -865,6 +849,11 @@ describe('TaskMarker', () => {
 				.toBe('- [/] Do thing');
 			expect(TaskMarker.stripProjectLink('- [<] [[Proj]] Do thing', 'Proj'))
 				.toBe('- [<] Do thing');
+		});
+
+		it('strips aliased project links', () => {
+			const result = TaskMarker.stripProjectLink('- [ ] [[MyProject|MP]] Task text', 'MyProject');
+			expect(result).toBe('- [ ] Task text');
 		});
 
 		it('leaves line unchanged when no project link present', () => {
@@ -999,14 +988,6 @@ describe('insertMultipleTasksWithDeduplication', () => {
 		}], '## Todo');
 
 		expect(result.content).toContain('- [ ] New task\n\t- child');
-	});
-});
-
-describe('TaskMarker.toCompleted', () => {
-	it('renders [x] and applies to a line', () => {
-		const marker = TaskMarker.fromLine('- [<] Draft rollout plan')!;
-		expect(marker.toCompleted().render()).toBe('[x]');
-		expect(marker.toCompleted().applyToLine('- [<] Draft rollout plan')).toBe('- [x] Draft rollout plan');
 	});
 });
 
