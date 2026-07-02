@@ -91,6 +91,7 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 			// Log entry: the task line rendered [x] at zero indent, link stripped
 			const parentIndent = countIndent(lineText);
 			const marker = TaskMarker.fromLine(lineText);
+			// Unreachable: findSelectedTaskLines only returns incomplete task lines
 			if (!marker) continue;
 			const completedLine = marker.toCompleted().applyToLine(lineText);
 			const strippedLine = TaskMarker.stripProjectLink(

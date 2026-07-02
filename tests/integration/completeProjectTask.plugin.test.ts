@@ -212,6 +212,7 @@ describe('completeProjectTask', () => {
 			const project = result.project('Migration Initiative')!;
 			// Only the Todo copy plus the log entry copy — no extra markings
 			expect(project.slice(project.indexOf('## Log'))).toContain('- [x] Draft rollout plan');
+			expect(project.match(/- \[x\] Draft rollout plan/g)).toHaveLength(2);
 			expect(result.notices.some(n => n.includes('already completed'))).toBe(true);
 		});
 	});
