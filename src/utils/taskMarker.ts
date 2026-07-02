@@ -10,15 +10,6 @@
  * See docs/key-insights.md for details.
  */
 
-import {
-	INCOMPLETE_TASK_PATTERN,
-	MIGRATE_TASK_PATTERN,
-	SCHEDULED_MARKER,
-	SCHEDULED_TASK_PATTERN,
-	SCHEDULED_TO_OPEN_PATTERN,
-	OPEN_TASK_MARKER
-} from '../config';
-
 // === Task State Machine ===
 
 /**
@@ -94,6 +85,13 @@ export class TaskMarker {
 	}
 
 	/**
+	 * Check if this task is scheduled (pushed down to a lower-level note).
+	 */
+	isScheduled(): boolean {
+		return this.state === TaskState.Scheduled;
+	}
+
+	/**
 	 * Check if this task is in a terminal state (completed or migrated).
 	 */
 	isTerminal(): boolean {
@@ -161,38 +159,43 @@ export class TaskMarker {
 	}
 }
 
-// === Single-line task predicates ===
+// === Single-line task predicates and transitions ===
+//
+// Thin TaskMarker wrappers for callers that only have a raw line and want a
+// one-shot check or transform, without parsing it themselves. TaskMarker
+// remains the single source of truth for marker classification — these
+// never duplicate its regex or switch.
 
 /**
  * Check if a line is an incomplete task (open or started).
  */
 export function isIncompleteTask(line: string): boolean {
-	return INCOMPLETE_TASK_PATTERN.test(line);
-}
-
-/**
- * Mark a task as scheduled by replacing checkbox with [<].
- */
-export function markTaskAsScheduled(line: string): string {
-	if (!INCOMPLETE_TASK_PATTERN.test(line)) {
-		return line;
-	}
-	return line.replace(MIGRATE_TASK_PATTERN, `$1${SCHEDULED_MARKER}`);
+	return TaskMarker.fromLine(line)?.isIncomplete() ?? false;
 }
 
 /**
  * Check if a line is a scheduled task (marked with [<]).
  */
 export function isScheduledTask(line: string): boolean {
-	return SCHEDULED_TASK_PATTERN.test(line);
+	return TaskMarker.fromLine(line)?.isScheduled() ?? false;
 }
 
 /**
- * Mark a scheduled task as open by replacing [<] with [ ].
+ * Mark an incomplete task line as scheduled ([<]). Lines that aren't
+ * incomplete tasks are returned unchanged.
+ */
+export function markTaskAsScheduled(line: string): string {
+	const marker = TaskMarker.fromLine(line);
+	if (!marker || !marker.isIncomplete()) return line;
+	return marker.toScheduled().applyToLine(line);
+}
+
+/**
+ * Mark a scheduled task line as open ([ ]). Lines that aren't scheduled
+ * tasks are returned unchanged.
  */
 export function markScheduledAsOpen(line: string): string {
-	if (!SCHEDULED_TASK_PATTERN.test(line)) {
-		return line;
-	}
-	return line.replace(SCHEDULED_TO_OPEN_PATTERN, `$1${OPEN_TASK_MARKER}`);
+	const marker = TaskMarker.fromLine(line);
+	if (!marker || !marker.isScheduled()) return line;
+	return marker.toOpen().applyToLine(line);
 }

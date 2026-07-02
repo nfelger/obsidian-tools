@@ -5,53 +5,6 @@
  * for maintainability and potential future configuration.
  */
 
-// === Task Marker Patterns ===
-
-/**
- * Regex pattern for incomplete tasks (open or started).
- * Matches: "- [ ]" and "- [/]" with optional leading whitespace.
- */
-export const INCOMPLETE_TASK_PATTERN = /^\s*- \[[ /]\]/;
-
-/**
- * Regex pattern to replace incomplete tasks with migrated marker.
- * Captures leading whitespace and "- " prefix.
- */
-export const MIGRATE_TASK_PATTERN = /^(\s*- )\[[ /]\]/;
-
-/**
- * The marker used for migrated tasks.
- */
-export const MIGRATED_MARKER = '[>]';
-
-/**
- * The marker used for scheduled tasks (pushed down to lower-level note).
- */
-export const SCHEDULED_MARKER = '[<]';
-
-/**
- * Regex pattern for scheduled tasks.
- * Matches: "- [<]" with optional leading whitespace.
- */
-export const SCHEDULED_TASK_PATTERN = /^\s*- \[<\]/;
-
-/**
- * Regex pattern to replace scheduled marker with open.
- * Captures leading whitespace and "- " prefix.
- */
-export const SCHEDULED_TO_OPEN_PATTERN = /^(\s*- )\[<\]/;
-
-/**
- * Regex pattern to convert started tasks to open in target note.
- * Captures "- " prefix to preserve it.
- */
-export const STARTED_TO_OPEN_PATTERN = /^(- )\[\/\]/;
-
-/**
- * Replacement for started tasks in target note (open task).
- */
-export const OPEN_TASK_MARKER = '[ ]';
-
 // === Notice Timeouts ===
 
 /**
