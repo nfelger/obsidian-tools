@@ -4,7 +4,7 @@
     {
       "id": 0,
       "subject": "Task 1: Domain helpers — toCompleted() and findMatchingTaskInSection()",
-      "status": "pending",
+      "status": "completed",
       "description": "**Goal:** Pure helpers: TaskMarker.toCompleted() and section-scoped task matcher distinguishing open/scheduled/completed matches.\n\n**Files:** src/utils/taskMarker.ts, src/utils/tasks.ts, tests/unit/tasks.test.ts\n\n```json:metadata\n{\"files\": [\"src/utils/taskMarker.ts\", \"src/utils/tasks.ts\", \"tests/unit/tasks.test.ts\"], \"verifyCommand\": \"npm test -- tests/unit/tasks.test.ts\", \"acceptanceCriteria\": [\"toCompleted renders [x]\", \"section-scoped matching with open/scheduled/completed states\", \"prefers non-completed match\"], \"requiresUserVerification\": false}\n```"
     },
     {
