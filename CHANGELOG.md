@@ -12,7 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Complete project task now works like extract log: the task's notes move into
   the project's log entry instead of staying duplicated in the daily note
 - The finished task is removed from the project's `## Todo` section — the log
-  entry is the record
+  entry is the record; any sub-items still sitting under the project copy move
+  into the log entry too, so nothing is lost
 - Completing several tasks from the same note one by one no longer repeats the
   log sub-heading; entries accumulate under a single section per source note
 

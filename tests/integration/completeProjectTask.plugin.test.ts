@@ -197,6 +197,41 @@ describe('completeProjectTask', () => {
 			expect(project).not.toContain('  - two-space child');
 		});
 
+		it('moves leftover children of the Todo copy into the log entry instead of deleting them', async () => {
+			const result = await testCompleteProjectTaskPlugin({
+				source: `
+- [ ] [[Migration Initiative]] Draft rollout plan
+  - agreed on phased approach
+`,
+				sourceFileName: '2026-07-02 Thu',
+				sourcePath: '+Diary/2026/07/2026-07-02 Thu.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+- [<] Draft rollout plan
+  - [x] research options
+
+## Log
+`
+				},
+				cursorLine: 0
+			});
+
+			const project = result.project('Migration Initiative')!;
+			const logIdx = project.indexOf('## Log');
+
+			// Todo section is fully cleared, including the leftover subtree
+			expect(project.slice(0, logIdx)).not.toContain('Draft rollout plan');
+			expect(project.slice(0, logIdx)).not.toContain('research options');
+
+			// The leftover completed child survives inside the log entry,
+			// after the daily note's children
+			const log = project.slice(logIdx);
+			expect(log).toContain('- [x] research options');
+			expect(project.match(/research options/g)).toHaveLength(1);
+			expect(log.indexOf('agreed on phased approach')).toBeLessThan(log.indexOf('- [x] research options'));
+		});
+
 		it('appends to the existing sub-heading when completing tasks from the same note one by one', async () => {
 			const result = await testCompleteProjectTaskPlugin({
 				source: `

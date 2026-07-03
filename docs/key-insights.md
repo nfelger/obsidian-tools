@@ -74,9 +74,15 @@ Never hardcode `'  '` when building nested content — always go through these h
 
 ## Transfer Command Ordering
 
-All transfer commands and extract log follow a strict phase order: collect
-(read-only) → write target via `vault.process` → mutate source. The source must
-never be modified before the target write succeeds; collected content exists only
-in memory, so the old order could lose tasks on a failed write. Completed/migrated
-child subtrees stay in the source (`selectTransferableChildLines` in
-`src/utils/tasks.ts`).
+All transfer commands, extract log, and complete project task follow a strict
+phase order: collect (read-only) → write target via `vault.process` → mutate
+source. The source must never be modified before the target write succeeds;
+collected content exists only in memory, so the old order could lose tasks on a
+failed write.
+
+Children handling differs by command: on migrate/push/pull/take,
+completed/migrated child subtrees stay in the source
+(`selectTransferableChildLines` in `src/utils/tasks.ts`); extract log and
+complete project task move the whole subtree. Complete project task also folds
+any leftover children of the removed Todo copy into the log entry, so terminal
+subtrees left behind by take are never lost.

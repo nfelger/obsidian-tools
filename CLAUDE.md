@@ -12,7 +12,7 @@ obsidian-tools/
 ├── src/
 │   ├── main.ts                   # Plugin entry point — register commands here
 │   ├── types.ts                  # All shared types — add new types here
-│   ├── config.ts                 # Task marker patterns & constants
+│   ├── config.ts                 # Notice timeouts & hotkey bindings
 │   ├── settings.ts               # Plugin settings tab
 │   ├── commands/                 # One file per command
 │   │   ├── extractLog.ts
@@ -21,6 +21,7 @@ obsidian-tools/
 │   │   ├── pullTaskUp.ts
 │   │   ├── takeProjectTask.ts
 │   │   ├── dropTaskToProject.ts
+│   │   ├── completeProjectTask.ts
 │   │   └── finishProject.ts
 │   ├── events/
 │   │   └── autoMoveCompleted.ts  # CM6 extension for auto-move

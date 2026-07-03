@@ -131,8 +131,11 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 			await plugin.app.vault.process(projectFile, (data: string) => {
 				const lines = data.split('\n');
 				const projectName = projectFile.basename;
+				const logLines: string[] = [];
 
 				for (const entry of entries) {
+					logLines.push(...entry.entryLines);
+
 					const match = findTaskMatch(lines, entry.taskText, {
 						heading: todoHeading,
 						includeCompleted: true
@@ -146,13 +149,18 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 						continue;
 					}
 					// Remove the finished task and its subtree from Todo — the
-					// log entry below is the record
-					lines.splice(match.lineNumber, findTaskBlockEnd(lines, match.lineNumber) - match.lineNumber);
+					// log entry below is the record. Leftover children under the
+					// copy (terminal subtrees left behind on take) move into the
+					// log entry so their history isn't lost.
+					const blockEnd = findTaskBlockEnd(lines, match.lineNumber);
+					const copyIndent = countIndent(lines[match.lineNumber]);
+					const leftovers = lines.slice(match.lineNumber + 1, blockEnd);
+					logLines.push(...dedentLinesByAmount(leftovers, copyIndent));
+					lines.splice(match.lineNumber, blockEnd - match.lineNumber);
 				}
 
 				// Append the log entry, grouped under one sub-heading per source note
-				const entryLines = entries.flatMap(e => e.entryLines);
-				return insertUnderSubheading(lines, entryLines, logHeading, `${subHeadingPrefix} [[${file.basename}]]`);
+				return insertUnderSubheading(lines, logLines, logHeading, `${subHeadingPrefix} [[${file.basename}]]`);
 			});
 		}
 
