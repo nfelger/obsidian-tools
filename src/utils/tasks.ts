@@ -237,6 +237,54 @@ export function insertBlockAfterHeading(
 	return lines.join('\n');
 }
 
+/**
+ * Insert log entries under a sub-heading inside a target section, grouping
+ * entries per sub-heading instead of repeating it.
+ *
+ * When the sub-heading already exists inside the target section, the entries
+ * are appended at the end of its sub-section (before trailing blank lines),
+ * so repeat invocations accumulate under one heading. Otherwise a new
+ * sub-section block is started directly after the target heading
+ * (reverse-chronological), and the target heading itself is created at the
+ * end of the file when missing. Entries are re-rendered in the target's
+ * indentation unit.
+ *
+ * @param content - The target file content (string or pre-split lines)
+ * @param entryLines - The entry lines to insert (without the sub-heading)
+ * @param targetHeading - The section heading (e.g., "## Log")
+ * @param subHeading - The sub-heading to group under (e.g., "### [[2026-07-02 Thu]]")
+ * @returns Updated file content
+ */
+export function insertUnderSubheading(
+	content: string | string[],
+	entryLines: string[],
+	targetHeading: string,
+	subHeading: string
+): string {
+	const lines = Array.isArray(content) ? content.slice() : content.split('\n');
+
+	const section = findSectionRange(lines, targetHeading);
+	if (section) {
+		const sectionBody = lines.slice(section.start + 1, section.end);
+		const sub = findSectionRange(sectionBody, subHeading);
+		if (sub) {
+			const targetUnit = detectIndentUnit(lines);
+			const converted = targetUnit ? convertIndentUnit(entryLines, targetUnit) : entryLines;
+
+			// Append at the end of the sub-section, before trailing blank lines
+			const subHeadingIdx = section.start + 1 + sub.start;
+			let insertIdx = section.start + 1 + sub.end;
+			while (insertIdx > subHeadingIdx + 1 && lines[insertIdx - 1].trim() === '') {
+				insertIdx--;
+			}
+			lines.splice(insertIdx, 0, ...converted);
+			return lines.join('\n');
+		}
+	}
+
+	return insertBlockAfterHeading(lines, ['', subHeading, ''].concat(entryLines), targetHeading);
+}
+
 // === Deduplication and Task Transfer Helpers ===
 
 /**
@@ -306,6 +354,36 @@ export function findTaskMatch(
 }
 
 /**
+ * Find the exclusive end of a task's block: the task line plus all of its
+ * more-indented children. Blank lines belong to the block only when a
+ * more-indented line follows them — trailing blanks (e.g. the file's final
+ * newline) are not part of it.
+ *
+ * @param lines - All lines of the document
+ * @param taskLineNumber - The line number of the task
+ * @returns The first line number after the task's block
+ */
+export function findTaskBlockEnd(lines: string[], taskLineNumber: number): number {
+	const taskIndent = countIndent(lines[taskLineNumber]);
+	let end = taskLineNumber + 1;
+	let scan = taskLineNumber + 1;
+	while (scan < lines.length) {
+		const currentLine = lines[scan];
+		if (currentLine.trim() === '') {
+			scan++;
+			continue;
+		}
+		if (countIndent(currentLine) > taskIndent) {
+			scan++;
+			end = scan;
+		} else {
+			break;
+		}
+	}
+	return end;
+}
+
+/**
  * Insert children content under an existing task line.
  * Children are inserted after the task and any existing children.
  *
@@ -324,27 +402,7 @@ export function insertChildrenUnderTask(
 	const lines = content.split('\n');
 	if (taskLineNumber < 0 || taskLineNumber >= lines.length) return content;
 
-	const taskLine = lines[taskLineNumber];
-	const taskIndent = countIndent(taskLine);
-
-	// Find the end of the task's children block. Blank lines only belong to
-	// the block when a more-indented line follows them — trailing blanks
-	// (e.g. the file's final newline) are not part of the block.
-	let insertLineNumber = taskLineNumber + 1;
-	let scan = taskLineNumber + 1;
-	while (scan < lines.length) {
-		const currentLine = lines[scan];
-		if (currentLine.trim() === '') {
-			scan++;
-			continue;
-		}
-		if (countIndent(currentLine) > taskIndent) {
-			scan++;
-			insertLineNumber = scan;
-		} else {
-			break;
-		}
-	}
+	const insertLineNumber = findTaskBlockEnd(lines, taskLineNumber);
 
 	// Insert the children content
 	const childrenLines = childrenContent.split('\n');

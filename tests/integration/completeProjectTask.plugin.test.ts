@@ -3,7 +3,7 @@ import { testCompleteProjectTaskPlugin } from '../helpers/completeProjectTaskPlu
 
 describe('completeProjectTask', () => {
 	describe('happy path', () => {
-		it('marks the [<] copy done, logs to the project, and completes the daily task in place', async () => {
+		it('logs to the project, removes the Todo copy, and moves the children out of the daily note', async () => {
 			const result = await testCompleteProjectTaskPlugin({
 				source: `
 - [ ] [[Migration Initiative]] Draft rollout plan
@@ -22,18 +22,18 @@ describe('completeProjectTask', () => {
 				cursorLine: 0
 			});
 
-			// Source: task completed IN PLACE, children untouched
+			// Source: task completed IN PLACE, children moved to the project log
 			expect(result.source).toContain('- [x] [[Migration Initiative]] Draft rollout plan');
-			expect(result.source).toContain('agreed on phased approach');
+			expect(result.source).not.toContain('agreed on phased approach');
 
-			// Project: [<] copy flipped to [x]
+			// Project: the [<] copy is removed from Todo — the log is the record
 			const project = result.project('Migration Initiative')!;
-			expect(project).toContain('- [x] Draft rollout plan');
 			expect(project).not.toContain('[<]');
-
-			// Project: log entry with sub-heading, completed task line, and children copy
-			expect(project).toContain('### [[2026-07-02 Thu]]');
 			const logIdx = project.indexOf('## Log');
+			expect(project.slice(0, logIdx)).not.toContain('Draft rollout plan');
+
+			// Project: log entry with sub-heading, completed task line, and children
+			expect(project).toContain('### [[2026-07-02 Thu]]');
 			expect(project.indexOf('### [[2026-07-02 Thu]]')).toBeGreaterThan(logIdx);
 			expect(project.slice(logIdx)).toContain('- [x] Draft rollout plan');
 			expect(project.slice(logIdx)).toContain('agreed on phased approach');
@@ -60,10 +60,12 @@ describe('completeProjectTask', () => {
 			expect(result.source).toContain('- [x] [[Migration Initiative|MI]] Draft rollout plan');
 
 			const project = result.project('Migration Initiative')!;
-			expect(project).toContain('- [x] Draft rollout plan');
 			expect(project).not.toContain('[<]');
 			// The aliased link is stripped from the log-entry copy too
 			expect(project).not.toContain('|MI');
+			// Only the log copy remains — the Todo copy is gone
+			expect(project.match(/Draft rollout plan/g)).toHaveLength(1);
+			expect(project.slice(project.indexOf('## Log'))).toContain('- [x] Draft rollout plan');
 			expect(result.notices.some(n => n.includes('no matching task'))).toBe(false);
 		});
 
@@ -91,8 +93,10 @@ describe('completeProjectTask', () => {
 			expect(result.source).toContain('- [ ] Push [[Migration Initiative]]');
 
 			const project = result.project('Migration Initiative')!;
-			expect(project).toContain('- [x] Draft rollout plan');
 			expect(project).toContain('### [[2026-07-02 Thu]]');
+			// Only the log copy remains — the Todo copy is gone
+			expect(project.match(/Draft rollout plan/g)).toHaveLength(1);
+			expect(project.slice(project.indexOf('## Log'))).toContain('- [x] Draft rollout plan');
 		});
 
 		it('completes a started [/] task as [x] everywhere', async () => {
@@ -116,6 +120,7 @@ describe('completeProjectTask', () => {
 			expect(result.source).toContain('- [x] [[Migration Initiative]] Draft rollout plan');
 			const project = result.project('Migration Initiative')!;
 			expect(project.slice(project.indexOf('## Log'))).toContain('- [x] Draft rollout plan');
+			expect(project).not.toContain('[<]');
 		});
 
 		it('inserts new entries directly after the log heading (reverse-chronological)', async () => {
@@ -166,7 +171,7 @@ describe('completeProjectTask', () => {
 			expect(project.slice(project.indexOf('## Log'))).toContain('### [[2026-07-02 Thu]]');
 		});
 
-		it('re-indents copied children to the project note indent unit', async () => {
+		it('re-indents moved children to the project note indent unit', async () => {
 			const result = await testCompleteProjectTaskPlugin({
 				source: `
 - [ ] [[Migration Initiative]] Draft rollout plan
@@ -178,6 +183,7 @@ describe('completeProjectTask', () => {
 					'Migration Initiative': `
 ## Todo
 - [<] Draft rollout plan
+- [ ] Other task
 \t- tab-indented existing child
 
 ## Log
@@ -189,6 +195,46 @@ describe('completeProjectTask', () => {
 			const project = result.project('Migration Initiative')!;
 			expect(project).toContain('\t- two-space child');
 			expect(project).not.toContain('  - two-space child');
+		});
+
+		it('appends to the existing sub-heading when completing tasks from the same note one by one', async () => {
+			const result = await testCompleteProjectTaskPlugin({
+				source: `
+- [ ] [[Migration Initiative]] Write runbook
+  - covered rollback steps
+`,
+				sourceFileName: '2026-07-02 Thu',
+				sourcePath: '+Diary/2026/07/2026-07-02 Thu.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+- [<] Write runbook
+
+## Log
+
+### [[2026-07-02 Thu]]
+
+- [x] Draft rollout plan
+
+### [[2026-07-01 Wed]]
+
+- older entry
+`
+				},
+				cursorLine: 0
+			});
+
+			const project = result.project('Migration Initiative')!;
+			// One section per source note, not one per completion
+			expect(project.match(/### \[\[2026-07-02 Thu\]\]/g)).toHaveLength(1);
+			// The new entry lands inside today's section, after the earlier
+			// completion and before the previous day's section
+			const earlier = project.indexOf('- [x] Draft rollout plan');
+			const appended = project.indexOf('- [x] Write runbook');
+			const previousDay = project.indexOf('### [[2026-07-01 Wed]]');
+			expect(appended).toBeGreaterThan(earlier);
+			expect(appended).toBeLessThan(previousDay);
+			expect(project).toContain('covered rollback steps');
 		});
 	});
 
@@ -284,9 +330,13 @@ describe('completeProjectTask', () => {
 			expect(migrationLog).toContain('- [x] Draft rollout plan');
 			expect(migrationLog).toContain('- [x] Write runbook');
 			expect(migration).not.toContain('[<]');
+			// Todo copies removed — each task appears only in the log
+			expect(migration.match(/Draft rollout plan/g)).toHaveLength(1);
+			expect(migration.match(/Write runbook/g)).toHaveLength(1);
 
 			const engineering = result.project('Engineering Update')!;
 			expect(engineering.slice(engineering.indexOf('## Log'))).toContain('- [x] Collect metrics');
+			expect(engineering).not.toContain('[<]');
 		});
 	});
 
@@ -339,6 +389,7 @@ describe('completeProjectTask', () => {
 			const result = await testCompleteProjectTaskPlugin({
 				source: `
 - [ ] [[Migration Initiative]] Draft rollout plan
+  - a note that must not be lost
 `,
 				sourceFileName: '2026-07-02 Thu',
 				sourcePath: '+Diary/2026/07/2026-07-02 Thu.md',
@@ -353,6 +404,7 @@ describe('completeProjectTask', () => {
 			});
 
 			expect(result.source).toContain('- [ ] [[Migration Initiative]] Draft rollout plan');
+			expect(result.source).toContain('a note that must not be lost');
 			expect(result.error).toContain('Simulated write failure');
 		});
 	});

@@ -5,6 +5,8 @@ import {
 	findSectionRange,
 	insertUnderTargetHeading,
 	insertBlockAfterHeading,
+	insertUnderSubheading,
+	findTaskBlockEnd,
 	findTopLevelTasksInRange,
 	markTaskAsScheduled,
 	markScheduledAsOpen,
@@ -380,6 +382,115 @@ describe('insertBlockAfterHeading', () => {
 	it('accepts pre-split lines in place of a content string', () => {
 		const result = insertBlockAfterHeading(['## Log'], ['- note'], '## Log');
 		expect(result).toBe('## Log\n- note');
+	});
+});
+
+describe('insertUnderSubheading', () => {
+	it('appends to the end of an existing sub-section, before its trailing blank line', () => {
+		const content = `## Log
+
+### [[2026-07-02 Thu]]
+
+- [x] Earlier completion
+
+### [[2026-07-01 Wed]]
+
+- older entry`;
+		const result = insertUnderSubheading(content, ['- [x] New completion'], '## Log', '### [[2026-07-02 Thu]]');
+		expect(result).toBe(`## Log
+
+### [[2026-07-02 Thu]]
+
+- [x] Earlier completion
+- [x] New completion
+
+### [[2026-07-01 Wed]]
+
+- older entry`);
+	});
+
+	it('starts a new sub-section directly after the heading when none exists', () => {
+		const content = `## Log
+
+### [[2026-07-01 Wed]]
+
+- older entry`;
+		const result = insertUnderSubheading(content, ['- [x] New completion'], '## Log', '### [[2026-07-02 Thu]]');
+		expect(result).toBe(`## Log
+
+### [[2026-07-02 Thu]]
+
+- [x] New completion
+
+### [[2026-07-01 Wed]]
+
+- older entry`);
+	});
+
+	it('creates the heading at the end of the file when missing', () => {
+		const content = `## Todo
+- [ ] Task`;
+		const result = insertUnderSubheading(content, ['- [x] Done'], '## Log', '### [[2026-07-02 Thu]]');
+		expect(result).toBe(`## Todo
+- [ ] Task
+
+## Log
+
+### [[2026-07-02 Thu]]
+
+- [x] Done`);
+	});
+
+	it('ignores a matching sub-heading outside the target section', () => {
+		const content = `## Notes
+
+### [[2026-07-02 Thu]]
+
+- unrelated
+
+## Log`;
+		const result = insertUnderSubheading(content, ['- [x] Done'], '## Log', '### [[2026-07-02 Thu]]');
+		// The Notes sub-section is untouched; a new sub-section starts under ## Log
+		expect(result).toBe(`## Notes
+
+### [[2026-07-02 Thu]]
+
+- unrelated
+
+## Log
+
+### [[2026-07-02 Thu]]
+
+- [x] Done`);
+	});
+
+	it('re-renders appended entries in the target indentation unit', () => {
+		const content = `## Log
+
+### [[2026-07-02 Thu]]
+
+- [x] Earlier
+\t- tab child`;
+		const result = insertUnderSubheading(content, ['- [x] New', '  - space child'], '## Log', '### [[2026-07-02 Thu]]');
+		expect(result).toContain('\t- space child');
+		expect(result).not.toContain('  - space child');
+	});
+});
+
+describe('findTaskBlockEnd', () => {
+	it('returns the line after a childless task', () => {
+		const lines = ['- [ ] Task', '- [ ] Next'];
+		expect(findTaskBlockEnd(lines, 0)).toBe(1);
+	});
+
+	it('includes the more-indented children', () => {
+		const lines = ['- [ ] Task', '  - child', '    - grandchild', '- [ ] Next'];
+		expect(findTaskBlockEnd(lines, 0)).toBe(3);
+	});
+
+	it('keeps blank lines only when a deeper line follows them', () => {
+		const lines = ['- [ ] Task', '  - child', '', '  - after blank', '', '- [ ] Next'];
+		expect(findTaskBlockEnd(lines, 0)).toBe(4);
 	});
 });
 

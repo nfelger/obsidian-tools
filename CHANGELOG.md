@@ -5,6 +5,17 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Complete project task now works like extract log: the task's notes move into
+  the project's log entry instead of staying duplicated in the daily note
+- The finished task is removed from the project's `## Todo` section — the log
+  entry is the record
+- Completing several tasks from the same note one by one no longer repeats the
+  log sub-heading; entries accumulate under a single section per source note
+
 ## [0.13.0] - 2026-07-02
 
 ### Added
