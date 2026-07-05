@@ -143,13 +143,10 @@ Use the `cut-release` skill. It handles CHANGELOG promotion, version bumps acros
 files (`manifest.json`, `package.json`, `versions.json`), and the push to main in one atomic
 commit. CI publishes the GitHub release automatically.
 
-## Superpowers Integration
+## Plans and Specs
 
-Skills in `.claude/skills/` enforce structured development workflows. The `using-superpowers`
-skill is injected at session start via a SessionStart hook. Instructions in this CLAUDE.md
-take priority over superpowers skills.
-
-Design specs go in `docs/superpowers/specs/`, implementation plans in `docs/superpowers/plans/`.
+Design specs live in `docs/specs/`, implementation plans in `docs/plans/`, both named
+`YYYY-MM-DD-<topic>.md`.
 
 ## Adding a New Command
 

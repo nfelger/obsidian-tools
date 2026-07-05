@@ -102,9 +102,3 @@ BRAT will update automatically once the release is live.
 **Always:**
 - Confirm with user before executing
 - All four file changes in one atomic commit
-
-## Integration
-
-**Called by:**
-- **finishing-a-development-branch** — offered after a successful local merge to main
-- Can also be invoked directly when already on main

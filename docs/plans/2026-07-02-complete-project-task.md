@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, Obsidian plugin API, Vitest (markdown-first integration tests per tests/CLAUDE.md).
 
-**Spec:** `docs/superpowers/specs/2026-07-02-complete-project-task-design.md`
+**Spec:** `docs/specs/2026-07-02-complete-project-task-design.md`
 
 **User Verification:** NO — no user verification required.
 
