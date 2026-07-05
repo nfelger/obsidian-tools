@@ -139,32 +139,14 @@ experience, not what changed internally.
 
 ## Releasing a New Version
 
-From `main`, with tests passing and `## Unreleased` in `CHANGELOG.md` populated:
+Use the `cut-release` skill. It handles CHANGELOG promotion, version bumps across all three
+files (`manifest.json`, `package.json`, `versions.json`), and the push to main in one atomic
+commit. CI publishes the GitHub release automatically.
 
-1. Promote `## Unreleased` to `## [A.B.C] - YYYY-MM-DD` (today's date; don't leave a new
-   empty `## Unreleased` behind)
-2. Bump `"version"` in `manifest.json` and `package.json` to `A.B.C`
-3. Add `"A.B.C": "1.0.0"` to `versions.json`
-4. Commit all four files together (`release: bump to vA.B.C`) and push to `main`
+## Plans and Specs
 
-CI builds and publishes the GitHub release automatically; BRAT picks up the new version
-within minutes. Never cut a release from a non-main branch, with failing tests, or with
-version bumps split across commits.
-
-## Development Practices
-
-- **Plans and specs:** design specs live in `docs/specs/`, implementation plans in
-  `docs/plans/`, both named `YYYY-MM-DD-<topic>.md`.
-- **Debugging:** find the root cause before patching. Read the full error/stack trace,
-  reproduce reliably, and check what recently changed — don't guess-and-check symptom fixes.
-- **Verification:** don't claim tests pass, a bug is fixed, or a build succeeds unless
-  you've just run the command and read its output. "Should work now" is not verification.
-- **Code review:** dispatch the `code-reviewer` agent after a non-trivial feature or fix,
-  and before merging to main.
-- **Receiving feedback:** verify a suggestion against this codebase before implementing it;
-  push back with technical reasoning if it's wrong instead of agreeing performatively.
-- **Finishing a branch:** once tests pass, explicitly choose merge-locally, open a PR, keep
-  the branch, or discard it — don't leave work in limbo.
+Design specs live in `docs/specs/`, implementation plans in `docs/plans/`, both named
+`YYYY-MM-DD-<topic>.md`.
 
 ## Adding a New Command
 
