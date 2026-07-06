@@ -173,9 +173,16 @@ Log) have no collector concept.
   under some other item stays where it is; restructuring someone else's
   hierarchy is out of bounds. (Such tasks still count for dedup.)
 - **Match by link target, not display text.** `[[Project|P]]` and
-  `[[Project]]` are the same project. Prefix links must resolve to a note in
-  the projects folder (`isProjectLink`) to trigger project handling — an
-  unresolvable or non-project leading link is plain text.
+  `[[Project]]` are the same project. Source-side, a leading link must
+  *resolve* to a note in the projects folder (`isProjectLink`) to trigger
+  project handling — an unresolvable or non-project leading link is plain
+  text. Target-side scanning (inside `vault.process`, where the routine is a
+  pure function) compares link-target **basenames** instead of resolving —
+  the same string-level convention `stripProjectPrefix` and the old
+  `findCollectorTask` already use. `[[1 Projekte/Project]]` and `[[Project]]`
+  match; two distinct notes sharing a basename in different folders would
+  falsely match, which Obsidian's shortest-path link convention makes a
+  non-issue in practice.
 - **New collectors are tasks.** `- [ ] <keyword> [[Project]]` — matching what
   `takeProjectTask` creates today. Plain bullets are recognized when scanning
   but never created.
@@ -194,13 +201,17 @@ Log) have no collector concept.
     which becomes a thin wrapper or is absorbed).
   - `findCollector(...)` — replaces `findCollectorTask`: alias-aware,
     bullet-or-task, section-scoped, returns line and the link's alias.
+  - `findProjectTaskMatch(...)` — the case-1 matcher (prefix-insensitive,
+    collector-aware); lives here rather than in `tasks.ts` because it needs
+    collector recognition.
   - The shared insertion routine (working name
     `insertProjectTasksInSection`) implementing cases 1–4 plus the
     multi-select rule, taking the collector-grouping flag, returning
     merged/new counts like `insertMultipleTasksWithDeduplication`.
 - `src/utils/tasks.ts` — expose the section/sub-section slice math
-  (`findSectionRange` already exists; add the innermost-slice lookup) and a
-  prefix-insensitive variant of the `findTaskMatch` scan for case 1.
+  (`findSectionRange` already exists; add the innermost-slice lookup) and
+  extract the merge step of `insertMultipleTasksWithDeduplication` as a
+  reusable helper for case 1.
 - `src/types.ts` — extend `TaskInsertItem` (or add a project-task variant) to
   carry the resolved project and source alias.
 - `src/commands/pushTaskDown.ts`, `pullTaskUp.ts`, `migrateTask.ts`,
