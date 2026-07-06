@@ -8,7 +8,10 @@ import {
 	insertUnderCollectorTask,
 	stripProjectPrefix,
 	parseProjectPrefix,
-	linkTargetBasename
+	linkTargetBasename,
+	parseCollectorLine,
+	findCollector,
+	findPrefixedProjectTasks
 } from '../../src/utils/projects';
 
 describe('isProjectNote', () => {
@@ -122,6 +125,76 @@ describe('stripProjectPrefix (alias/path-aware)', () => {
 
 	it('leaves a different project untouched', () => {
 		expect(stripProjectPrefix('[[Other Project]] Task', 'Migration Initiative')).toBe('[[Other Project]] Task');
+	});
+});
+
+describe('parseCollectorLine', () => {
+	const kw = ['Push', 'Finish'];
+
+	it.each([
+		['- Push [[P]]'],
+		['- [ ] Push [[P]]'],
+		['- [/] Push [[P]]'],
+		['- [ ] Finish [[P]]'],
+		['- [ ] Push [[1 Projekte/P]]']
+	])('recognizes %s', (line) => {
+		expect(parseCollectorLine(line, 'P', kw)).not.toBeNull();
+	});
+
+	it('reports the alias and linkText', () => {
+		expect(parseCollectorLine('- [ ] Push [[P|prio]]', 'P', kw))
+			.toEqual({ alias: 'prio', linkText: '[[P|prio]]' });
+	});
+
+	it.each([
+		['- [x] Push [[P]]'],
+		['- [>] Push [[P]]'],
+		['- [ ] Push [[P]] tomorrow'],
+		['- [ ] Pushing [[P]]'],
+		['- [ ] Push [[Other]]'],
+		['- [ ] Push P']
+	])('rejects %s', (line) => {
+		expect(parseCollectorLine(line, 'P', kw)).toBeNull();
+	});
+});
+
+describe('findCollector / findPrefixedProjectTasks', () => {
+	const lines = `
+## Todo
+- [ ] [[P|x]] task one
+- [ ] Push [[P|prio]]
+	- [ ] nested under collector
+- [<] [[P]] task two
+- [ ] [[Other]] unrelated
+	- [ ] [[P]] nested prefixed
+## Log
+`.trim().split('\n');
+	const range = { start: 0, end: 7 };
+
+	it('finds the first collector in the section with alias', () => {
+		expect(findCollector(lines, range, 'P', ['Push'])).toEqual({
+			line: 2, alias: 'prio', linkText: '[[P|prio]]'
+		});
+	});
+
+	it('returns null when no collector matches', () => {
+		expect(findCollector(lines, range, 'Other', ['Push'])).toBeNull();
+	});
+
+	it('returns the first of several collectors', () => {
+		const dup = `
+## Todo
+- [ ] Push [[P]]
+- [ ] Finish [[P]]
+`.trim().split('\n');
+		expect(findCollector(dup, { start: 0, end: 3 }, 'P', ['Push', 'Finish'])?.line).toBe(1);
+	});
+
+	it('lists top-level live prefixed tasks only', () => {
+		expect(findPrefixedProjectTasks(lines, range, 'P')).toEqual([
+			{ line: 1, alias: 'x' },
+			{ line: 4, alias: null }
+		]);
 	});
 });
 

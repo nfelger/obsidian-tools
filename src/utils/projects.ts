@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS } from '../types';
 import { buildLineToItemMap } from './listItems';
 import { countIndent, getLeadingWhitespace, detectIndentUnit, convertIndentUnit, indentLinesWith } from './indent';
 import { findFirstResolvedLink, parseWikilinkText } from './wikilinks';
+import { TaskMarker, extractTaskText } from './tasks';
 
 /**
  * Check if a file path represents a project note.
@@ -171,6 +172,83 @@ export function parseProjectKeywords(keywordsSetting: string): string[] {
 	}
 
 	return keywords;
+}
+
+export interface CollectorLink {
+	alias: string | null;
+	/** The collector's wikilink as written, e.g. "[[P|prio]]" */
+	linkText: string;
+}
+
+/**
+ * Check whether a line is a collector for the given project: a plain bullet
+ * or live task whose content is exactly "<keyword> <wikilink>" where the
+ * link's target basename is the project (alias-aware).
+ */
+export function parseCollectorLine(
+	line: string,
+	projectName: string,
+	keywords: string[]
+): CollectorLink | null {
+	const match = line.match(/^\s*- (?:\[([ /])\] )?(.*)$/);
+	if (!match) return null;
+	const content = match[2].trim();
+	for (const keyword of keywords) {
+		if (!content.startsWith(keyword + ' ')) continue;
+		const linkMatch = content.slice(keyword.length + 1).match(/^\[\[([^\]]+)\]\]$/);
+		if (!linkMatch) continue;
+		const { linkPath, alias } = parseWikilinkText(linkMatch[1]);
+		if (linkTargetBasename(linkPath) === projectName) {
+			return { alias, linkText: linkMatch[0] };
+		}
+	}
+	return null;
+}
+
+export interface CollectorMatch extends CollectorLink {
+	line: number;
+}
+
+/** Find the first collector for the project inside a section range. */
+export function findCollector(
+	lines: string[],
+	range: { start: number; end: number },
+	projectName: string,
+	keywords: string[]
+): CollectorMatch | null {
+	for (let i = range.start + 1; i < range.end; i++) {
+		const link = parseCollectorLine(lines[i], projectName, keywords);
+		if (link) return { line: i, ...link };
+	}
+	return null;
+}
+
+export interface PrefixedTaskMatch {
+	line: number;
+	alias: string | null;
+}
+
+/**
+ * Find top-level live tasks in a section carrying a prefix for the project.
+ * Nested tasks are excluded — consolidation never restructures someone
+ * else's hierarchy.
+ */
+export function findPrefixedProjectTasks(
+	lines: string[],
+	range: { start: number; end: number },
+	projectName: string
+): PrefixedTaskMatch[] {
+	const matches: PrefixedTaskMatch[] = [];
+	for (let i = range.start + 1; i < range.end; i++) {
+		if (countIndent(lines[i]) > 0) continue;
+		const marker = TaskMarker.fromLine(lines[i]);
+		if (!marker || !(marker.isIncomplete() || marker.isScheduled())) continue;
+		const prefix = parseProjectPrefix(extractTaskText(lines[i]));
+		if (prefix && linkTargetBasename(prefix.linkTarget) === projectName) {
+			matches.push({ line: i, alias: prefix.alias });
+		}
+	}
+	return matches;
 }
 
 /**
