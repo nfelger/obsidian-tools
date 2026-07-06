@@ -262,49 +262,6 @@ export function findPrefixedProjectTasks(
 }
 
 /**
- * Find a collector task in the daily note content.
- *
- * A collector task matches the pattern: - [ ] <keyword> [[Project Name]]
- * where keyword is one of the configured project keywords (exact prefix match).
- *
- * @param content - The daily note content
- * @param projectName - The project name to look for
- * @param keywords - Array of collector keywords
- * @returns The line number of the collector task, or null if not found
- */
-export function findCollectorTask(
-	content: string,
-	projectName: string,
-	keywords: string[]
-): number | null {
-	if (!keywords.length) return null;
-
-	const lines = content.split('\n');
-
-	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i];
-
-		// Must be an incomplete task
-		if (!/^\s*- \[[ /]\]/.test(line)) continue;
-
-		// Extract text after checkbox
-		const textMatch = line.match(/^\s*- \[[ /]\]\s+(.*)$/);
-		if (!textMatch) continue;
-
-		const taskText = textMatch[1];
-
-		// Check each keyword for exact prefix match: <keyword> [[projectName]]
-		for (const keyword of keywords) {
-			if (taskText.startsWith(`${keyword} [[${projectName}]]`)) {
-				return i;
-			}
-		}
-	}
-
-	return null;
-}
-
-/**
  * Insert tasks as subtasks under a collector task at the given line.
  *
  * @param content - The file content

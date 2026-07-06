@@ -5,6 +5,18 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Project tasks now converge to one grouping per project when moved between
+  notes: pushing, pulling, or migrating a project task merges with existing
+  copies (aliases understood), joins an existing `Push [[Project]]` collector,
+  or consolidates loose `[[Project]]`-prefixed tasks under one — in weekly,
+  monthly, and yearly notes. Daily notes never group: tasks taken or pushed
+  into today's note always arrive individually, prefixed with their project
+  link. Taking multiple tasks no longer creates a collector in the daily note.
+
 ## [0.14.0] - 2026-07-03
 
 ### Changed

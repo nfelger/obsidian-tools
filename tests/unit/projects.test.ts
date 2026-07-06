@@ -6,7 +6,6 @@ import {
 	isProjectNote,
 	getProjectName,
 	parseProjectKeywords,
-	findCollectorTask,
 	insertUnderCollectorTask,
 	stripProjectPrefix,
 	parseProjectPrefix,
@@ -541,46 +540,6 @@ describe('parseProjectKeywords', () => {
 
 	it('ignores text outside quotes', () => {
 		expect(parseProjectKeywords('junk "Push" more junk "Finish"')).toEqual(['Push', 'Finish']);
-	});
-});
-
-describe('findCollectorTask', () => {
-	it('finds a collector task matching keyword + project link', () => {
-		const content = `- [ ] Push [[Migration Initiative]]
-- [ ] Some other task`;
-		expect(findCollectorTask(content, 'Migration Initiative', ['Push', 'Finish'])).toBe(0);
-	});
-
-	it('finds collector on non-first line', () => {
-		const content = `- [x] Done task
-- [ ] Finish [[Migration Initiative]]`;
-		expect(findCollectorTask(content, 'Migration Initiative', ['Push', 'Finish'])).toBe(1);
-	});
-
-	it('returns null when no collector matches', () => {
-		const content = `- [ ] Some unrelated task
-- [ ] Another task`;
-		expect(findCollectorTask(content, 'Migration Initiative', ['Push', 'Finish'])).toBeNull();
-	});
-
-	it('requires exact prefix match', () => {
-		const content = `- [ ] Pushing [[Migration Initiative]]`;
-		expect(findCollectorTask(content, 'Migration Initiative', ['Push'])).toBeNull();
-	});
-
-	it('skips completed tasks', () => {
-		const content = `- [x] Push [[Migration Initiative]]`;
-		expect(findCollectorTask(content, 'Migration Initiative', ['Push'])).toBeNull();
-	});
-
-	it('matches started tasks as collectors', () => {
-		const content = `- [/] Push [[Migration Initiative]]`;
-		expect(findCollectorTask(content, 'Migration Initiative', ['Push'])).toBe(0);
-	});
-
-	it('returns null with empty keywords', () => {
-		const content = `- [ ] Push [[Migration Initiative]]`;
-		expect(findCollectorTask(content, 'Migration Initiative', [])).toBeNull();
 	});
 });
 

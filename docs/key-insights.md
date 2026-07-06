@@ -86,3 +86,29 @@ completed/migrated child subtrees stay in the source
 complete project task move the whole subtree. Complete project task also folds
 any leftover children of the removed Todo copy into the log entry, so terminal
 subtrees left behind by take are never lost.
+
+## Project Task Consolidation
+
+Target-side insertion for project tasks (push/pull/migrate/take) goes through
+`insertProjectTasksInSection` in `src/utils/projects.ts`, scoped to the
+target heading's section. It always deduplicates first (alias-aware, matching
+a task's own prefix or the collector it sits under), then — only when a
+**collector-grouping flag** is enabled — appends under an existing collector,
+consolidates loose prefixed siblings under a new one, or creates a collector
+outright for a multi-task insert. Otherwise every task is appended
+individually, prefixed with its project link.
+
+The grouping flag derives from the **target note's type**, not the command:
+weekly/monthly/yearly targets group, daily targets never do (daily tasks are
+worked out of order and carry individual priorities, so grouping would hide
+that). This is why `takeProjectTask` (always targets today's daily note) never
+groups, `pullTaskUp` (never targets a daily note) always does, and
+`pushTaskDown`/`migrateTask` switch per hop — migrate's daily→daily case (the
+common one, every day but the last of the week) is the one place migration
+touches a daily target.
+
+Matching (`findProjectTaskMatch`, `findCollector`, `parseProjectPrefix`) is by
+link-target **basename**, not display text or resolved path — the same
+string-level convention `stripProjectPrefix` uses. Consolidation never crosses
+a sub-heading boundary within the section (`findSliceRange`) and never touches
+a task nested under something else — only top-level candidates are folded.
