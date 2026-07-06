@@ -3,6 +3,7 @@ import {
 	isIncompleteTask,
 	dedentLinesByAmount,
 	findSectionRange,
+	findSliceRange,
 	insertUnderTargetHeading,
 	insertBlockAfterHeading,
 	insertUnderSubheading,
@@ -229,6 +230,34 @@ describe('findSectionRange', () => {
 		];
 		const result = findSectionRange(lines, '### Deep');
 		expect(result).toEqual({ start: 1, end: 3 });
+	});
+});
+
+describe('findSliceRange', () => {
+	const lines = `
+## Todo
+- [ ] a
+### Later
+- [ ] b
+- [ ] c
+### Someday
+- [ ] d
+## Log
+`.trim().split('\n');
+	// 0:## Todo 1:a 2:### Later 3:b 4:c 5:### Someday 6:d 7:## Log
+	const section = { start: 0, end: 7 };
+
+	it('bounds a line before any sub-heading by the section itself', () => {
+		expect(findSliceRange(lines, section, 1)).toEqual({ start: 0, end: 2 });
+	});
+
+	it('bounds a line between sub-headings by both', () => {
+		expect(findSliceRange(lines, section, 3)).toEqual({ start: 2, end: 5 });
+		expect(findSliceRange(lines, section, 4)).toEqual({ start: 2, end: 5 });
+	});
+
+	it('bounds the last slice by the section end', () => {
+		expect(findSliceRange(lines, section, 6)).toEqual({ start: 5, end: 7 });
 	});
 });
 

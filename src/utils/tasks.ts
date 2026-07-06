@@ -156,6 +156,32 @@ export function findSectionRange(
 }
 
 /**
+ * Find the innermost heading-delimited slice of a section containing a line.
+ * Any heading line inside the section is a boundary. The returned bounds are
+ * the boundary lines themselves (section start / heading / section end);
+ * membership of a line l is: l > start && l < end.
+ */
+export function findSliceRange(
+	lines: string[],
+	section: { start: number; end: number },
+	line: number
+): { start: number; end: number } {
+	const headingPattern = /^#{1,6}\s/;
+	let start = section.start;
+	for (let i = section.start + 1; i <= line && i < section.end; i++) {
+		if (headingPattern.test(lines[i])) start = i;
+	}
+	let end = section.end;
+	for (let i = line + 1; i < section.end; i++) {
+		if (headingPattern.test(lines[i])) {
+			end = i;
+			break;
+		}
+	}
+	return { start, end };
+}
+
+/**
  * Insert content under target heading, creating it if necessary.
  *
  * @param content - Full file content
