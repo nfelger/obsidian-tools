@@ -522,6 +522,34 @@ export function insertMultipleUnderTargetHeading(
 }
 
 /**
+ * Merge an incoming task into an existing matched copy: reopen a scheduled
+ * match as open, and nest the incoming children under it (re-rendered in the
+ * target's indent unit, prefixed with the matched task's own whitespace).
+ */
+export function mergeIntoMatchedTask(
+	content: string,
+	match: TaskMatch,
+	childrenContent: string
+): string {
+	let result = content;
+	if (match.state === TaskState.Scheduled) {
+		const lines = result.split('\n');
+		lines[match.lineNumber] = markScheduledAsOpen(lines[match.lineNumber]);
+		result = lines.join('\n');
+	}
+	if (childrenContent) {
+		const resultLines = result.split('\n');
+		const childLines = childrenContent.split('\n');
+		const targetUnit = detectIndentUnit(resultLines);
+		const converted = targetUnit ? convertIndentUnit(childLines, targetUnit) : childLines;
+		const matchedWs = getLeadingWhitespace(resultLines[match.lineNumber]);
+		const indentedChildren = indentLinesWith(converted, matchedWs).join('\n');
+		result = insertChildrenUnderTask(result, match.lineNumber, indentedChildren);
+	}
+	return result;
+}
+
+/**
  * Insert multiple tasks with deduplication, preserving original order.
  *
  * For each task (processed in the provided order):
@@ -549,25 +577,7 @@ export function insertMultipleTasksWithDeduplication(
 		const match = findTaskMatch(result, task.taskText);
 
 		if (match) {
-			if (match.state === TaskState.Scheduled) {
-				const lines = result.split('\n');
-				lines[match.lineNumber] = markScheduledAsOpen(lines[match.lineNumber]);
-				result = lines.join('\n');
-			}
-
-			if (task.childrenContent) {
-				// Children carry one level of indent relative to their task.
-				// Re-render them in the target's unit and nest them under the
-				// matched task by prefixing its own leading whitespace.
-				const resultLines = result.split('\n');
-				const childLines = task.childrenContent.split('\n');
-				const targetUnit = detectIndentUnit(resultLines);
-				const converted = targetUnit ? convertIndentUnit(childLines, targetUnit) : childLines;
-				const matchedWs = getLeadingWhitespace(resultLines[match.lineNumber]);
-				const indentedChildren = indentLinesWith(converted, matchedWs).join('\n');
-				result = insertChildrenUnderTask(result, match.lineNumber, indentedChildren);
-			}
-
+			result = mergeIntoMatchedTask(result, match, task.childrenContent);
 			mergedCount++;
 		} else {
 			newTaskContents.push(task.taskContent);
