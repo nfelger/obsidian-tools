@@ -4,8 +4,9 @@ import { PeriodicNoteService } from '../utils/periodicNotes';
 import { getPeriodicConfig } from '../utils/periodicNoteCreator';
 import { dedentLinesByAmount, insertMultipleUnderTargetHeading, TaskMarker } from '../utils/tasks';
 import { countIndent } from '../utils/indent';
-import { findProjectLinkInAncestors } from '../utils/projects';
+import { detectProjectContext, insertProjectTasksInSection, parseProjectKeywords } from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
+import type { ProjectTaskInsertItem } from '../types';
 import {
 	getActiveMarkdownFile,
 	getOrCreateFile,
@@ -68,6 +69,7 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 		// Phase 1: Collect content (read-only — the source is not touched until
 		// the target write has succeeded, so a failure cannot lose content)
 		const collectedContent: string[] = [];
+		const projectGroups = new Map<string, ProjectTaskInsertItem[]>();
 		const sourceEdits: Array<{
 			taskLine: number;
 			migratedLine: string;
@@ -85,26 +87,34 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 			const parentLineStripped = lineText.slice(parentIndent);
 			// Convert started [/] to open [ ] in target
 			const marker = TaskMarker.fromLine(parentLineStripped);
-			let parentLineForTarget = marker ? marker.toOpen().applyToLine(parentLineStripped) : parentLineStripped;
+			const parentLineForTarget = marker ? marker.toOpen().applyToLine(parentLineStripped) : parentLineStripped;
 
-			// A task nested under a project bullet loses that context in the
-			// target (it arrives top-level) — restore it by prepending the
-			// project link. Links already on the task line stay as they are.
-			const projectLink = findProjectLinkInAncestors(
-				editor, listItems, taskLine, file.path, resolver, plugin.settings
-			);
-			if (projectLink && projectLink.line !== taskLine) {
-				parentLineForTarget = TaskMarker.prependToContent(
-					parentLineForTarget, `[[${projectLink.link.basename}]]`
-				);
-			}
-
-			let taskContent = parentLineForTarget;
+			let childrenContent = '';
 			if (children && children.lines.length > 0) {
 				const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
-				taskContent += '\n' + dedentedChildren.join('\n');
+				childrenContent = dedentedChildren.join('\n');
 			}
-			collectedContent.push(taskContent);
+
+			// A task nested under a project bullet loses that context in the
+			// target (it arrives top-level) — restore it via its collector's
+			// project link. Links already on the task line stay as they are.
+			const ctx = detectProjectContext(editor, listItems, taskLine, file.path, resolver, plugin.settings);
+			if (ctx) {
+				const strippedLine = ctx.hasOwnPrefix
+					? TaskMarker.replaceContent(parentLineForTarget, ctx.strippedText)
+					: parentLineForTarget;
+				const group = projectGroups.get(ctx.projectName) ?? [];
+				group.push({
+					taskText: ctx.strippedText,
+					taskContent: childrenContent ? `${strippedLine}\n${childrenContent}` : strippedLine,
+					childrenContent,
+					linkText: ctx.linkText
+				});
+				projectGroups.set(ctx.projectName, group);
+			} else {
+				const taskContent = childrenContent ? `${parentLineForTarget}\n${childrenContent}` : parentLineForTarget;
+				collectedContent.push(taskContent);
+			}
 
 			const sourceMarker = TaskMarker.fromLine(lineText);
 			const migratedLine = sourceMarker ? sourceMarker.toMigrated().applyToLine(lineText) : lineText;
@@ -114,10 +124,20 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 		// Phase 2: Insert into target in original order
 		// Content was collected bottom-to-top, reverse to restore original order
 		collectedContent.reverse();
+		for (const items of projectGroups.values()) items.reverse();
 
 		const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
+		const keywords = parseProjectKeywords(plugin.settings.projectKeywords);
+		const targetBasename = targetPath.split('/').pop()!.replace(/\.md$/, '');
+		const targetInfo = noteService.parseNoteType(targetBasename);
+		const groupUnderCollector = targetInfo ? targetInfo.type !== 'daily' : true;
 		await plugin.app.vault.process(targetFile, (data: string) => {
-			return insertMultipleUnderTargetHeading(data, collectedContent, targetHeading);
+			let result = insertMultipleUnderTargetHeading(data, collectedContent, targetHeading);
+			for (const [name, items] of projectGroups) {
+				const r = insertProjectTasksInSection(result, name, items, { targetHeading, keywords, groupUnderCollector });
+				result = r.content;
+			}
+			return result;
 		});
 
 		// Phase 3: Mark source tasks as migrated and remove transferred children

@@ -567,4 +567,84 @@ title: Note
 		});
 	});
 
+	describe('project-aware insertion', () => {
+		it('daily→daily never groups, even next to an existing collector', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] [[Migration Initiative]] New task
+`,
+				sourceFileName: '2026-01-22 Thu', // migrates to next daily
+				targetContent: `
+## Todo
+- [ ] Push [[Migration Initiative]]
+	- [ ] other task
+`,
+				cursorLine: 0,
+				projects: ['Migration Initiative']
+			});
+
+			const lines = result.target!.split('\n');
+			expect(lines).toContain('- [ ] [[Migration Initiative]] New task');
+			expect(lines).not.toContain('\t- [ ] New task');
+			expect(result.source).toContain('- [>] [[Migration Initiative]] New task');
+		});
+
+		it('daily→weekly (last day of the week) consolidates under a new collector', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] [[Migration Initiative]] New goal
+`,
+				sourceFileName: '2026-01-18 Sun', // last day of the week, migrates to weekly
+				targetContent: `
+## Todo
+- [ ] [[Migration Initiative|MI]] Existing goal
+`,
+				cursorLine: 0,
+				projects: ['Migration Initiative']
+			});
+
+			const lines = result.target!.split('\n');
+			const collectorIdx = lines.indexOf('- [ ] Push [[Migration Initiative|MI]]');
+			expect(collectorIdx).toBeGreaterThan(-1);
+			expect(lines[collectorIdx + 1]).toBe('\t- [ ] Existing goal');
+			expect(lines[collectorIdx + 2]).toBe('\t- [ ] New goal');
+		});
+
+		it('merges a project task with an existing copy instead of duplicating', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] [[Migration Initiative]] Draft plan
+	- new note
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: `
+## Todo
+- [<] [[Migration Initiative]] Draft plan
+`,
+				cursorLine: 0,
+				projects: ['Migration Initiative']
+			});
+
+			expect(result.target!.match(/Draft plan/g)).toHaveLength(1);
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Draft plan');
+			expect(result.target).toContain('- new note');
+		});
+
+		it('a non-project task still duplicates when it already exists in the target (no dedup)', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Recurring task
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: `
+## Todo
+- [ ] Recurring task
+`,
+				cursorLine: 0
+			});
+
+			expect(result.target!.match(/Recurring task/g)).toHaveLength(2);
+		});
+	});
+
 });
