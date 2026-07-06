@@ -290,6 +290,97 @@ describe('insertProjectTasksInSection — grouping disabled', () => {
 	});
 });
 
+describe('insertProjectTasksInSection — existing collector (case 2)', () => {
+	const opts = { targetHeading: '## Todo', keywords: ['Push'], groupUnderCollector: true };
+	const item = (taskText: string, linkText: string, childrenContent = '') => ({
+		taskText,
+		taskContent: childrenContent ? `- [ ] ${taskText}\n${childrenContent}` : `- [ ] ${taskText}`,
+		childrenContent,
+		linkText
+	});
+
+	it('appends under the collector as the last item, stripped', () => {
+		const content = `
+## Todo
+- [ ] Push [[P|prio]]
+	- [ ] existing child
+- [ ] unrelated
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
+		expect(result.content.split('\n')).toEqual([
+			'## Todo',
+			'- [ ] Push [[P|prio]]',
+			'\t- [ ] existing child',
+			'\t- [ ] New task',
+			'- [ ] unrelated'
+		]);
+	});
+
+	it('recognizes a plain-bullet collector', () => {
+		const content = `
+## Todo
+- Push [[P]]
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
+		expect(result.content).toContain('- Push [[P]]\n\t- [ ] New task');
+	});
+
+	it('folds a stray prefixed sibling in the collector slice under it', () => {
+		const content = `
+## Todo
+- [ ] [[P|x]] stray task
+	- stray child
+- [ ] Push [[P]]
+	- [ ] existing child
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
+		expect(result.content.split('\n')).toEqual([
+			'## Todo',
+			'- [ ] Push [[P]]',
+			'\t- [ ] existing child',
+			'\t- [ ] stray task',
+			'\t\t- stray child',
+			'\t- [ ] New task'
+		]);
+	});
+
+	it('leaves a stray in another sub-section alone', () => {
+		const content = `
+## Todo
+- [ ] Push [[P]]
+### Someday
+- [ ] [[P]] stray elsewhere
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
+		expect(result.content).toContain('### Someday\n- [ ] [[P]] stray elsewhere');
+	});
+
+	it('dedup beats the collector: a matching copy under it merges instead of appending', () => {
+		const content = `
+## Todo
+- [ ] Push [[P]]
+	- [<] Review PR
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('Review PR', '[[P]]', '\t- new note')], opts);
+		expect(result.mergedCount).toBe(1);
+		expect(result.newCount).toBe(0);
+		expect(result.content.match(/Review PR/g)).toHaveLength(1);
+		expect(result.content).toContain('- [ ] Review PR');
+	});
+
+	it('re-renders appended tasks in the target indent unit (spaces)', () => {
+		const content = `
+## Todo
+- [ ] Push [[P]]
+  - [ ] existing child
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]', '\t- tab child')], opts);
+		expect(result.content).toContain('  - [ ] New task');
+		expect(result.content).toContain('    - tab child');
+		expect(result.content).not.toContain('\t');
+	});
+});
+
 describe('parseProjectKeywords', () => {
 	it('parses comma-separated quoted keywords', () => {
 		expect(parseProjectKeywords('"Push", "Finish"')).toEqual(['Push', 'Finish']);

@@ -16,6 +16,7 @@ import {
 	findTaskBlockEnd,
 	insertMultipleUnderTargetHeading,
 	mergeIntoMatchedTask,
+	findSliceRange,
 	type TaskMatch
 } from './tasks';
 import type { ProjectTaskInsertItem } from '../types';
@@ -451,6 +452,47 @@ function insertUnderProjectGrouping(
 	remaining: ProjectTaskInsertItem[],
 	options: ProjectInsertionOptions
 ): string | null {
+	const lines = content.split('\n');
+	const range = findSectionRange(lines, options.targetHeading);
+	if (!range) return null;
+
+	const collector = findCollector(lines, range, projectName, options.keywords);
+	if (collector) {
+		const slice = findSliceRange(lines, range, collector.line);
+		const strays = findPrefixedProjectTasks(lines, range, projectName)
+			.filter(s => s.line > slice.start && s.line < slice.end);
+		return foldIntoCollector(lines, collector.line, strays, remaining);
+	}
+
 	return null;
+}
+
+/**
+ * Move stray prefixed task blocks under a collector (prefixes stripped) and
+ * append the remaining new tasks after them, as the collector's last items.
+ */
+function foldIntoCollector(
+	lines: string[],
+	collectorLine: number,
+	strays: PrefixedTaskMatch[],
+	remaining: ProjectTaskInsertItem[]
+): string {
+	const strayBlocks: string[] = [];
+	const ranges: Array<{ start: number; end: number }> = [];
+	for (const stray of strays) {
+		const end = findTaskBlockEnd(lines, stray.line);
+		const block = lines.slice(stray.line, end);
+		const prefix = parseProjectPrefix(extractTaskText(block[0]));
+		if (prefix) block[0] = TaskMarker.replaceContent(block[0], prefix.rest);
+		strayBlocks.push(block.join('\n'));
+		ranges.push({ start: stray.line, end });
+	}
+	let adjustedCollector = collectorLine;
+	for (const range of [...ranges].reverse()) {
+		lines.splice(range.start, range.end - range.start);
+		if (range.end <= adjustedCollector) adjustedCollector -= range.end - range.start;
+	}
+	const block = [...strayBlocks, ...remaining.map(t => t.taskContent)].join('\n');
+	return insertUnderCollectorTask(lines.join('\n'), adjustedCollector, block);
 }
 
