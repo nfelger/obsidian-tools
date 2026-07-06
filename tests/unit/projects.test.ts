@@ -11,7 +11,8 @@ import {
 	linkTargetBasename,
 	parseCollectorLine,
 	findCollector,
-	findPrefixedProjectTasks
+	findPrefixedProjectTasks,
+	findProjectTaskMatch
 } from '../../src/utils/projects';
 
 describe('isProjectNote', () => {
@@ -195,6 +196,43 @@ describe('findCollector / findPrefixedProjectTasks', () => {
 			{ line: 1, alias: 'x' },
 			{ line: 4, alias: null }
 		]);
+	});
+});
+
+describe('findProjectTaskMatch', () => {
+	const opts = { heading: '## Todo', keywords: ['Push'] };
+	const content = `
+## Todo
+- [ ] [[P|alias]] prefixed copy
+- [ ] Push [[P]]
+	- [<] under collector
+	- [x] done under collector
+- [ ] plain task
+- [ ] [[Other]] wrong project
+
+## Log
+- [ ] [[P]] outside section
+`.trim();
+
+	it('matches a prefixed copy alias-insensitively', () => {
+		expect(findProjectTaskMatch(content, 'prefixed copy', 'P', opts))
+			.toEqual({ lineNumber: 1, state: ' ' });
+	});
+
+	it('matches a scheduled copy under the collector', () => {
+		expect(findProjectTaskMatch(content, 'under collector', 'P', opts))
+			.toEqual({ lineNumber: 3, state: '<' });
+	});
+
+	it('ignores completed copies, plain tasks, and other projects', () => {
+		expect(findProjectTaskMatch(content, 'done under collector', 'P', opts)).toBeNull();
+		expect(findProjectTaskMatch(content, 'plain task', 'P', opts)).toBeNull();
+		expect(findProjectTaskMatch(content, 'wrong project', 'P', opts)).toBeNull();
+	});
+
+	it('ignores copies outside the section and missing sections', () => {
+		expect(findProjectTaskMatch(content, 'outside section', 'P', opts)).toBeNull();
+		expect(findProjectTaskMatch('- [ ] [[P]] x', 'x', 'P', opts)).toBeNull();
 	});
 });
 

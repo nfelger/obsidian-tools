@@ -9,7 +9,7 @@ import { DEFAULT_SETTINGS } from '../types';
 import { buildLineToItemMap } from './listItems';
 import { countIndent, getLeadingWhitespace, detectIndentUnit, convertIndentUnit, indentLinesWith } from './indent';
 import { findFirstResolvedLink, parseWikilinkText } from './wikilinks';
-import { TaskMarker, extractTaskText } from './tasks';
+import { TaskMarker, extractTaskText, findSectionRange, findTaskBlockEnd, type TaskMatch } from './tasks';
 
 /**
  * Check if a file path represents a project note.
@@ -337,5 +337,44 @@ export function insertUnderCollectorTask(
 
 	lines.splice(insertLine, 0, indentedContent);
 	return lines.join('\n');
+}
+
+/**
+ * Find a live copy of a project task within a section: same stripped text and
+ * same project, associated either by its own (alias-aware) prefix or by the
+ * matching collector it sits under. Terminal copies never match.
+ */
+export function findProjectTaskMatch(
+	content: string | string[],
+	strippedText: string,
+	projectName: string,
+	options: { heading: string; keywords: string[] }
+): TaskMatch | null {
+	if (!strippedText) return null;
+	const lines = Array.isArray(content) ? content : content.split('\n');
+	const range = findSectionRange(lines, options.heading);
+	if (!range) return null;
+
+	const collectorBlocks: Array<{ start: number; end: number }> = [];
+	for (let i = range.start + 1; i < range.end; i++) {
+		if (parseCollectorLine(lines[i], projectName, options.keywords)) {
+			collectorBlocks.push({ start: i + 1, end: Math.min(findTaskBlockEnd(lines, i), range.end) });
+		}
+	}
+	const underCollector = (i: number) => collectorBlocks.some(b => i >= b.start && i < b.end);
+
+	for (let i = range.start + 1; i < range.end; i++) {
+		const marker = TaskMarker.fromLine(lines[i]);
+		if (!marker || !(marker.isIncomplete() || marker.isScheduled())) continue;
+		const text = extractTaskText(lines[i]);
+		const prefix = parseProjectPrefix(text);
+		if (prefix && linkTargetBasename(prefix.linkTarget) === projectName && prefix.rest === strippedText) {
+			return { lineNumber: i, state: marker.state };
+		}
+		if (underCollector(i) && text === strippedText) {
+			return { lineNumber: i, state: marker.state };
+		}
+	}
+	return null;
 }
 
