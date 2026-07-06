@@ -1,6 +1,8 @@
 # Design: Project-Aware Task Consolidation
 
-Date: 2026-07-06
+Date: 2026-07-06 (revised same day: daily notes never group tasks under
+collectors — daily tasks are completed out of order and carry different
+priorities, so they stay individually prefixed)
 Status: Proposed
 
 ## Problem
@@ -27,8 +29,15 @@ target side, and partially blind on the source side:
   repeated takes/pushes duplicate tasks under the collector.
 
 The desired invariant: **within a Todo section, each project converges toward a
-single grouping** — a collector once two or more tasks exist, a single prefixed
-task before that — and matching is alias-aware everywhere.
+single shape** — and matching is alias-aware everywhere. Which shape depends on
+the target note type:
+
+- **Weekly, monthly, and yearly notes** converge toward one *collector* per
+  project once two or more tasks exist (a single prefixed task before that).
+- **Daily notes** never group tasks under collectors. Daily tasks are unlikely
+  to be completed in order and carry different priorities, so grouping them
+  hides exactly the distinctions the daily list exists to show. Each project
+  task stays an individually prefixed task.
 
 ## Terminology
 
@@ -55,17 +64,21 @@ task before that — and matching is alias-aware everywhere.
 
 A new shared routine used by all four commands. Input: the target content, the
 target heading, the resolved project (name plus the source link's alias, if
-any), and the tasks to insert (project-stripped text, full content, children).
-All scanning is scoped to the target heading's section.
+any), the tasks to insert (project-stripped text, full content, children), and
+a **collector-grouping flag** — set by the caller from the target note type:
+enabled for weekly/monthly/yearly targets, disabled for daily targets. All
+scanning is scoped to the target heading's section.
 
-For each task, in order:
+For each task, in order (cases 2 and 3 are skipped when grouping is disabled):
 
 1. **Dedup first.** Scan the section for a live (open/started/scheduled) task
    whose *project-stripped* text equals the pushed task's stripped text and
    whose project matches — either via its own prefix (alias-aware) or via the
    collector it sits under. On match: reopen `[<]` as `[ ]`, merge children
    under it (existing dedup semantics). The task keeps its current shape and
-   position; no structural change follows.
+   position; no structural change follows. Dedup applies regardless of the
+   grouping flag — merging into an existing copy under a manually created
+   collector in a daily note is deduplication, not grouping.
 2. **Collector exists.** If the section contains a collector for the project
    (first one wins when several exist), append the task under it as the last
    child, with its project prefix stripped. Stray top-level prefixed tasks for
@@ -85,12 +98,17 @@ For each task, in order:
 4. **No match.** Append the task at the end of the section (current placement),
    as a prefixed task. The prefix is the task's own link taken as-is when it
    has one; otherwise the source collector's link — including its alias.
+   With grouping disabled this is the only insertion shape: even when the
+   daily note contains a collector for the project (e.g. created manually),
+   the new task is appended prefixed at the end of the section, not under it.
 
-**Multi-select in one invocation:** when a single command run inserts two or
-more *new* tasks for the same project and cases 1–3 all miss, a collector is
-created for them directly (generalizing `takeProjectTask`'s current multi-take
-behavior) instead of appending two prefixed siblings that the next run would
-consolidate anyway. A single new task follows case 4.
+**Multi-select in one invocation** (grouping enabled only): when a single
+command run inserts two or more *new* tasks for the same project and cases 1–3
+all miss, a collector is created for them directly (generalizing
+`takeProjectTask`'s current multi-take behavior) instead of appending two
+prefixed siblings that the next run would consolidate anyway. A single new
+task follows case 4. With grouping disabled, every new task is an individual
+prefixed append.
 
 Non-project tasks are unaffected: they keep the current whole-file dedup and
 flat append-under-heading path.
@@ -98,21 +116,31 @@ flat append-under-heading path.
 ## Command changes
 
 - **`pushTaskDown`** — detects project tasks (own-line prefix or ancestor
-  link); routes them through the shared insertion. Non-project tasks unchanged.
-- **`pullTaskUp`** — same treatment. This is new ground: today the command has
-  no project awareness at all, so tasks pulled out from under a collector
-  currently lose their project entirely.
+  link); routes them through the shared insertion. Grouping is enabled for
+  yearly→monthly and monthly→weekly pushes, disabled for weekly→daily pushes:
+  a task pushed into the daily note always arrives as an individually prefixed
+  task (prefix inherited from the source collector when needed). Non-project
+  tasks unchanged.
+- **`pullTaskUp`** — same treatment, grouping always enabled (targets are
+  weekly/monthly/yearly by construction). This is new ground: today the
+  command has no project awareness at all, so tasks pulled out from under a
+  collector currently lose their project entirely.
 - **`migrateTask`** — keeps its existing prefix restoration, and its target
-  insertion becomes project-aware for project tasks. Note this introduces
-  dedup for project tasks in a command that currently never dedups; a migrated
-  task whose text already lives in the target merges instead of duplicating.
-  Non-project tasks keep the current no-dedup append.
-- **`takeProjectTask`** — replaces its bespoke collector block with the shared
-  routine. Behavior deltas: single takes now consolidate with an existing
-  prefixed sibling (case 3); dedup becomes alias-aware and also applies under
-  collectors (case 1); aliased collectors are found (case 2). The existing
-  "multiple takes create a collector" behavior is preserved via the
-  multi-select rule.
+  insertion becomes project-aware for project tasks; grouping always enabled
+  (migration targets are weekly or above by the boundary rules — a daily note
+  is never a migration target). Note this introduces dedup for project tasks
+  in a command that currently never dedups; a migrated task whose text already
+  lives in the target merges instead of duplicating. Non-project tasks keep
+  the current no-dedup append.
+- **`takeProjectTask`** — always targets today's daily note, so grouping is
+  always **disabled**. This *reverses* two pieces of shipped behavior: taken
+  tasks are no longer inserted under an existing collector, and multi-take no
+  longer creates one. Every taken task arrives as `- [ ] [[Project]] Task`
+  under the target heading. What it gains from the shared routine: dedup
+  becomes alias-aware, prefix-insensitive, and also matches copies sitting
+  under a collector (case 1), so repeated takes merge instead of duplicating.
+  The bespoke collector block (`findCollectorTask` lookup, collector creation,
+  `insertUnderCollectorTask`) is removed from the command.
 
 `dropTaskToProject` and `completeProjectTask` are out of scope: their
 prefix-stripping is already alias-aware, and their targets (project note Todo /
@@ -120,13 +148,21 @@ Log) have no collector concept.
 
 ## Decisions
 
+- **Daily notes never group.** Collector grouping is a planning shape for
+  weekly/monthly/yearly notes. In the daily note, tasks are worked in whatever
+  order the day demands and carry individual priorities, so grouping them
+  under a collector obscures rather than organizes — every project task in a
+  daily note is an individually prefixed task. Collectors in daily notes
+  remain meaningful as *source-side* context (ancestor detection for
+  migrate/drop/complete is unchanged); the commands just never create them or
+  insert under them there.
 - **Dedup beats restructuring.** When the incoming task already exists in the
   target, merging is strictly better than consolidating two copies under a
   collector — after the merge there is nothing left to consolidate.
-- **Collectors absorb strays.** When a collector exists, matching prefixed
-  tasks in its sub-section slice fold under it rather than being left as
-  parallel structure. This keeps the one-grouping-per-project invariant
-  self-healing over time.
+- **Collectors absorb strays** (grouping-enabled targets only). When a
+  collector exists, matching prefixed tasks in its sub-section slice fold
+  under it rather than being left as parallel structure. This keeps the
+  one-grouping-per-project invariant self-healing over time.
 - **Consolidation respects heading boundaries.** Some Todo sections are
   structured with sub-headings; tasks are never moved across a heading
   boundary. When matches span slices, the command degrades to a plain prefixed
@@ -158,8 +194,8 @@ Log) have no collector concept.
     bullet-or-task, section-scoped, returns line and the link's alias.
   - The shared insertion routine (working name
     `insertProjectTasksInSection`) implementing cases 1–4 plus the
-    multi-select rule, returning merged/new counts like
-    `insertMultipleTasksWithDeduplication`.
+    multi-select rule, taking the collector-grouping flag, returning
+    merged/new counts like `insertMultipleTasksWithDeduplication`.
 - `src/utils/tasks.ts` — expose the section/sub-section slice math
   (`findSectionRange` already exists; add the innermost-slice lookup) and a
   prefix-insensitive variant of the `findTaskMatch` scan for case 1.
@@ -176,10 +212,10 @@ No new settings: reuses `projectKeywords`, `projectsFolder`, and
 ## Examples
 
 Pushing `- [ ] Draft update` from under `- [ ] Push [[Engineering Update|EU]]`
-in the weekly note:
+in the **monthly** note into the **weekly** note (grouping enabled):
 
-Target has a single prefixed task (case 3, alias from target absent, source
-alias used):
+Weekly note has a single prefixed task (case 3, alias from target absent,
+source alias used):
 
 ```
 ## Todo                              ## Todo
@@ -188,7 +224,7 @@ alias used):
                                      	- [ ] Draft update
 ```
 
-Target has a collector (case 2):
+Weekly note has a collector (case 2):
 
 ```
 ## Todo                              ## Todo
@@ -202,6 +238,17 @@ No match (case 4 — prefix inherited from the source collector, alias kept):
 ```
 ## Todo                              ## Todo
 - [ ] Unrelated task             →   - [ ] Unrelated task
+                                     - [ ] [[Engineering Update|EU]] Draft update
+```
+
+Pushing the same task from the **weekly** note into the **daily** note
+(grouping disabled) — always a prefixed append, even next to an existing
+prefixed task or a manually created collector:
+
+```
+## Todo                              ## Todo
+- [ ] [[Engineering Update]] Ask     - [ ] [[Engineering Update]] Ask
+      Samir for numbers          →         Samir for numbers
                                      - [ ] [[Engineering Update|EU]] Draft update
 ```
 
@@ -226,15 +273,23 @@ Unit (`tests/unit/`):
   wins, source-alias fallback); stray folding under an existing collector;
   sub-section boundary → fallback to prefixed append; multi-select collector
   creation; nested prefixed tasks excluded from consolidation; dedup under a
-  collector reopens `[<]` and merges children; indent-unit conversion.
+  collector reopens `[<]` and merges children; indent-unit conversion;
+  grouping disabled → prefixed append even when a collector or prefixed
+  sibling exists, while dedup (including under a collector) still merges.
 
 Integration (`tests/integration/`, markdown-first), per command:
 - push/pull/migrate: task under a collector keeps project context in the
   target; each of cases 1–4 end-to-end; non-project tasks unchanged
   (regression on the existing dedup suites).
-- `takeProjectTask`: single take consolidates with an existing prefixed
-  sibling; take into an aliased collector; repeated take of the same task
-  merges instead of duplicating; multi-take collector creation preserved.
+- `pushTaskDown`: monthly→weekly groups (cases 2–3); weekly→daily never
+  groups — prefixed append next to an existing collector, prefix inherited
+  from the source collector.
+- `takeProjectTask`: taken tasks always arrive prefixed — no insertion under
+  an existing collector, no collector creation on multi-take (both are
+  deliberate reversals of current behavior; the old tests covering them are
+  replaced, not deleted-to-pass); repeated take of the same task merges
+  instead of duplicating, including when the daily copy sits under a
+  manually created collector; alias-aware dedup.
 - `migrateTask`: project task merges with an existing copy; non-project task
   still duplicates as today.
 
