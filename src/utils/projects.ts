@@ -542,3 +542,52 @@ function foldIntoCollector(
 	return insertUnderCollectorTask(lines.join('\n'), adjustedCollector, block);
 }
 
+export interface ProjectTaskContext {
+	/** Project note basename */
+	projectName: string;
+	/** Link to render when a prefix is needed, verbatim from the source */
+	linkText: string;
+	/** Task text without the prefix */
+	strippedText: string;
+	hasOwnPrefix: boolean;
+}
+
+/**
+ * Determine whether a task belongs to a project: its own leading prefix
+ * (which must resolve into the projects folder) wins, then the ancestor
+ * chain (collectors, project bullets). A mid-line link on the task's own
+ * line does not make it a project task.
+ */
+export function detectProjectContext(
+	editor: { getLine: (line: number) => string },
+	listItems: ListItem[],
+	taskLine: number,
+	sourcePath: string,
+	resolver: LinkResolver,
+	settings: BulletFlowSettings = DEFAULT_SETTINGS
+): ProjectTaskContext | null {
+	const taskText = extractTaskText(editor.getLine(taskLine));
+	const prefix = parseProjectPrefix(taskText);
+	if (prefix) {
+		const resolved = resolver.resolve(prefix.linkTarget, sourcePath);
+		if (resolved && isProjectLink(resolved, settings)) {
+			return {
+				projectName: resolved.basename,
+				linkText: prefix.linkText,
+				strippedText: prefix.rest,
+				hasOwnPrefix: true
+			};
+		}
+	}
+	const ancestor = findProjectLinkInAncestors(editor, listItems, taskLine, sourcePath, resolver, settings);
+	if (ancestor && ancestor.line !== taskLine) {
+		return {
+			projectName: ancestor.link.basename,
+			linkText: ancestor.link.matchText,
+			strippedText: taskText,
+			hasOwnPrefix: false
+		};
+	}
+	return null;
+}
+

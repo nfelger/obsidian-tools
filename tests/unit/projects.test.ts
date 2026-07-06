@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../src/types';
+import type { ListItem } from '../../src/types';
+import { parseMarkdownToListItems } from '../helpers/markdownParser.js';
 import {
 	isProjectNote,
 	getProjectName,
@@ -13,7 +15,8 @@ import {
 	findCollector,
 	findPrefixedProjectTasks,
 	findProjectTaskMatch,
-	insertProjectTasksInSection
+	insertProjectTasksInSection,
+	detectProjectContext
 } from '../../src/utils/projects';
 
 describe('isProjectNote', () => {
@@ -623,5 +626,61 @@ describe('insertUnderCollectorTask', () => {
 \t\t- [ ] Define rollback
 \t\t\t- check constraints
 - [ ] Other`);
+	});
+});
+
+describe('detectProjectContext', () => {
+	const resolver = {
+		resolve: (linkPath: string) => {
+			const basename = linkPath.split('/').pop()!;
+			if (['P', 'Other'].includes(basename)) {
+				return { path: `1 Projekte/${basename}.md`, basename, extension: 'md', index: 0, matchText: '', inner: '' };
+			}
+			return null;
+		}
+	};
+	const setup = (markdown: string) => {
+		const content = markdown.replace(/^\n/, '').replace(/\n$/, '');
+		const listItems = parseMarkdownToListItems(content) as ListItem[];
+		return { editor: { getLine: (n: number) => content.split('\n')[n] }, listItems };
+	};
+
+	it('detects an own aliased prefix', () => {
+		const { editor, listItems } = setup(`
+- [ ] [[P|EU]] Draft plan
+`);
+		expect(detectProjectContext(editor, listItems, 0, 'daily.md', resolver)).toEqual({
+			projectName: 'P',
+			linkText: '[[P|EU]]',
+			strippedText: 'Draft plan',
+			hasOwnPrefix: true
+		});
+	});
+
+	it('detects a collector ancestor', () => {
+		const { editor, listItems } = setup(`
+- [ ] Push [[P|EU]]
+	- [ ] Draft plan
+`);
+		expect(detectProjectContext(editor, listItems, 1, 'daily.md', resolver)).toEqual({
+			projectName: 'P',
+			linkText: '[[P|EU]]',
+			strippedText: 'Draft plan',
+			hasOwnPrefix: false
+		});
+	});
+
+	it('ignores a mid-line project link on the task line itself', () => {
+		const { editor, listItems } = setup(`
+- [ ] Ask about [[P]] tomorrow
+`);
+		expect(detectProjectContext(editor, listItems, 0, 'daily.md', resolver)).toBeNull();
+	});
+
+	it('ignores a leading link that is not a project note', () => {
+		const { editor, listItems } = setup(`
+- [ ] [[Some Note]] Draft plan
+`);
+		expect(detectProjectContext(editor, listItems, 0, 'daily.md', resolver)).toBeNull();
 	});
 });
