@@ -1151,3 +1151,13 @@ describe('insertMultipleTasksWithDeduplication', () => {
 	});
 });
 
+describe('TaskMarker.replaceContent', () => {
+	it('replaces content keeping indent and marker', () => {
+		expect(TaskMarker.replaceContent('\t- [/] [[P|x]] Task text', 'Task text')).toBe('\t- [/] Task text');
+	});
+
+	it('leaves non-task lines untouched', () => {
+		expect(TaskMarker.replaceContent('- just a bullet', 'Other')).toBe('- just a bullet');
+	});
+});
+

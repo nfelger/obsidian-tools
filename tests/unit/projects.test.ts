@@ -6,7 +6,9 @@ import {
 	parseProjectKeywords,
 	findCollectorTask,
 	insertUnderCollectorTask,
-	stripProjectPrefix
+	stripProjectPrefix,
+	parseProjectPrefix,
+	linkTargetBasename
 } from '../../src/utils/projects';
 
 describe('isProjectNote', () => {
@@ -72,6 +74,54 @@ describe('stripProjectPrefix', () => {
 
 	it('handles project names with special regex characters', () => {
 		expect(stripProjectPrefix('[[My (Project)|MP]] Task', 'My (Project)')).toBe('Task');
+	});
+});
+
+describe('parseProjectPrefix', () => {
+	it('parses a plain prefix', () => {
+		expect(parseProjectPrefix('[[Migration Initiative]] Draft plan')).toEqual({
+			linkTarget: 'Migration Initiative',
+			alias: null,
+			linkText: '[[Migration Initiative]]',
+			rest: 'Draft plan'
+		});
+	});
+
+	it('parses an aliased prefix', () => {
+		expect(parseProjectPrefix('[[Migration Initiative|MI]] Draft plan')).toEqual({
+			linkTarget: 'Migration Initiative',
+			alias: 'MI',
+			linkText: '[[Migration Initiative|MI]]',
+			rest: 'Draft plan'
+		});
+	});
+
+	it('parses a path-form prefix', () => {
+		const parsed = parseProjectPrefix('[[1 Projekte/Migration Initiative]] Draft plan');
+		expect(parsed?.linkTarget).toBe('1 Projekte/Migration Initiative');
+		expect(linkTargetBasename(parsed!.linkTarget)).toBe('Migration Initiative');
+	});
+
+	it('treats extra pipes as part of the alias', () => {
+		expect(parseProjectPrefix('[[P|a|b]] Task')?.alias).toBe('a|b');
+	});
+
+	it('returns null for a non-leading link', () => {
+		expect(parseProjectPrefix('Ask about [[Migration Initiative]]')).toBeNull();
+	});
+
+	it('returns null for a pure link with no rest', () => {
+		expect(parseProjectPrefix('[[Migration Initiative]]')).toBeNull();
+	});
+});
+
+describe('stripProjectPrefix (alias/path-aware)', () => {
+	it('strips a path-form prefix by basename', () => {
+		expect(stripProjectPrefix('[[1 Projekte/Migration Initiative]] Task', 'Migration Initiative')).toBe('Task');
+	});
+
+	it('leaves a different project untouched', () => {
+		expect(stripProjectPrefix('[[Other Project]] Task', 'Migration Initiative')).toBe('[[Other Project]] Task');
 	});
 });
 

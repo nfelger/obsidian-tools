@@ -127,6 +127,14 @@ export class TaskMarker {
 	}
 
 	/**
+	 * Replace the content after the task checkbox, keeping indent and marker.
+	 * e.g., replaceContent("- [ ] [[P]] Task", "Task") → "- [ ] Task"
+	 */
+	static replaceContent(line: string, text: string): string {
+		return line.replace(/^(\s*- \[.\]\s*).*$/, `$1${text}`);
+	}
+
+	/**
 	 * Strip a [[ProjectName]] or [[ProjectName|Alias]] prefix from a task
 	 * line's content.
 	 * e.g., "- [ ] [[Project]] Task text" → "- [ ] Task text"

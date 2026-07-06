@@ -8,7 +8,7 @@ import type { ListItem, BulletFlowSettings, ResolvedLink, LinkResolver } from '.
 import { DEFAULT_SETTINGS } from '../types';
 import { buildLineToItemMap } from './listItems';
 import { countIndent, getLeadingWhitespace, detectIndentUnit, convertIndentUnit, indentLinesWith } from './indent';
-import { findFirstResolvedLink } from './wikilinks';
+import { findFirstResolvedLink, parseWikilinkText } from './wikilinks';
 
 /**
  * Check if a file path represents a project note.
@@ -106,17 +106,49 @@ export function findProjectLinkInAncestors(
 }
 
 /**
- * Strip a leading [[ProjectName]] or [[ProjectName|Alias]] prefix from task
- * text (the part after the checkbox).
- * e.g., "[[Project]] Task text" → "Task text"
+ * A leading [[...]] prefix parsed from task text (the part after the checkbox).
+ */
+export interface ParsedProjectPrefix {
+	/** Link target (before | and #), possibly path-form (e.g. "1 Projekte/P") */
+	linkTarget: string;
+	alias: string | null;
+	/** The full wikilink as written, e.g. "[[Project|EU]]" */
+	linkText: string;
+	/** Task text after the prefix */
+	rest: string;
+}
+
+/**
+ * Parse a leading wikilink prefix from task text (the part after the
+ * checkbox). Returns null when the text doesn't start with a link or nothing
+ * follows it — a pure link bullet is not a prefixed task.
+ */
+export function parseProjectPrefix(taskText: string): ParsedProjectPrefix | null {
+	const match = taskText.match(/^\[\[([^\]]+)\]\]\s+(\S.*)$/);
+	if (!match) return null;
+	const { linkPath, alias } = parseWikilinkText(match[1]);
+	if (!linkPath) return null;
+	return { linkTarget: linkPath, alias, linkText: `[[${match[1]}]]`, rest: match[2] };
+}
+
+/**
+ * The basename segment of a link target, e.g. "1 Projekte/Project" → "Project".
+ */
+export function linkTargetBasename(linkTarget: string): string {
+	return linkTarget.split('/').pop() ?? linkTarget;
+}
+
+/**
+ * Strip a leading project-link prefix from task text when it points at the
+ * given project (alias- and path-aware).
  *
  * Used to recover the project note's version of a task text from its
  * daily-note copy, which takeProjectTask prefixes with the project link.
  */
 export function stripProjectPrefix(taskText: string, projectName: string): string {
-	const escaped = projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	const pattern = new RegExp(`^\\[\\[${escaped}(?:\\|[^\\]]*)?\\]\\]\\s+`);
-	return taskText.replace(pattern, '');
+	const prefix = parseProjectPrefix(taskText);
+	if (prefix && linkTargetBasename(prefix.linkTarget) === projectName) return prefix.rest;
+	return taskText;
 }
 
 /**
