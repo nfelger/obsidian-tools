@@ -24,6 +24,7 @@ interface TestPushTaskDownOptions {
 	selectionEndLine?: number | null;
 	diaryFolder?: string;
 	failTargetWrite?: boolean;
+	projectNotes?: string[];
 }
 
 interface TestPushTaskDownResult {
@@ -50,7 +51,8 @@ export async function testPushTaskDownPlugin({
 	selectionStartLine = null,
 	selectionEndLine = null,
 	diaryFolder = '+Diary',
-	failTargetWrite = false
+	failTargetWrite = false,
+	projectNotes = []
 }: TestPushTaskDownOptions): Promise<TestPushTaskDownResult> {
 	// Normalize markdown
 	const normalizedSource = normalizeMarkdown(source);
@@ -173,6 +175,14 @@ export async function testPushTaskDownPlugin({
 		allFiles.push(mockTargetFile);
 	}
 
+	const linkDests = new Map<string, any>();
+	for (const name of projectNotes) {
+		const projectFile = createMockFile({ path: `1 Projekte/${name}.md`, basename: name });
+		allFiles.push(projectFile);
+		linkDests.set(`${name}|${sourcePath}`, projectFile);
+		linkDests.set(name, projectFile);
+	}
+
 	// Create vault that tracks modifications
 	const mockVault = createMockVault({ files: allFiles });
 
@@ -208,7 +218,8 @@ export async function testPushTaskDownPlugin({
 
 	// Create metadata cache
 	const mockMetadataCache = createMockMetadataCache({
-		fileCache
+		fileCache,
+		linkDests
 	});
 
 	// Create workspace

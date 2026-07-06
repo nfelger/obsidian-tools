@@ -469,4 +469,109 @@ Some content
 		});
 	});
 
+	describe('project-aware insertion', () => {
+		it('weekly→daily: a task under a collector arrives prefixed with the collector link', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] Push [[Migration Initiative|MI]]
+	- [ ] Draft plan
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: '## Todo',
+				today: new Date(2026, 0, 22),
+				cursorLine: 1,
+				projectNotes: ['Migration Initiative']
+			});
+
+			expect(result.source).toContain('- [<] Draft plan');
+			expect(result.target).toContain('- [ ] [[Migration Initiative|MI]] Draft plan');
+			expect(result.target!.match(/Push \[\[/g)).toBeNull();
+		});
+
+		it('weekly→daily: never groups under an existing collector in the daily note', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] [[Migration Initiative]] Draft plan
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: `
+## Todo
+- [ ] Push [[Migration Initiative]]
+	- [ ] other task
+`,
+				today: new Date(2026, 0, 22),
+				cursorLine: 0,
+				projectNotes: ['Migration Initiative']
+			});
+
+			const lines = result.target!.split('\n');
+			expect(lines).toContain('- [ ] [[Migration Initiative]] Draft plan');
+			expect(lines).not.toContain('\t- [ ] Draft plan');
+		});
+
+		it('weekly→daily: merges alias-insensitively into an existing prefixed copy', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] [[Migration Initiative|MI]] Draft plan
+	- new note
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: `
+## Todo
+- [<] [[Migration Initiative]] Draft plan
+`,
+				today: new Date(2026, 0, 22),
+				cursorLine: 0,
+				projectNotes: ['Migration Initiative']
+			});
+
+			expect(result.target!.match(/Draft plan/g)).toHaveLength(1);
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Draft plan');
+			expect(result.target).toContain('- new note');
+		});
+
+		it('monthly→weekly: consolidates with a prefixed sibling under a new collector', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] [[Migration Initiative]] New goal
+`,
+				sourceFileName: '2026-01 Jan',
+				targetContent: `
+## Todo
+- [ ] [[Migration Initiative|MI]] Existing goal
+`,
+				today: new Date(2026, 0, 22),
+				cursorLine: 0,
+				projectNotes: ['Migration Initiative']
+			});
+
+			const lines = result.target!.split('\n');
+			const collectorIdx = lines.indexOf('- [ ] Push [[Migration Initiative|MI]]');
+			expect(collectorIdx).toBeGreaterThan(-1);
+			expect(lines[collectorIdx + 1]).toBe('\t- [ ] Existing goal');
+			expect(lines[collectorIdx + 2]).toBe('\t- [ ] New goal');
+		});
+
+		it('monthly→weekly: appends under an existing collector, stripped', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] [[Migration Initiative]] New goal
+`,
+				sourceFileName: '2026-01 Jan',
+				targetContent: `
+## Todo
+- [ ] Push [[Migration Initiative]]
+	- [ ] Existing goal
+`,
+				today: new Date(2026, 0, 22),
+				cursorLine: 0,
+				projectNotes: ['Migration Initiative']
+			});
+
+			const lines = result.target!.split('\n');
+			expect(lines).toContain('\t- [ ] New goal');
+			expect(lines).not.toContain('- [ ] [[Migration Initiative]] New goal');
+		});
+	});
+
 });

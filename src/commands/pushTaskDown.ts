@@ -10,7 +10,9 @@ import {
 	markTaskAsScheduled,
 	TaskMarker
 } from '../utils/tasks';
-import type { TaskInsertItem } from '../types';
+import { detectProjectContext, insertProjectTasksInSection, parseProjectKeywords } from '../utils/projects';
+import { ObsidianLinkResolver } from '../utils/wikilinks';
+import type { TaskInsertItem, ProjectTaskInsertItem } from '../types';
 import { countIndent } from '../utils/indent';
 import {
 	getActiveMarkdownFile,
@@ -100,7 +102,9 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 
 		// Phase 1: Collect task data (read-only — source edits are deferred
 		// until the target write has succeeded)
+		const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
 		const collectedTasks: TaskInsertItem[] = [];
+		const projectGroups = new Map<string, ProjectTaskInsertItem[]>();
 		const sourceEdits: Array<{
 			taskLine: number;
 			scheduledLine: string;
@@ -134,22 +138,50 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 				childrenContent ? childrenContent.split('\n') : []
 			);
 
-			collectedTasks.push({ taskText, taskContent, childrenContent });
+			const ctx = detectProjectContext(editor, listItems, taskLine, file.path, resolver, plugin.settings);
+			if (ctx) {
+				const strippedLine = ctx.hasOwnPrefix
+					? TaskMarker.replaceContent(parentLineForTarget, ctx.strippedText)
+					: parentLineForTarget;
+				const group = projectGroups.get(ctx.projectName) ?? [];
+				group.push({
+					taskText: ctx.strippedText,
+					taskContent: buildTaskContent(strippedLine, childrenContent ? childrenContent.split('\n') : []),
+					childrenContent,
+					linkText: ctx.linkText
+				});
+				projectGroups.set(ctx.projectName, group);
+			} else {
+				collectedTasks.push({ taskText, taskContent, childrenContent });
+			}
 			sourceEdits.push({ taskLine, scheduledLine: markTaskAsScheduled(lineText), children });
 		}
 
 		// Phase 2: Insert into target in original order
 		// Tasks were collected bottom-to-top, reverse to restore original order
 		collectedTasks.reverse();
+		for (const items of projectGroups.values()) items.reverse();
 
 		let mergedCount = 0;
 		let newCount = 0;
 		const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
+		const keywords = parseProjectKeywords(plugin.settings.projectKeywords);
+		const groupUnderCollector = noteInfo.type !== 'weekly';
 		await plugin.app.vault.process(targetFile, (data: string) => {
-			const result = insertMultipleTasksWithDeduplication(data, collectedTasks, targetHeading);
-			mergedCount = result.mergedCount;
-			newCount = result.newCount;
-			return result.content;
+			let result = data;
+			if (collectedTasks.length > 0) {
+				const r = insertMultipleTasksWithDeduplication(result, collectedTasks, targetHeading);
+				result = r.content;
+				mergedCount += r.mergedCount;
+				newCount += r.newCount;
+			}
+			for (const [name, items] of projectGroups) {
+				const r = insertProjectTasksInSection(result, name, items, { targetHeading, keywords, groupUnderCollector });
+				result = r.content;
+				mergedCount += r.mergedCount;
+				newCount += r.newCount;
+			}
+			return result;
 		});
 
 		// Phase 3: Mark source tasks as scheduled and remove transferred children
