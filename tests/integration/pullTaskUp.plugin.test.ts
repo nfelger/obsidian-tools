@@ -406,4 +406,84 @@ Some content`,
 		});
 	});
 
+	describe('project-aware insertion', () => {
+		it('keeps project context: a task under a collector arrives prefixed with the collector link', async () => {
+			const result = await testPullUpPlugin({
+				source: `
+- [ ] Push [[Migration Initiative|MI]]
+	- [ ] Draft plan
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '## Todo',
+				cursorLine: 1,
+				projectNotes: ['Migration Initiative']
+			});
+
+			expect(result.source).toContain('- [<] Draft plan');
+			expect(result.target).toContain('- [ ] [[Migration Initiative|MI]] Draft plan');
+			expect(result.target!.match(/Push \[\[/g)).toBeNull();
+		});
+
+		it('appends under an existing weekly collector, stripped', async () => {
+			const result = await testPullUpPlugin({
+				source: `
+- [ ] [[Migration Initiative]] Draft plan
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: `
+## Todo
+- [ ] Push [[Migration Initiative]]
+	- [ ] Existing goal
+`,
+				cursorLine: 0,
+				projectNotes: ['Migration Initiative']
+			});
+
+			const lines = result.target!.split('\n');
+			expect(lines).toContain('\t- [ ] Draft plan');
+			expect(lines).not.toContain('- [ ] [[Migration Initiative]] Draft plan');
+		});
+
+		it('consolidates with a prefixed sibling under a new collector', async () => {
+			const result = await testPullUpPlugin({
+				source: `
+- [ ] [[Migration Initiative]] New goal
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: `
+## Todo
+- [ ] [[Migration Initiative|MI]] Existing goal
+`,
+				cursorLine: 0,
+				projectNotes: ['Migration Initiative']
+			});
+
+			const lines = result.target!.split('\n');
+			const collectorIdx = lines.indexOf('- [ ] Push [[Migration Initiative|MI]]');
+			expect(collectorIdx).toBeGreaterThan(-1);
+			expect(lines[collectorIdx + 1]).toBe('\t- [ ] Existing goal');
+			expect(lines[collectorIdx + 2]).toBe('\t- [ ] New goal');
+		});
+
+		it('merges alias-insensitively into an existing prefixed weekly copy', async () => {
+			const result = await testPullUpPlugin({
+				source: `
+- [ ] [[Migration Initiative|MI]] Draft plan
+	- new note
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: `
+## Todo
+- [<] [[Migration Initiative]] Draft plan
+`,
+				cursorLine: 0,
+				projectNotes: ['Migration Initiative']
+			});
+
+			expect(result.target!.match(/Draft plan/g)).toHaveLength(1);
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Draft plan');
+			expect(result.target).toContain('- new note');
+		});
+	});
+
 });
