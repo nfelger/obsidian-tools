@@ -469,6 +469,56 @@ describe('insertProjectTasksInSection — consolidation (case 3)', () => {
 	});
 });
 
+describe('insertProjectTasksInSection — multi-select collector creation', () => {
+	const opts = { targetHeading: '## Todo', keywords: ['Push'], groupUnderCollector: true };
+	const item = (taskText: string, linkText: string, childrenContent = '') => ({
+		taskText,
+		taskContent: childrenContent ? `- [ ] ${taskText}\n${childrenContent}` : `- [ ] ${taskText}`,
+		childrenContent,
+		linkText
+	});
+
+	it('creates a collector for two new tasks', () => {
+		const content = `
+## Todo
+- [ ] unrelated
+`.trim();
+		const result = insertProjectTasksInSection(
+			content, 'P',
+			[item('first', '[[P|EU]]'), item('second', '[[P]]')],
+			opts
+		);
+		expect(result.newCount).toBe(2);
+		expect(result.content.split('\n')).toEqual([
+			'## Todo',
+			'- [ ] unrelated',
+			'- [ ] Push [[P|EU]]',
+			'\t- [ ] first',
+			'\t- [ ] second'
+		]);
+	});
+
+	it('creates heading and collector when the section is missing', () => {
+		const result = insertProjectTasksInSection('# Note', 'P', [item('a', '[[P]]'), item('b', '[[P]]')], opts);
+		expect(result.content).toContain('## Todo');
+		expect(result.content).toContain('- [ ] Push [[P]]');
+	});
+
+	it('keeps a single new task as a prefixed append', () => {
+		const result = insertProjectTasksInSection('## Todo', 'P', [item('only', '[[P]]')], opts);
+		expect(result.content).toContain('- [ ] [[P]] only');
+		expect(result.content).not.toContain('Push');
+	});
+
+	it('never creates a collector with grouping disabled', () => {
+		const off = { ...opts, groupUnderCollector: false };
+		const result = insertProjectTasksInSection('## Todo', 'P', [item('a', '[[P]]'), item('b', '[[P]]')], off);
+		expect(result.content).toContain('- [ ] [[P]] a');
+		expect(result.content).toContain('- [ ] [[P]] b');
+		expect(result.content).not.toContain('Push');
+	});
+});
+
 describe('parseProjectKeywords', () => {
 	it('parses comma-separated quoted keywords', () => {
 		expect(parseProjectKeywords('"Push", "Finish"')).toEqual(['Push', 'Finish']);

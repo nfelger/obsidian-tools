@@ -454,7 +454,12 @@ function insertUnderProjectGrouping(
 ): string | null {
 	const lines = content.split('\n');
 	const range = findSectionRange(lines, options.targetHeading);
-	if (!range) return null;
+	if (!range) {
+		if (remaining.length >= 2) {
+			return insertNewCollectorBlock(content, projectName, remaining, options);
+		}
+		return null;
+	}
 
 	const collector = findCollector(lines, range, projectName, options.keywords);
 	if (collector) {
@@ -478,6 +483,9 @@ function insertUnderProjectGrouping(
 		}
 	}
 
+	if (remaining.length >= 2) {
+		return insertNewCollectorBlock(lines.join('\n'), projectName, remaining, options);
+	}
 	return null;
 }
 
@@ -485,6 +493,24 @@ function aliasFromLinkText(linkText: string): string | null {
 	const match = linkText.match(/^\[\[([^\]]+)\]\]$/);
 	if (!match) return null;
 	return parseWikilinkText(match[1]).alias;
+}
+
+/** Create a fresh collector at the end of the section holding all tasks. */
+function insertNewCollectorBlock(
+	content: string,
+	projectName: string,
+	remaining: ProjectTaskInsertItem[],
+	options: ProjectInsertionOptions
+): string {
+	const alias = aliasFromLinkText(remaining[0].linkText);
+	const keyword = options.keywords[0] ?? 'Push';
+	const link = alias ? `[[${projectName}|${alias}]]` : `[[${projectName}]]`;
+	const taskLines = remaining.flatMap(t => t.taskContent.split('\n'));
+	const contentLines = content.split('\n');
+	const unit = detectIndentUnit(contentLines) ?? detectIndentUnit(taskLines) ?? '\t';
+	const indented = indentLinesWith(convertIndentUnit(taskLines, unit), unit);
+	const block = [`- [ ] ${keyword} ${link}`, ...indented].join('\n');
+	return insertMultipleUnderTargetHeading(content, [block], options.targetHeading);
 }
 
 /**
