@@ -66,8 +66,8 @@ describe('takeProjectTask', () => {
 		});
 	});
 
-	describe('collector task matching', () => {
-		it('inserts under collector when "Push [[Project]]" exists in daily', async () => {
+	describe('never groups in the daily note', () => {
+		it('does not insert under an existing "Push [[Project]]" collector', async () => {
 			const result = await testTakeProjectTaskPlugin({
 				source: `
 - [ ] Define rollback strategy
@@ -75,26 +75,23 @@ describe('takeProjectTask', () => {
 				sourceFileName: 'Migration Initiative',
 				dailyNoteContent: `
 - [ ] Push [[Migration Initiative]]
-- [ ] Some other task
+	- [ ] Some other task
+- [ ] Unrelated
 `,
 				today,
 				cursorLine: 0
 			});
 
-			// Task should be nested under the collector
+			// Task arrives as a top-level prefixed task, not nested under the collector
+			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Define rollback strategy');
 			const lines = result.daily!.split('\n');
-			const collectorIdx = lines.findIndex(l => l.includes('Push [[Migration Initiative]]'));
-			expect(collectorIdx).toBeGreaterThanOrEqual(0);
-
-			// Next line should be the indented taken task (no wikilink — collector provides project context)
-			const nextLine = lines[collectorIdx + 1];
-			expect(nextLine).toContain('Define rollback strategy');
-			expect(nextLine).not.toContain('[[Migration Initiative]]');
-			// Daily note has no indentation signal — falls back to tab indent
-			expect(nextLine).toMatch(/^\t/);
+			expect(lines).not.toContain('\t- [ ] Define rollback strategy');
+			// The collector and its existing child are untouched
+			expect(result.daily).toContain('- [ ] Push [[Migration Initiative]]');
+			expect(result.daily).toContain('\t- [ ] Some other task');
 		});
 
-		it('matches "Finish" keyword as collector', async () => {
+		it('does not insert under a "Finish [[Project]]" collector either', async () => {
 			const result = await testTakeProjectTaskPlugin({
 				source: `
 - [ ] Final review
@@ -107,13 +104,13 @@ describe('takeProjectTask', () => {
 				cursorLine: 0
 			});
 
-			expect(result.daily).toContain('Finish [[Migration Initiative]]');
-			// No wikilink when nested under collector — collector already identifies the project
-			expect(result.daily).toContain('Final review');
-			expect(result.daily).not.toContain('[[Migration Initiative]] Final review');
+			expect(result.daily).toContain('- [ ] Finish [[Migration Initiative]]');
+			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Final review');
+			const lines = result.daily!.split('\n');
+			expect(lines).not.toContain('\t- [ ] Final review');
 		});
 
-		it('does not match partial keyword prefix', async () => {
+		it('does not match partial keyword prefix as a collector', async () => {
 			const result = await testTakeProjectTaskPlugin({
 				source: `
 - [ ] Some task
@@ -127,14 +124,13 @@ describe('takeProjectTask', () => {
 				cursorLine: 0
 			});
 
-			// Should NOT be nested under "Pushing" - falls back to heading
 			expect(result.daily).toContain('## Log');
 			expect(result.daily).toContain('[[Migration Initiative]] Some task');
 		});
 	});
 
 	describe('multi-select', () => {
-		it('groups multiple taken tasks under a created collector', async () => {
+		it('takes all tasks as individual prefixed appends, never grouped', async () => {
 			const result = await testTakeProjectTaskPlugin({
 				source: `
 - [ ] First task
@@ -153,19 +149,14 @@ describe('takeProjectTask', () => {
 			expect(result.source).toContain('- [<] Second task');
 			expect(result.source).toContain('- [<] Third task');
 
-			// Daily: collector created, tasks nested beneath without repeated links
-			expect(result.daily).toContain('- [ ] Push [[Migration Initiative]]');
-			expect(result.daily).toContain('First task');
-			expect(result.daily).not.toContain('[[Migration Initiative]] First task');
-
-			const lines = result.daily!.split('\n');
-			const collectorIdx = lines.findIndex(l => l.includes('Push [[Migration Initiative]]'));
-			const firstTaskIdx = lines.findIndex(l => l.includes('First task'));
-			expect(firstTaskIdx).toBeGreaterThan(collectorIdx);
-			expect(lines[firstTaskIdx]).toMatch(/^\s/); // nested under the collector
+			// Daily: no collector, each task individually prefixed
+			expect(result.daily).not.toContain('Push [[Migration Initiative]]');
+			expect(result.daily).toContain('- [ ] [[Migration Initiative]] First task');
+			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Second task');
+			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Third task');
 		});
 
-		it('preserves original order under created collector', async () => {
+		it('preserves original order across multiple prefixed appends', async () => {
 			const result = await testTakeProjectTaskPlugin({
 				source: `
 - [ ] First task
@@ -203,7 +194,7 @@ describe('takeProjectTask', () => {
 			expect(result.daily).not.toContain('Push [[Migration Initiative]]');
 		});
 
-		it('preserves original order under collector task', async () => {
+		it('does not group under an existing collector even with multiple tasks selected', async () => {
 			const result = await testTakeProjectTaskPlugin({
 				source: `
 - [ ] First task
@@ -220,19 +211,71 @@ describe('takeProjectTask', () => {
 				selectionEndLine: 2
 			});
 
-			const firstIdx = result.daily!.indexOf('First task');
-			const secondIdx = result.daily!.indexOf('Second task');
-			const thirdIdx = result.daily!.indexOf('Third task');
-
-			expect(firstIdx).toBeGreaterThan(-1);
-			expect(secondIdx).toBeGreaterThan(firstIdx);
-			expect(thirdIdx).toBeGreaterThan(secondIdx);
-
-			// All should be under the collector (indented)
 			const lines = result.daily!.split('\n');
-			const collectorIdx = lines.findIndex(l => l.includes('Push [[Migration Initiative]]'));
-			const firstTaskIdx = lines.findIndex(l => l.includes('First task'));
-			expect(firstTaskIdx).toBeGreaterThan(collectorIdx);
+			expect(lines).not.toContain('\t- [ ] First task');
+			expect(result.daily).toContain('- [ ] [[Migration Initiative]] First task');
+			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Second task');
+			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Third task');
+		});
+	});
+
+	describe('dedup', () => {
+		it('reopens a scheduled prefixed copy and merges children instead of duplicating', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Draft plan
+  - new note
+`,
+				sourceFileName: 'Migration Initiative',
+				dailyNoteContent: `
+## Todo
+- [<] [[Migration Initiative]] Draft plan
+`,
+				today,
+				cursorLine: 0
+			});
+
+			expect(result.daily!.match(/Draft plan/g)).toHaveLength(1);
+			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Draft plan');
+			expect(result.daily).toContain('- new note');
+		});
+
+		it('merges into a copy under a manually created collector', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Draft plan
+  - new note
+`,
+				sourceFileName: 'Migration Initiative',
+				dailyNoteContent: `
+## Todo
+- [ ] Push [[Migration Initiative]]
+	- [ ] Draft plan
+`,
+				today,
+				cursorLine: 0
+			});
+
+			expect(result.daily!.match(/Draft plan/g)).toHaveLength(1);
+			expect(result.daily).toContain('- new note');
+		});
+
+		it('matches an aliased daily copy', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Draft plan
+`,
+				sourceFileName: 'Migration Initiative',
+				dailyNoteContent: `
+## Todo
+- [<] [[Migration Initiative|MI]] Draft plan
+`,
+				today,
+				cursorLine: 0
+			});
+
+			expect(result.daily!.match(/Draft plan/g)).toHaveLength(1);
+			expect(result.daily).toContain('- [ ] [[Migration Initiative|MI]] Draft plan');
 		});
 	});
 

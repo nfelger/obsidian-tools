@@ -4,12 +4,10 @@ import {
 	buildTaskContent,
 	dedentLinesByAmount,
 	extractTaskText,
-	insertMultipleTasksWithDeduplication,
-	insertUnderTargetHeading,
 	markTaskAsScheduled,
 	TaskMarker
 } from '../utils/tasks';
-import type { TaskInsertItem } from '../types';
+import type { ProjectTaskInsertItem } from '../types';
 import { countIndent } from '../utils/indent';
 import {
 	getActiveMarkdownFile,
@@ -19,7 +17,7 @@ import {
 	getTransferableChildren,
 	removeTransferredChildren
 } from '../utils/commandSetup';
-import { isProjectNote, getProjectName, parseProjectKeywords, findCollectorTask, insertUnderCollectorTask } from '../utils/projects';
+import { isProjectNote, getProjectName, parseProjectKeywords, insertProjectTasksInSection } from '../utils/projects';
 import { PeriodicNoteService } from '../utils/periodicNotes';
 import { getPeriodicConfig } from '../utils/periodicNoteCreator';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
@@ -30,11 +28,11 @@ import { NOTICE_TIMEOUT_ERROR } from '../config';
  * Behavior:
  * 1. Verify current file is a project note (top-level in projects folder)
  * 2. Find today's daily note (error if it doesn't exist)
- * 3. Look for a collector task in the daily note (e.g., "- [ ] Push [[Project]]")
- * 4. If collector found: insert tasks as subtasks beneath it
- * 5. If no collector: insert under configured periodic note heading
- * 6. Prepend [[Project Name]] to each taken task
- * 7. Mark source task(s) as scheduled [<] and remove children
+ * 3. Insert each task as its own prefixed task under the configured heading
+ *    (daily notes never group tasks under a collector — see the design spec)
+ * 4. Merge into an existing live copy when one is found (alias-aware,
+ *    including copies sitting under a manually created collector)
+ * 5. Mark source task(s) as scheduled [<] and remove children
  *
  * @param plugin - BulletFlow plugin instance
  */
@@ -80,7 +78,7 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		// Phase 1: Collect task data (read-only — source edits are deferred
 		// until the daily note write has succeeded)
-		const collectedTasks: Array<TaskInsertItem & { taskContentForCollector: string }> = [];
+		const collectedTasks: ProjectTaskInsertItem[] = [];
 		const sourceEdits: Array<{
 			taskLine: number;
 			scheduledLine: string;
@@ -101,9 +99,6 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 			const marker = TaskMarker.fromLine(parentLineStripped);
 			const parentLineForTarget = marker ? marker.toOpen().applyToLine(parentLineStripped) : parentLineStripped;
 
-			// Prepend [[Project Name]] to the task text
-			const parentLineWithLink = TaskMarker.prependToContent(parentLineForTarget, `[[${projectName}]]`);
-
 			// Prepare children content (dedented)
 			let childrenContent = '';
 			if (children && children.lines.length > 0) {
@@ -111,27 +106,18 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 				childrenContent = dedentedChildren.join('\n');
 			}
 
-			// Build full task content for collector insertion (no project link)
-			// The collector task already identifies the project, so prepending [[Project]] is redundant noise
-			const taskContentForCollector = buildTaskContent(
+			// Build full task content (project-stripped — the routine renders
+			// the prefix, since daily notes never group under a collector)
+			const taskContent = buildTaskContent(
 				parentLineForTarget,
 				childrenContent ? childrenContent.split('\n') : []
 			);
 
-			// Build full task content for heading insertion
-			const taskContent = buildTaskContent(
-				parentLineWithLink,
-				childrenContent ? childrenContent.split('\n') : []
-			);
-
-			// The task text for deduplication should include the project link
-			const taskTextWithLink = `[[${projectName}]] ${taskText}`;
-
 			collectedTasks.push({
-				taskText: taskTextWithLink,
+				taskText,
 				taskContent,
 				childrenContent,
-				taskContentForCollector
+				linkText: `[[${projectName}]]`
 			});
 
 			sourceEdits.push({ taskLine, scheduledLine: markTaskAsScheduled(lineText), children });
@@ -146,34 +132,14 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
 		await plugin.app.vault.process(dailyFile, (data: string) => {
-			// Check for collector task
-			let collectorLine = findCollectorTask(data, projectName, keywords);
-			let content = data;
-
-			// Taking several tasks at once: group them under a collector so the
-			// project link appears once instead of on every task
-			if (collectorLine === null && collectedTasks.length > 1) {
-				const keyword = keywords[0] ?? 'Push';
-				content = insertUnderTargetHeading(content, `- [ ] ${keyword} [[${projectName}]]`, targetHeading);
-				collectorLine = findCollectorTask(content, projectName, [keyword]);
-			}
-
-			if (collectorLine !== null) {
-				// Batch insert under collector as a single block (preserves order)
-				const block = collectedTasks.map(t => t.taskContentForCollector).join('\n');
-				newCount = collectedTasks.length;
-				return insertUnderCollectorTask(content, collectorLine, block);
-			} else {
-				// Batch insert with deduplication under heading (preserves order)
-				const result = insertMultipleTasksWithDeduplication(
-					content,
-					collectedTasks,
-					targetHeading
-				);
-				mergedCount = result.mergedCount;
-				newCount = result.newCount;
-				return result.content;
-			}
+			const result = insertProjectTasksInSection(data, projectName, collectedTasks, {
+				targetHeading,
+				keywords,
+				groupUnderCollector: false
+			});
+			mergedCount = result.mergedCount;
+			newCount = result.newCount;
+			return result.content;
 		});
 
 		// Phase 3: Mark source tasks as scheduled and remove transferred children
