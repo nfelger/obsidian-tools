@@ -126,12 +126,14 @@ flat append-under-heading path.
   command has no project awareness at all, so tasks pulled out from under a
   collector currently lose their project entirely.
 - **`migrateTask`** — keeps its existing prefix restoration, and its target
-  insertion becomes project-aware for project tasks; grouping always enabled
-  (migration targets are weekly or above by the boundary rules — a daily note
-  is never a migration target). Note this introduces dedup for project tasks
-  in a command that currently never dedups; a migrated task whose text already
-  lives in the target merges instead of duplicating. Non-project tasks keep
-  the current no-dedup append.
+  insertion becomes project-aware for project tasks. Grouping follows the
+  target note type: daily→daily migration (every day but the last of the
+  week — the common case) has grouping disabled and appends prefixed tasks;
+  boundary migrations into weekly/yearly notes (daily→weekly on the week's
+  last day, weekly→weekly, monthly→yearly, yearly→yearly) have it enabled.
+  Note this introduces dedup for project tasks in a command that currently
+  never dedups; a migrated task whose text already lives in the target merges
+  instead of duplicating. Non-project tasks keep the current no-dedup append.
 - **`takeProjectTask`** — always targets today's daily note, so grouping is
   always **disabled**. This *reverses* two pieces of shipped behavior: taken
   tasks are no longer inserted under an existing collector, and multi-take no
@@ -291,7 +293,9 @@ Integration (`tests/integration/`, markdown-first), per command:
   instead of duplicating, including when the daily copy sits under a
   manually created collector; alias-aware dedup.
 - `migrateTask`: project task merges with an existing copy; non-project task
-  still duplicates as today.
+  still duplicates as today; daily→daily migration (mid-week) never groups —
+  prefixed append even next to a collector; daily→weekly migration (last day
+  of the week) groups.
 
 ## Follow-ups (out of scope)
 
