@@ -9,7 +9,16 @@ import { DEFAULT_SETTINGS } from '../types';
 import { buildLineToItemMap } from './listItems';
 import { countIndent, getLeadingWhitespace, detectIndentUnit, convertIndentUnit, indentLinesWith } from './indent';
 import { findFirstResolvedLink, parseWikilinkText } from './wikilinks';
-import { TaskMarker, extractTaskText, findSectionRange, findTaskBlockEnd, type TaskMatch } from './tasks';
+import {
+	TaskMarker,
+	extractTaskText,
+	findSectionRange,
+	findTaskBlockEnd,
+	insertMultipleUnderTargetHeading,
+	mergeIntoMatchedTask,
+	type TaskMatch
+} from './tasks';
+import type { ProjectTaskInsertItem } from '../types';
 
 /**
  * Check if a file path represents a project note.
@@ -375,6 +384,73 @@ export function findProjectTaskMatch(
 			return { lineNumber: i, state: marker.state };
 		}
 	}
+	return null;
+}
+
+export interface ProjectInsertionOptions {
+	targetHeading: string;
+	keywords: string[];
+	groupUnderCollector: boolean;
+}
+
+function prefixTaskContent(task: ProjectTaskInsertItem): string {
+	const lines = task.taskContent.split('\n');
+	lines[0] = TaskMarker.prependToContent(lines[0], task.linkText);
+	return lines.join('\n');
+}
+
+/**
+ * Insert one project's tasks into a note's target section, converging the
+ * section toward one grouping per project. See the design spec
+ * (docs/specs/2026-07-06-project-task-consolidation.md) for the case order.
+ */
+export function insertProjectTasksInSection(
+	content: string,
+	projectName: string,
+	tasks: ProjectTaskInsertItem[],
+	options: ProjectInsertionOptions
+): { content: string; mergedCount: number; newCount: number } {
+	let result = content;
+	let mergedCount = 0;
+
+	const remaining: ProjectTaskInsertItem[] = [];
+	for (const task of tasks) {
+		const match = findProjectTaskMatch(result, task.taskText, projectName, {
+			heading: options.targetHeading,
+			keywords: options.keywords
+		});
+		if (match) {
+			result = mergeIntoMatchedTask(result, match, task.childrenContent);
+			mergedCount++;
+		} else {
+			remaining.push(task);
+		}
+	}
+	if (remaining.length === 0) {
+		return { content: result, mergedCount, newCount: 0 };
+	}
+
+	if (options.groupUnderCollector) {
+		const grouped = insertUnderProjectGrouping(result, projectName, remaining, options);
+		if (grouped !== null) {
+			return { content: grouped, mergedCount, newCount: remaining.length };
+		}
+	}
+
+	result = insertMultipleUnderTargetHeading(result, remaining.map(prefixTaskContent), options.targetHeading);
+	return { content: result, mergedCount, newCount: remaining.length };
+}
+
+/**
+ * Cases 2/3 and the multi-select rule. Returns null to fall through to the
+ * prefixed append.
+ */
+function insertUnderProjectGrouping(
+	content: string,
+	projectName: string,
+	remaining: ProjectTaskInsertItem[],
+	options: ProjectInsertionOptions
+): string | null {
 	return null;
 }
 

@@ -12,7 +12,8 @@ import {
 	parseCollectorLine,
 	findCollector,
 	findPrefixedProjectTasks,
-	findProjectTaskMatch
+	findProjectTaskMatch,
+	insertProjectTasksInSection
 } from '../../src/utils/projects';
 
 describe('isProjectNote', () => {
@@ -233,6 +234,59 @@ describe('findProjectTaskMatch', () => {
 	it('ignores copies outside the section and missing sections', () => {
 		expect(findProjectTaskMatch(content, 'outside section', 'P', opts)).toBeNull();
 		expect(findProjectTaskMatch('- [ ] [[P]] x', 'x', 'P', opts)).toBeNull();
+	});
+});
+
+describe('insertProjectTasksInSection — grouping disabled', () => {
+	const opts = { targetHeading: '## Todo', keywords: ['Push'], groupUnderCollector: false };
+	const item = (taskText: string, linkText: string, childrenContent = '') => ({
+		taskText,
+		taskContent: childrenContent ? `- [ ] ${taskText}\n${childrenContent}` : `- [ ] ${taskText}`,
+		childrenContent,
+		linkText
+	});
+
+	it('merges into an existing prefixed copy, alias-insensitively', () => {
+		const content = `
+## Todo
+- [<] [[P|other]] Review PR
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('Review PR', '[[P]]', '\t- new note')], opts);
+		expect(result.mergedCount).toBe(1);
+		expect(result.content).toContain('- [ ] [[P|other]] Review PR');
+		expect(result.content).toContain('\t- new note');
+	});
+
+	it('merges into a copy under a manually created collector', () => {
+		const content = `
+## Todo
+- [ ] Push [[P]]
+	- [ ] Review PR
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('Review PR', '[[P]]')], opts);
+		expect(result.mergedCount).toBe(1);
+		expect(result.content.match(/Review PR/g)).toHaveLength(1);
+	});
+
+	it('appends prefixed at the end of the section, never under a collector', () => {
+		const content = `
+## Todo
+- [ ] Push [[P]]
+	- [ ] existing
+- [ ] unrelated
+
+## Log
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P|EU]]')], opts);
+		expect(result.newCount).toBe(1);
+		const lines = result.content.split('\n');
+		expect(lines[4]).toBe('- [ ] [[P|EU]] New task');
+	});
+
+	it('creates the heading when missing', () => {
+		const result = insertProjectTasksInSection('# Note', 'P', [item('Task', '[[P]]')], opts);
+		expect(result.content).toContain('## Todo');
+		expect(result.content).toContain('- [ ] [[P]] Task');
 	});
 });
 

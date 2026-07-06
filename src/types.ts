@@ -189,3 +189,14 @@ export interface TaskInsertItem {
 	taskContent: string;
 	childrenContent: string;
 }
+
+/**
+ * A task headed for project-aware insertion. taskText and taskContent are
+ * project-stripped; the routine re-renders the prefix when needed.
+ */
+export interface ProjectTaskInsertItem extends TaskInsertItem {
+	/** Wikilink rendered when a prefix is needed, verbatim from the source,
+	 *  e.g. "[[Project|EU]]" — the task's own prefix link, or the source
+	 *  collector's link. */
+	linkText: string;
+}
