@@ -464,7 +464,27 @@ function insertUnderProjectGrouping(
 		return foldIntoCollector(lines, collector.line, strays, remaining);
 	}
 
+	const matches = findPrefixedProjectTasks(lines, range, projectName);
+	if (matches.length > 0) {
+		const firstSlice = findSliceRange(lines, range, matches[0].line);
+		const sameSlice = matches.every(m => m.line > firstSlice.start && m.line < firstSlice.end);
+		if (sameSlice) {
+			const alias = matches.find(m => m.alias)?.alias ?? aliasFromLinkText(remaining[0].linkText);
+			const keyword = options.keywords[0] ?? 'Push';
+			const link = alias ? `[[${projectName}|${alias}]]` : `[[${projectName}]]`;
+			lines.splice(matches[0].line, 0, `- [ ] ${keyword} ${link}`);
+			const shifted = matches.map(m => ({ ...m, line: m.line + 1 }));
+			return foldIntoCollector(lines, matches[0].line, shifted, remaining);
+		}
+	}
+
 	return null;
+}
+
+function aliasFromLinkText(linkText: string): string | null {
+	const match = linkText.match(/^\[\[([^\]]+)\]\]$/);
+	if (!match) return null;
+	return parseWikilinkText(match[1]).alias;
 }
 
 /**

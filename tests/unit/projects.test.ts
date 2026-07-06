@@ -381,6 +381,94 @@ describe('insertProjectTasksInSection — existing collector (case 2)', () => {
 	});
 });
 
+describe('insertProjectTasksInSection — consolidation (case 3)', () => {
+	const opts = { targetHeading: '## Todo', keywords: ['Push'], groupUnderCollector: true };
+	const item = (taskText: string, linkText: string, childrenContent = '') => ({
+		taskText,
+		taskContent: childrenContent ? `- [ ] ${taskText}\n${childrenContent}` : `- [ ] ${taskText}`,
+		childrenContent,
+		linkText
+	});
+
+	it('consolidates a single prefixed sibling with the incoming task', () => {
+		const content = `
+## Todo
+- [ ] unrelated
+- [ ] [[P]] existing task
+	- child
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
+		expect(result.content.split('\n')).toEqual([
+			'## Todo',
+			'- [ ] unrelated',
+			'- [ ] Push [[P]]',
+			'\t- [ ] existing task',
+			'\t\t- child',
+			'\t- [ ] New task'
+		]);
+	});
+
+	it('prefers the target alias over the incoming alias', () => {
+		const content = `
+## Todo
+- [ ] [[P|target]] existing task
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P|incoming]]')], opts);
+		expect(result.content).toContain('- [ ] Push [[P|target]]');
+	});
+
+	it('uses the incoming alias when no target task has one', () => {
+		const content = `
+## Todo
+- [ ] [[P]] existing task
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P|incoming]]')], opts);
+		expect(result.content).toContain('- [ ] Push [[P|incoming]]');
+	});
+
+	it('consolidates multiple same-slice siblings in order', () => {
+		const content = `
+## Todo
+- [ ] [[P]] first
+- [ ] between
+- [ ] [[P]] second
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
+		expect(result.content.split('\n')).toEqual([
+			'## Todo',
+			'- [ ] Push [[P]]',
+			'\t- [ ] first',
+			'\t- [ ] second',
+			'\t- [ ] New task',
+			'- [ ] between'
+		]);
+	});
+
+	it('does not consolidate across sub-section boundaries', () => {
+		const content = `
+## Todo
+- [ ] [[P]] this week
+### Someday
+- [ ] [[P]] someday task
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P|EU]]')], opts);
+		expect(result.content).not.toContain('Push [[P');
+		expect(result.content).toContain('- [ ] [[P|EU]] New task');
+	});
+
+	it('does not consolidate a nested prefixed task', () => {
+		const content = `
+## Todo
+- [ ] some parent
+	- [ ] [[P]] nested elsewhere
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
+		expect(result.content).not.toContain('Push [[P');
+		expect(result.content).toContain('\t- [ ] [[P]] nested elsewhere');
+		expect(result.content).toContain('- [ ] [[P]] New task');
+	});
+});
+
 describe('parseProjectKeywords', () => {
 	it('parses comma-separated quoted keywords', () => {
 		expect(parseProjectKeywords('"Push", "Finish"')).toEqual(['Push', 'Finish']);
