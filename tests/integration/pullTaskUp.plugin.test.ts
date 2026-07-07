@@ -484,6 +484,63 @@ Some content`,
 			expect(result.target).toContain('- [ ] [[Migration Initiative]] Draft plan');
 			expect(result.target).toContain('- new note');
 		});
+
+		it('round trip: reopens scheduled copies under an aliased collector nested in sub-headings', async () => {
+			const result = await testPullUpPlugin({
+				source: `
+## Todo
+### Nicht heute
+- [ ] [[DS. HJZ-Initiative Delivery Leadership Expectations|P: TL Expectations]] Thema Staffing und draft noch mal checken
+- [ ] [[DS. HJZ-Initiative Delivery Leadership Expectations|P: TL Expectations]] Auf Nachrichten reagieren und nudgen
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: `
+## Todo
+### Arbeit
+#### MUSS
+- [ ] Push [[DS. HJZ-Initiative Delivery Leadership Expectations|P: TL Expectations]]
+	- [<] Thema Staffing und draft noch mal checken
+	- [<] Auf Nachrichten reagieren und nudgen
+
+#### KANN
+
+---
+`,
+				selectionStartLine: 2,
+				selectionEndLine: 3,
+				projectNotes: ['DS. HJZ-Initiative Delivery Leadership Expectations']
+			});
+
+			// Both scheduled copies under the collector reopen; nothing is appended
+			expect(result.target).not.toContain('[<]');
+			expect(result.target!.match(/Thema Staffing/g)).toHaveLength(1);
+			expect(result.target!.match(/Auf Nachrichten/g)).toHaveLength(1);
+			expect(result.target).toContain('\t- [ ] Thema Staffing und draft noch mal checken');
+			expect(result.target).toContain('\t- [ ] Auf Nachrichten reagieren und nudgen');
+		});
+
+		it('degrades to a plain verbatim append when the prefix does not resolve to a project note', async () => {
+			// Pins the spec\'s fallback: an unresolvable or non-project leading
+			// link is plain text — no project dedup, no grouping. If this shape
+			// shows up in a vault, the prefix link is not resolving into the
+			// configured projects folder.
+			const result = await testPullUpPlugin({
+				source: `
+- [ ] [[Missing Note|alias]] Some task
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: `
+## Todo
+- [ ] Push [[Missing Note|alias]]
+	- [<] Some task
+`,
+				cursorLine: 0,
+				projectNotes: []
+			});
+
+			expect(result.target).toContain('\t- [<] Some task');
+			expect(result.target).toContain('- [ ] [[Missing Note|alias]] Some task');
+		});
 	});
 
 });
