@@ -2,9 +2,9 @@ import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
 import { getPeriodicConfig } from '../utils/periodicNoteCreator';
-import { dedentLinesByAmount, insertMultipleUnderTargetHeading, TaskMarker } from '../utils/tasks';
+import { dedentLinesByAmount, extractTaskText, insertMultipleUnderTargetHeading, TaskMarker } from '../utils/tasks';
 import { countIndent } from '../utils/indent';
-import { detectProjectContext, insertProjectTasksInSection, parseProjectKeywords } from '../utils/projects';
+import { detectCollectorContext, detectProjectContext, insertProjectTasksInSection, parseProjectKeywords } from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import type { ProjectTaskInsertItem } from '../types';
 import {
@@ -12,8 +12,10 @@ import {
 	getOrCreateFile,
 	getListItems,
 	findSelectedTaskLines,
+	getCollectorChildGroups,
 	getTransferableChildren,
-	removeTransferredChildren
+	removeTransferredChildren,
+	type TransferableChildren
 } from '../utils/commandSetup';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
@@ -80,6 +82,42 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
+
+			// A collector selected directly (e.g. "Push [[Project]]") is not a
+			// task to transfer verbatim: decompose its task children into
+			// individual project tasks instead, so each merges/groups on its
+			// own merits in the target. Non-task children stay in the source.
+			const collectorCtx = detectCollectorContext(lineText, file.path, resolver, plugin.settings);
+			if (collectorCtx) {
+				const groups = getCollectorChildGroups(editor, listItems, taskLine);
+				const group = projectGroups.get(collectorCtx.projectName) ?? [];
+				const decomposedRanges: Array<{ start: number; end: number }> = [];
+				for (const g of groups) {
+					if (!g.isTask) continue;
+					const childIndent = countIndent(g.lines[0]);
+					const strippedChildLine = g.lines[0].slice(childIndent);
+					const childMarker = TaskMarker.fromLine(strippedChildLine)!;
+					const childLineForTarget = childMarker.toOpen().applyToLine(strippedChildLine);
+					const childrenContentGroup = g.lines.length > 1
+						? dedentLinesByAmount(g.lines.slice(1), childIndent).join('\n')
+						: '';
+					group.push({
+						taskText: extractTaskText(childLineForTarget),
+						taskContent: childrenContentGroup ? `${childLineForTarget}\n${childrenContentGroup}` : childLineForTarget,
+						childrenContent: childrenContentGroup,
+						linkText: collectorCtx.linkText
+					});
+					decomposedRanges.push(g.range);
+				}
+				projectGroups.set(collectorCtx.projectName, group);
+				decomposedRanges.reverse();
+				const collectorChildren: TransferableChildren = { lines: [], removalRanges: decomposedRanges };
+				const sourceMarker = TaskMarker.fromLine(lineText);
+				const migratedLine = sourceMarker ? sourceMarker.toMigrated().applyToLine(lineText) : lineText;
+				sourceEdits.push({ taskLine, migratedLine, children: collectorChildren });
+				continue;
+			}
+
 			const children = getTransferableChildren(editor, listItems, taskLine);
 
 			// Build content to migrate (parent line + transferable children)

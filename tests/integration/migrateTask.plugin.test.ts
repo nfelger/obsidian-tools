@@ -647,4 +647,66 @@ title: Note
 		});
 	});
 
+	describe('selecting the collector line itself', () => {
+		it('decomposes children so a live target copy reopens instead of duplicating', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Push [[Migration Initiative]]
+	- [ ] Storyline sketchen
+`,
+				sourceFileName: '2026-01-W04', // weekly → always migrates to next weekly (grouping enabled)
+				targetContent: `
+## Todo
+- [ ] Push [[Migration Initiative]]
+	- [<] Storyline sketchen
+`,
+				cursorLine: 0, // the collector line itself
+				projects: ['Migration Initiative']
+			});
+
+			expect(result.target!.match(/Storyline sketchen/g)).toHaveLength(1);
+			expect(result.target).not.toContain('[<]');
+			expect(result.target).toContain('\t- [ ] Storyline sketchen');
+			// Source: collector migrated, moved task child removed
+			expect(result.source).toContain('- [>] Push [[Migration Initiative]]');
+			expect(result.source).not.toContain('Storyline sketchen');
+		});
+
+		it('leaves a non-task child in the source while moving task children', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Push [[Migration Initiative]]
+	- [ ] Storyline sketchen
+	- a stray note directly under the collector
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: '## Todo',
+				cursorLine: 0,
+				projects: ['Migration Initiative']
+			});
+
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Storyline sketchen');
+			expect(result.source).toContain('- [>] Push [[Migration Initiative]]');
+			expect(result.source).toContain('a stray note directly under the collector');
+			expect(result.source).not.toContain('Storyline sketchen');
+		});
+
+		it('falls back to a plain transfer when the collector link does not resolve to a project note', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Push [[Missing Note]]
+	- [ ] Storyline sketchen
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: '## Todo',
+				cursorLine: 0,
+				projects: []
+			});
+
+			expect(result.target).toContain('- [ ] Push [[Missing Note]]');
+			expect(result.target).toContain('\t- [ ] Storyline sketchen');
+			expect(result.source).toContain('- [>] Push [[Missing Note]]');
+		});
+	});
+
 });
