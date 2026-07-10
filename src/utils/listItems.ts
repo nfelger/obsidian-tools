@@ -1,4 +1,4 @@
-import type { ListItem } from '../types';
+import type { ChildrenBlock, ListItem } from '../types';
 
 /**
  * Regex for list prefix + optional checkbox:
@@ -77,7 +77,7 @@ export function findChildrenBlockFromListItems(
 	editor: { getLine: (line: number) => string; lineCount: () => number; getRange: (from: {line: number, ch: number}, to: {line: number, ch: number}) => string },
 	listItems: ListItem[],
 	parentLine: number
-): { startLine: number; endLine: number; lines: string[] } | null {
+): ChildrenBlock | null {
 	if (!listItems || listItems.length === 0) return null;
 
 	const parentItem = getListItemAtLine(listItems, parentLine);

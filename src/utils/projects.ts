@@ -65,7 +65,7 @@ export function getProjectName(filePath: string, settings: BulletFlowSettings = 
  * @param settings - Plugin settings
  * @returns true if the link points to a project note
  */
-export function isProjectLink(
+function isProjectLink(
 	link: ResolvedLink,
 	settings: BulletFlowSettings = DEFAULT_SETTINGS
 ): boolean {

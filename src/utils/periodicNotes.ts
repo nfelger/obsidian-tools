@@ -89,27 +89,6 @@ export class PeriodicNoteService {
 	formatDailyPath(date: Date): string {
 		return formatDailyPath(date, this.config);
 	}
-
-	/**
-	 * Format a weekly note path.
-	 */
-	formatWeeklyPath(date: Date, week: number): string {
-		return formatWeeklyPath(date, week, this.config);
-	}
-
-	/**
-	 * Format a monthly note path.
-	 */
-	formatMonthlyPath(year: number, month: number): string {
-		return formatMonthlyPath(year, month, this.config);
-	}
-
-	/**
-	 * Format a yearly note path.
-	 */
-	formatYearlyPath(year: number): string {
-		return formatYearlyPath(year, this.config);
-	}
 }
 
 // === Note Type Detection ===
@@ -285,7 +264,7 @@ export function formatDailyPath(
 /**
  * Format a weekly note path using the pattern.
  */
-export function formatWeeklyPath(
+function formatWeeklyPath(
 	date: Date,
 	week: number,
 	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
@@ -298,7 +277,7 @@ export function formatWeeklyPath(
 /**
  * Format a monthly note path using the pattern.
  */
-export function formatMonthlyPath(
+function formatMonthlyPath(
 	year: number,
 	month: number,
 	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
@@ -310,7 +289,7 @@ export function formatMonthlyPath(
 /**
  * Format a yearly note path using the pattern.
  */
-export function formatYearlyPath(
+function formatYearlyPath(
 	year: number,
 	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
 ): string {
