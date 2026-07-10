@@ -563,3 +563,28 @@ export function detectProjectContext(
 	return null;
 }
 
+export interface CollectorContext {
+	projectName: string;
+	linkText: string;
+}
+
+/**
+ * Determine whether a line is itself a resolvable collector: a keyword plus
+ * wikilink whose target resolves to a project note. Source-side counterpart
+ * to `detectProjectContext` for the case where the *selected* task is the
+ * collector, not a task carrying a prefix or sitting under one.
+ */
+export function detectCollectorContext(
+	lineText: string,
+	sourcePath: string,
+	resolver: LinkResolver,
+	settings: BulletFlowSettings = DEFAULT_SETTINGS
+): CollectorContext | null {
+	const keywords = parseProjectKeywords(settings.projectKeywords);
+	const shape = parseCollectorLineShape(lineText, keywords);
+	if (!shape) return null;
+	const resolved = resolver.resolve(shape.linkTarget, sourcePath);
+	if (!resolved || !isProjectLink(resolved, settings)) return null;
+	return { projectName: resolved.basename, linkText: shape.linkText };
+}
+

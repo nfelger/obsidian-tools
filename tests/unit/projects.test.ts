@@ -15,7 +15,8 @@ import {
 	findPrefixedProjectTasks,
 	findProjectTaskMatch,
 	insertProjectTasksInSection,
-	detectProjectContext
+	detectProjectContext,
+	detectCollectorContext
 } from '../../src/utils/projects';
 
 describe('isProjectNote', () => {
@@ -641,5 +642,44 @@ describe('detectProjectContext', () => {
 - [ ] [[Some Note]] Draft plan
 `);
 		expect(detectProjectContext(editor, listItems, 0, 'daily.md', resolver)).toBeNull();
+	});
+});
+
+describe('detectCollectorContext', () => {
+	const resolver = {
+		resolve: (linkPath: string) => {
+			const basename = linkPath.split('/').pop()!;
+			if (['P', 'Other'].includes(basename)) {
+				return { path: `1 Projekte/${basename}.md`, basename, extension: 'md', index: 0, matchText: '', inner: '' };
+			}
+			return null;
+		}
+	};
+	const settings = { ...DEFAULT_SETTINGS, projectKeywords: '"Push", "Finish"' };
+
+	it('detects a task-form collector with an alias', () => {
+		expect(detectCollectorContext('- [ ] Push [[P|EU]]', 'daily.md', resolver, settings)).toEqual({
+			projectName: 'P',
+			linkText: '[[P|EU]]'
+		});
+	});
+
+	it('detects a plain-bullet collector', () => {
+		expect(detectCollectorContext('- Finish [[P]]', 'daily.md', resolver, settings)).toEqual({
+			projectName: 'P',
+			linkText: '[[P]]'
+		});
+	});
+
+	it('returns null for a completed collector-shaped line', () => {
+		expect(detectCollectorContext('- [x] Push [[P]]', 'daily.md', resolver, settings)).toBeNull();
+	});
+
+	it('returns null when the link does not resolve to a project note', () => {
+		expect(detectCollectorContext('- [ ] Push [[Some Note]]', 'daily.md', resolver, settings)).toBeNull();
+	});
+
+	it('returns null for an ordinary task line', () => {
+		expect(detectCollectorContext('- [ ] [[P]] Draft plan', 'daily.md', resolver, settings)).toBeNull();
 	});
 });
