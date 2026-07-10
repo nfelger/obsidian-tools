@@ -201,7 +201,7 @@ export interface CollectorLineShape extends CollectorLink {
  * advance. Callers combine this with either a known project name
  * (`parseCollectorLine`) or link resolution (`detectCollectorContext`).
  */
-export function parseCollectorLineShape(line: string, keywords: string[]): CollectorLineShape | null {
+function parseCollectorLineShape(line: string, keywords: string[]): CollectorLineShape | null {
 	const match = line.match(/^\s*- (?:\[([ /])\] )?(.*)$/);
 	if (!match) return null;
 	const content = match[2].trim();
