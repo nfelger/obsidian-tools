@@ -190,6 +190,31 @@ export interface CollectorLink {
 	linkText: string;
 }
 
+export interface CollectorLineShape extends CollectorLink {
+	/** Link target as written (possibly path-form), not yet resolved/matched */
+	linkTarget: string;
+}
+
+/**
+ * Parse a line as a potential collector — a plain bullet or live task whose
+ * content is exactly "<keyword> <wikilink>" — without knowing the project in
+ * advance. Callers combine this with either a known project name
+ * (`parseCollectorLine`) or link resolution (`detectCollectorContext`).
+ */
+export function parseCollectorLineShape(line: string, keywords: string[]): CollectorLineShape | null {
+	const match = line.match(/^\s*- (?:\[([ /])\] )?(.*)$/);
+	if (!match) return null;
+	const content = match[2].trim();
+	for (const keyword of keywords) {
+		if (!content.startsWith(keyword + ' ')) continue;
+		const linkMatch = content.slice(keyword.length + 1).match(/^\[\[([^\]]+)\]\]$/);
+		if (!linkMatch) continue;
+		const { linkPath, alias } = parseWikilinkText(linkMatch[1]);
+		return { linkTarget: linkPath, alias, linkText: linkMatch[0] };
+	}
+	return null;
+}
+
 /**
  * Check whether a line is a collector for the given project: a plain bullet
  * or live task whose content is exactly "<keyword> <wikilink>" where the
@@ -200,19 +225,9 @@ export function parseCollectorLine(
 	projectName: string,
 	keywords: string[]
 ): CollectorLink | null {
-	const match = line.match(/^\s*- (?:\[([ /])\] )?(.*)$/);
-	if (!match) return null;
-	const content = match[2].trim();
-	for (const keyword of keywords) {
-		if (!content.startsWith(keyword + ' ')) continue;
-		const linkMatch = content.slice(keyword.length + 1).match(/^\[\[([^\]]+)\]\]$/);
-		if (!linkMatch) continue;
-		const { linkPath, alias } = parseWikilinkText(linkMatch[1]);
-		if (linkTargetBasename(linkPath) === projectName) {
-			return { alias, linkText: linkMatch[0] };
-		}
-	}
-	return null;
+	const shape = parseCollectorLineShape(line, keywords);
+	if (!shape || linkTargetBasename(shape.linkTarget) !== projectName) return null;
+	return { alias: shape.alias, linkText: shape.linkText };
 }
 
 export interface CollectorMatch extends CollectorLink {
