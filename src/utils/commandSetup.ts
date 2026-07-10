@@ -1,8 +1,9 @@
 import { MarkdownView, Notice, TFile, Editor } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import type { ListItem } from '../types';
-import { isIncompleteTask, findTopLevelTasksInRange, selectTransferableChildLines } from './tasks';
+import { isIncompleteTask, findTopLevelTasksInRange, selectTransferableChildLines, TaskMarker } from './tasks';
 import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from './listItems';
+import { countIndent } from './indent';
 import { parseNoteType } from './periodicNotes';
 import { createPeriodicNoteFromTemplate, getPeriodicConfig } from './periodicNoteCreator';
 
@@ -165,6 +166,84 @@ export function removeTransferredChildren(editor: Editor, children: Transferable
 			{ line: range.end, ch: 0 }
 		);
 	}
+}
+
+/**
+ * A direct child group under a collector: the top-level line plus its own
+ * nested descendants, in document order with original indentation.
+ */
+export interface CollectorChildGroup {
+	/** Absolute line number of the group's top-level line */
+	line: number;
+	/** Whether the top-level line is itself a task */
+	isTask: boolean;
+	/** The group's lines, original indentation, in document order */
+	lines: string[];
+	/** Absolute [start, end) range in the source (end exclusive) */
+	range: { start: number; end: number };
+}
+
+/**
+ * Split a collector's transferable children into top-level groups — each
+ * either a task (a decomposition candidate) or a non-task bullet (left in
+ * the source). An already-terminal (completed/migrated) child subtree is
+ * excluded entirely by `selectTransferableChildLines`, exactly as it is for
+ * an ordinary task's children; it never appears in the returned groups.
+ *
+ * @param editor - The active editor
+ * @param listItems - List items from metadata cache
+ * @param collectorLine - Line number of the collector task
+ * @returns Groups in document order, or [] when the collector has no children
+ */
+export function getCollectorChildGroups(
+	editor: Editor,
+	listItems: ListItem[],
+	collectorLine: number
+): CollectorChildGroup[] {
+	const block = findChildrenBlockFromListItems(editor, listItems || [], collectorLine);
+	if (!block) return [];
+
+	const rawLines = withoutTrailingEmptyLine(block.lines);
+	const flags = selectTransferableChildLines(rawLines);
+
+	const groups: CollectorChildGroup[] = [];
+	let baseIndent: number | null = null;
+	let i = 0;
+	while (i < rawLines.length) {
+		if (!flags[i]) {
+			i++;
+			continue;
+		}
+		const line = rawLines[i];
+		if (line.trim() === '') {
+			i++;
+			continue;
+		}
+		if (baseIndent === null) baseIndent = countIndent(line);
+
+		const groupLines = [line];
+		const groupStart = block.startLine + i;
+		let j = i + 1;
+		while (
+			j < rawLines.length &&
+			flags[j] &&
+			(rawLines[j].trim() === '' || countIndent(rawLines[j]) > baseIndent)
+		) {
+			groupLines.push(rawLines[j]);
+			j++;
+		}
+
+		groups.push({
+			line: groupStart,
+			isTask: !!TaskMarker.fromLine(line),
+			lines: groupLines,
+			range: { start: groupStart, end: groupStart + groupLines.length }
+		});
+
+		i = j;
+	}
+
+	return groups;
 }
 
 /**
