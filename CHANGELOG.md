@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   monthly, and yearly notes. Daily notes never group: tasks taken or pushed
   into today's note always arrive individually, prefixed with their project
   link. Taking multiple tasks no longer creates a collector in the daily note.
+- Pushing, pulling, or migrating a `Push [[Project]]` collector itself (rather
+  than a task under it) now moves each of its tasks individually instead of
+  the whole group as one block — so a task already sitting in the target
+  reopens and merges instead of duplicating. Any plain note directly under
+  the collector stays behind.
 
 ## [0.14.0] - 2026-07-03
 

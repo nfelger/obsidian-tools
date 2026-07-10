@@ -112,3 +112,21 @@ link-target **basename**, not display text or resolved path — the same
 string-level convention `stripProjectPrefix` uses. Consolidation never crosses
 a sub-heading boundary within the section (`findSliceRange`) and never touches
 a task nested under something else — only top-level candidates are folded.
+
+**Selecting a collector line itself is not a task transfer.** A collector
+(`- [ ] Push [[Project]]`) is an ordinary incomplete task, so it can be the
+line a user selects to push/pull/migrate. Moving it verbatim as one blob
+would be wrong: an identical collector already in the target would match by
+exact text and the generic children-merge would blindly concatenate
+children with no per-child dedup. Instead, `detectCollectorContext` (checks
+whether the *selected line itself* is a resolvable collector) plus
+`getCollectorChildGroups` (splits its direct children into task groups vs.
+non-task groups, skipping already-terminal subtrees exactly like
+`selectTransferableChildLines` does for an ordinary task) decompose the
+collector into individual project tasks — one per task child, carrying the
+collector's own link — each routed through `insertProjectTasksInSection`
+like any other project task. Non-task children (plain note bullets) have no
+dedup identity and stay in the source, under the now-scheduled/migrated
+collector line. This only applies to `pushTaskDown`, `pullTaskUp`, and
+`migrateTask`; `takeProjectTask`'s source is always a project note, where a
+`Push [[Project]]`-shaped line has no collector meaning.
