@@ -10,8 +10,8 @@ import {
 import type { TaskInsertItem } from '../types';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
-import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
-import { findProjectLinkInAncestors, isProjectNote, stripProjectPrefix } from '../utils/projects';
+import { getActiveMarkdownFile, getListItems, findSelectedTaskLines, resolveProjectLinkAndFile } from '../utils/commandSetup';
+import { isProjectNote, stripProjectPrefix } from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
@@ -62,38 +62,22 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
 
-			// Find project link on this line or ancestors
-			const projectLink = findProjectLinkInAncestors(
-				editor,
-				listItems,
-				taskLine,
-				file.path,
-				resolver,
-				plugin.settings
+			const resolved = resolveProjectLinkAndFile(
+				editor, listItems, taskLine, file.path, plugin.app.vault, resolver, plugin.settings, 'Drop task to project'
 			);
-
-			if (!projectLink) {
-				new Notice(`Drop task to project: No project link found for task on line ${taskLine + 1}.`);
-				continue;
-			}
-
-			// Resolve the project file
-			const projectFile = plugin.app.vault.getAbstractFileByPath(projectLink.link.path) as TFile;
-			if (!projectFile) {
-				new Notice(`Drop task to project: Project note not found: ${projectLink.link.path}`);
-				continue;
-			}
+			if (!resolved) continue;
+			const { link: projectLink, projectFile } = resolved;
 
 			const children = findChildrenBlockFromListItems(editor, listItems || [], taskLine);
 
 			// Extract task text - strip any existing [[Project]] prefix for matching
-			const rawTaskText = stripProjectPrefix(extractTaskText(lineText), projectLink.link.basename);
+			const rawTaskText = stripProjectPrefix(extractTaskText(lineText), projectLink.basename);
 
 			// Build content for the project note (without project link prefix)
 			const parentIndent = countIndent(lineText);
 			const parentLineStripped = lineText.slice(parentIndent);
 			// Strip project link from the task line for the project note version
-			const parentLineForProject = TaskMarker.stripProjectLink(parentLineStripped, projectLink.link.basename);
+			const parentLineForProject = TaskMarker.stripProjectLink(parentLineStripped, projectLink.basename);
 
 			// Prepare children content (dedented)
 			let childrenContent = '';
@@ -109,7 +93,7 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 			);
 
 			// Group by project file path
-			const projectPath = projectLink.link.path;
+			const projectPath = projectLink.path;
 			if (!tasksByProject.has(projectPath)) {
 				tasksByProject.set(projectPath, { file: projectFile, items: [] });
 			}

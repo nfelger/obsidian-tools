@@ -37,7 +37,8 @@ obsidian-tools/
 │       ├── listItems.ts          # List item operations
 │       ├── indent.ts             # Indentation utilities
 │       ├── projects.ts           # Project note detection
-│       └── autoMove.ts           # Auto-move computation logic
+│       ├── autoMove.ts           # Auto-move computation logic
+│       └── notices.ts            # Shared transfer-command notice text
 ├── tests/
 │   ├── unit/                     # Pure function tests
 │   ├── integration/              # Full workflow tests

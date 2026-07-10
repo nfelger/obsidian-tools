@@ -1,11 +1,12 @@
-import { MarkdownView, Notice, TFile, Editor } from 'obsidian';
+import { MarkdownView, Notice, TFile, Vault, Editor } from 'obsidian';
 import type BulletFlowPlugin from '../main';
-import type { ListItem } from '../types';
-import { isIncompleteTask, findTopLevelTasksInRange, selectTransferableChildLines, TaskMarker } from './tasks';
+import type { ListItem, LinkResolver, BulletFlowSettings, ResolvedLink, ProjectTaskInsertItem } from '../types';
+import { isIncompleteTask, findTopLevelTasksInRange, selectTransferableChildLines, TaskMarker, prepareTaskContentForTarget } from './tasks';
 import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from './listItems';
 import { countIndent } from './indent';
 import { parseNoteType } from './periodicNotes';
 import { createPeriodicNoteFromTemplate, getPeriodicConfig } from './periodicNoteCreator';
+import { findProjectLinkInAncestors } from './projects';
 
 /**
  * Context for working with an active markdown file.
@@ -244,6 +245,82 @@ export function getCollectorChildGroups(
 	}
 
 	return groups;
+}
+
+/**
+ * Find the project link for a task (on its own line or an ancestor's) and
+ * resolve it to the project's TFile, emitting the appropriate not-found
+ * notice when either step fails.
+ *
+ * @param commandLabel - Notice prefix, e.g. "Drop task to project"
+ * @returns The resolved link and project file, or null (notice already shown)
+ */
+export function resolveProjectLinkAndFile(
+	editor: { getLine: (line: number) => string },
+	listItems: ListItem[],
+	taskLine: number,
+	sourcePath: string,
+	vault: Pick<Vault, 'getAbstractFileByPath'>,
+	resolver: LinkResolver,
+	settings: BulletFlowSettings,
+	commandLabel: string
+): { link: ResolvedLink; projectFile: TFile } | null {
+	const projectLink = findProjectLinkInAncestors(editor, listItems, taskLine, sourcePath, resolver, settings);
+	if (!projectLink) {
+		new Notice(`${commandLabel}: No project link found for task on line ${taskLine + 1}.`);
+		return null;
+	}
+
+	const projectFile = vault.getAbstractFileByPath(projectLink.link.path) as TFile;
+	if (!projectFile) {
+		new Notice(`${commandLabel}: Project note not found: ${projectLink.link.path}`);
+		return null;
+	}
+
+	return { link: projectLink.link, projectFile };
+}
+
+/**
+ * Decompose a selected collector line's task children into individual
+ * project-task insert items, ready for `insertProjectTasksInSection`. Each
+ * child is prepared the same way an ordinary selected task would be (see
+ * `prepareTaskContentForTarget`); non-task children are excluded and stay in
+ * the source under the now-scheduled/migrated collector line.
+ *
+ * @param options.reopenStarted - Convert `[/]` children to `[ ]` before
+ *   rendering (see `prepareTaskContentForTarget`)
+ * @returns The decomposed items and the collector-children removal ranges,
+ *   in `TransferableChildren` shape for `removeTransferredChildren`
+ */
+export function decomposeCollectorForTransfer(
+	editor: Editor,
+	listItems: ListItem[],
+	collectorLine: number,
+	collectorCtx: { projectName: string; linkText: string },
+	options: { reopenStarted: boolean }
+): { projectName: string; items: ProjectTaskInsertItem[]; children: TransferableChildren } {
+	const groups = getCollectorChildGroups(editor, listItems, collectorLine);
+	const items: ProjectTaskInsertItem[] = [];
+	const removalRanges: Array<{ start: number; end: number }> = [];
+
+	for (const g of groups) {
+		if (!g.isTask) continue;
+		const prepared = prepareTaskContentForTarget(g.lines[0], g.lines.slice(1), options);
+		items.push({
+			taskText: prepared.taskText,
+			taskContent: prepared.taskContent,
+			childrenContent: prepared.childrenContent,
+			linkText: collectorCtx.linkText
+		});
+		removalRanges.push(g.range);
+	}
+	removalRanges.reverse();
+
+	return {
+		projectName: collectorCtx.projectName,
+		items,
+		children: { lines: [], removalRanges }
+	};
 }
 
 /**

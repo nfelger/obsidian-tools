@@ -1,9 +1,24 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { Editor } from 'obsidian';
-import { findSelectedTaskLines, getCollectorChildGroups } from '../../src/utils/commandSetup';
+import {
+	findSelectedTaskLines,
+	getCollectorChildGroups,
+	resolveProjectLinkAndFile,
+	decomposeCollectorForTransfer
+} from '../../src/utils/commandSetup';
 import { parseMarkdownToListItems, normalizeMarkdown } from '../helpers/markdownParser.js';
 import { createMockEditor } from '../mocks/obsidian.js';
 import type { ListItem } from '../../src/types';
+
+const projectResolver = {
+	resolve: (linkPath: string) => {
+		const basename = linkPath.split('/').pop()!;
+		if (basename === 'P') {
+			return { path: '1 Projekte/P.md', basename, extension: 'md', index: 0, matchText: '', inner: '' };
+		}
+		return null;
+	}
+};
 
 /**
  * Minimal editor fake supporting multiple selection ranges.
@@ -129,5 +144,122 @@ describe('getCollectorChildGroups', () => {
 `);
 
 		expect(getCollectorChildGroups(editor as unknown as Editor, listItems, 0)).toEqual([]);
+	});
+});
+
+describe('resolveProjectLinkAndFile', () => {
+	const setup = (markdown: string) => {
+		const content = markdown.replace(/^\n/, '').replace(/\n$/, '');
+		const listItems = parseMarkdownToListItems(content) as ListItem[];
+		return { editor: { getLine: (n: number) => content.split('\n')[n] }, listItems };
+	};
+
+	it('resolves the project link and file when both are found', () => {
+		const { editor, listItems } = setup(`
+- [ ] [[P]] Draft plan
+`);
+		const projectFile = { path: '1 Projekte/P.md' };
+		const vault = { getAbstractFileByPath: (path: string) => (path === '1 Projekte/P.md' ? projectFile : null) };
+
+		const result = resolveProjectLinkAndFile(
+			editor, listItems, 0, 'daily.md', vault as any, projectResolver, undefined as any, 'Drop task to project'
+		);
+
+		expect(result).toEqual({
+			link: { path: '1 Projekte/P.md', basename: 'P', extension: 'md', index: 6, matchText: '[[P]]', inner: 'P' },
+			projectFile
+		});
+	});
+
+	it('returns null when no project link is found on the line or its ancestors', () => {
+		const { editor, listItems } = setup(`
+- [ ] Draft plan
+`);
+		const vault = { getAbstractFileByPath: () => null };
+
+		const result = resolveProjectLinkAndFile(
+			editor, listItems, 0, 'daily.md', vault as any, projectResolver, undefined as any, 'Drop task to project'
+		);
+
+		expect(result).toBeNull();
+	});
+
+	it('returns null when the project link does not resolve to a file', () => {
+		const { editor, listItems } = setup(`
+- [ ] [[P]] Draft plan
+`);
+		const vault = { getAbstractFileByPath: () => null };
+
+		const result = resolveProjectLinkAndFile(
+			editor, listItems, 0, 'daily.md', vault as any, projectResolver, undefined as any, 'Drop task to project'
+		);
+
+		expect(result).toBeNull();
+	});
+});
+
+describe('decomposeCollectorForTransfer', () => {
+	const setup = (markdown: string) => {
+		const normalized = normalizeMarkdown(markdown);
+		const editor = createMockEditor({ content: normalized });
+		const listItems = parseMarkdownToListItems(normalized) as ListItem[];
+		return { editor, listItems };
+	};
+
+	it('decomposes task children into project-task items carrying the collector link', () => {
+		const { editor, listItems } = setup(`
+- [ ] Push [[P]]
+	- [ ] First task
+		- detail
+	- [ ] Second task
+`);
+		const result = decomposeCollectorForTransfer(
+			editor as unknown as Editor, listItems, 0, { projectName: 'P', linkText: '[[P]]' }, { reopenStarted: false }
+		);
+
+		expect(result.projectName).toBe('P');
+		expect(result.items).toEqual([
+			{ taskText: 'First task', taskContent: '- [ ] First task\n\t- detail', childrenContent: '\t- detail', linkText: '[[P]]' },
+			{ taskText: 'Second task', taskContent: '- [ ] Second task', childrenContent: '', linkText: '[[P]]' }
+		]);
+		expect(result.children.removalRanges).toEqual([{ start: 3, end: 4 }, { start: 1, end: 3 }]);
+	});
+
+	it('reopens a started child to [ ] when reopenStarted is true', () => {
+		const { editor, listItems } = setup(`
+- [ ] Push [[P]]
+	- [/] Started task
+`);
+		const result = decomposeCollectorForTransfer(
+			editor as unknown as Editor, listItems, 0, { projectName: 'P', linkText: '[[P]]' }, { reopenStarted: true }
+		);
+
+		expect(result.items[0].taskContent).toBe('- [ ] Started task');
+	});
+
+	it('leaves a started child alone when reopenStarted is false', () => {
+		const { editor, listItems } = setup(`
+- [ ] Push [[P]]
+	- [/] Started task
+`);
+		const result = decomposeCollectorForTransfer(
+			editor as unknown as Editor, listItems, 0, { projectName: 'P', linkText: '[[P]]' }, { reopenStarted: false }
+		);
+
+		expect(result.items[0].taskContent).toBe('- [/] Started task');
+	});
+
+	it('excludes non-task children from the decomposed items', () => {
+		const { editor, listItems } = setup(`
+- [ ] Push [[P]]
+	- a stray note
+	- [ ] Real task
+`);
+		const result = decomposeCollectorForTransfer(
+			editor as unknown as Editor, listItems, 0, { projectName: 'P', linkText: '[[P]]' }, { reopenStarted: false }
+		);
+
+		expect(result.items).toHaveLength(1);
+		expect(result.items[0].taskText).toBe('Real task');
 	});
 });

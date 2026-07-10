@@ -455,6 +455,43 @@ export function buildTaskContent(taskLine: string, children: string[]): string {
 }
 
 /**
+ * Prepare a task line and its children for insertion into a target note:
+ * strip the source's own indent, dedent the children to match, optionally
+ * reopen a started `[/]` line to `[ ]` (transfer commands that land the task
+ * in a note worked out of order reopen it; migrate does too, since a
+ * migrated task is fresh work in the new period), and assemble the combined
+ * content via `buildTaskContent`.
+ *
+ * @param lineText - The task line as it appears in the source, with its
+ *   original leading indentation
+ * @param childrenLines - Transferable children, original indentation,
+ *   in document order
+ * @param options.reopenStarted - Convert `[/]` to `[ ]` before rendering
+ */
+export function prepareTaskContentForTarget(
+	lineText: string,
+	childrenLines: string[],
+	options: { reopenStarted: boolean }
+): { taskText: string; taskContent: string; childrenContent: string; lineForTarget: string } {
+	const parentIndent = countIndent(lineText);
+	const strippedLine = lineText.slice(parentIndent);
+
+	let lineForTarget = strippedLine;
+	if (options.reopenStarted) {
+		const marker = TaskMarker.fromLine(strippedLine);
+		lineForTarget = marker ? marker.toOpen().applyToLine(strippedLine) : strippedLine;
+	}
+
+	const childrenContent = childrenLines.length > 0
+		? dedentLinesByAmount(childrenLines, parentIndent).join('\n')
+		: '';
+
+	const taskContent = buildTaskContent(lineForTarget, childrenContent ? childrenContent.split('\n') : []);
+
+	return { taskText: extractTaskText(lineText), taskContent, childrenContent, lineForTarget };
+}
+
+/**
  * Decide which lines of a children block travel with their task when it is
  * migrated/pushed/pulled, and which stay behind in the source.
  *

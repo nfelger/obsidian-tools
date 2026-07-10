@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Maintenance
 
 - Removed unused ESLint devDependencies.
+- Consolidated duplicated task-transfer logic shared by migrate/push/pull/take
+  (collector decomposition, child-content preparation, and completion notices)
+  into shared utilities. No behavior change.
 
 ## [0.15.0] - 2026-07-10
 
