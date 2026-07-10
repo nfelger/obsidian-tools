@@ -543,4 +543,70 @@ Some content`,
 		});
 	});
 
+	describe('selecting the collector line itself', () => {
+		it('field report: decomposes children so a live target copy reopens instead of duplicating', async () => {
+			const result = await testPullUpPlugin({
+				source: `
+## Todo
+### Heute
+- [ ] Push [[DS. "Wir machen Betrieb"|P: Betrieb]]
+	- [ ] Storyline sketchen
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: `
+## Todo
+### Arbeit
+#### MUSS
+- [ ] Push [[DS. "Wir machen Betrieb"|P: Betrieb]]
+	- [<] Storyline sketchen
+`,
+				cursorLine: 2, // the collector line itself
+				projectNotes: ['DS. "Wir machen Betrieb"']
+			});
+
+			expect(result.target!.match(/Storyline sketchen/g)).toHaveLength(1);
+			expect(result.target).not.toContain('[<]');
+			expect(result.target).toContain('\t- [ ] Storyline sketchen');
+			// Source: collector scheduled, moved task child removed
+			expect(result.source).toContain('- [<] Push [[DS. "Wir machen Betrieb"|P: Betrieb]]');
+			expect(result.source).not.toContain('Storyline sketchen');
+		});
+
+		it('leaves a non-task child in the source while moving task children', async () => {
+			const result = await testPullUpPlugin({
+				source: `
+- [ ] Push [[Migration Initiative]]
+	- [ ] Storyline sketchen
+	- a stray note directly under the collector
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '## Todo',
+				cursorLine: 0,
+				projectNotes: ['Migration Initiative']
+			});
+
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Storyline sketchen');
+			expect(result.source).toContain('- [<] Push [[Migration Initiative]]');
+			expect(result.source).toContain('a stray note directly under the collector');
+			expect(result.source).not.toContain('Storyline sketchen');
+		});
+
+		it('falls back to a plain transfer when the collector link does not resolve to a project note', async () => {
+			const result = await testPullUpPlugin({
+				source: `
+- [ ] Push [[Missing Note]]
+	- [ ] Storyline sketchen
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: '## Todo',
+				cursorLine: 0,
+				projectNotes: []
+			});
+
+			expect(result.target).toContain('- [ ] Push [[Missing Note]]');
+			expect(result.target).toContain('\t- [ ] Storyline sketchen');
+			expect(result.source).toContain('- [<] Push [[Missing Note]]');
+		});
+	});
+
 });
