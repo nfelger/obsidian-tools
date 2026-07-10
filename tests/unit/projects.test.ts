@@ -16,8 +16,10 @@ import {
 	findProjectTaskMatch,
 	insertProjectTasksInSection,
 	detectProjectContext,
-	detectCollectorContext
+	detectCollectorContext,
+	routeTaskInsert
 } from '../../src/utils/projects';
+import type { ProjectTaskInsertItem, TaskInsertItem } from '../../src/types';
 
 describe('isProjectNote', () => {
 	it('returns true for a file directly in the projects folder', () => {
@@ -681,5 +683,84 @@ describe('detectCollectorContext', () => {
 
 	it('returns null for an ordinary task line', () => {
 		expect(detectCollectorContext('- [ ] [[P]] Draft plan', 'daily.md', resolver, settings)).toBeNull();
+	});
+});
+
+describe('routeTaskInsert', () => {
+	const prepared = {
+		taskText: 'Draft plan',
+		taskContent: '- [ ] Draft plan',
+		childrenContent: '',
+		lineForTarget: '- [ ] Draft plan'
+	};
+
+	it('pushes to collectedTasks when there is no project context', () => {
+		const projectGroups = new Map<string, ProjectTaskInsertItem[]>();
+		const collectedTasks: TaskInsertItem[] = [];
+
+		routeTaskInsert(null, prepared, projectGroups, collectedTasks);
+
+		expect(collectedTasks).toEqual([
+			{ taskText: 'Draft plan', taskContent: '- [ ] Draft plan', childrenContent: '' }
+		]);
+		expect(projectGroups.size).toBe(0);
+	});
+
+	it('groups by project and renders the link prefix when the task has no prefix of its own', () => {
+		const projectGroups = new Map<string, ProjectTaskInsertItem[]>();
+		const collectedTasks: TaskInsertItem[] = [];
+
+		routeTaskInsert(
+			{ projectName: 'P', linkText: '[[P]]', strippedText: 'Draft plan', hasOwnPrefix: false },
+			prepared,
+			projectGroups,
+			collectedTasks
+		);
+
+		expect(collectedTasks).toEqual([]);
+		expect(projectGroups.get('P')).toEqual([
+			{ taskText: 'Draft plan', taskContent: '- [ ] Draft plan', childrenContent: '', linkText: '[[P]]' }
+		]);
+	});
+
+	it('strips the task line back to its stripped text when the task already carries its own prefix', () => {
+		const projectGroups = new Map<string, ProjectTaskInsertItem[]>();
+		const collectedTasks: TaskInsertItem[] = [];
+
+		routeTaskInsert(
+			{ projectName: 'P', linkText: '[[P|EU]]', strippedText: 'Draft plan', hasOwnPrefix: true },
+			{ ...prepared, lineForTarget: '- [ ] [[P|EU]] Draft plan' },
+			projectGroups,
+			collectedTasks
+		);
+
+		expect(projectGroups.get('P')).toEqual([
+			{ taskText: 'Draft plan', taskContent: '- [ ] Draft plan', childrenContent: '', linkText: '[[P|EU]]' }
+		]);
+	});
+
+	it('appends to an existing project group in call order', () => {
+		const projectGroups = new Map<string, ProjectTaskInsertItem[]>();
+		const collectedTasks: TaskInsertItem[] = [];
+		const ctx = { projectName: 'P', linkText: '[[P]]', strippedText: '', hasOwnPrefix: false };
+
+		routeTaskInsert(ctx, { ...prepared, taskText: 'First', lineForTarget: '- [ ] First' }, projectGroups, collectedTasks);
+		routeTaskInsert(ctx, { ...prepared, taskText: 'Second', lineForTarget: '- [ ] Second' }, projectGroups, collectedTasks);
+
+		expect(projectGroups.get('P')!.map(t => t.taskContent)).toEqual(['- [ ] First', '- [ ] Second']);
+	});
+
+	it('includes children in the rendered task content', () => {
+		const projectGroups = new Map<string, ProjectTaskInsertItem[]>();
+		const collectedTasks: TaskInsertItem[] = [];
+
+		routeTaskInsert(
+			{ projectName: 'P', linkText: '[[P]]', strippedText: 'Draft plan', hasOwnPrefix: false },
+			{ ...prepared, childrenContent: '  - detail' },
+			projectGroups,
+			collectedTasks
+		);
+
+		expect(projectGroups.get('P')![0].taskContent).toBe('- [ ] Draft plan\n  - detail');
 	});
 });

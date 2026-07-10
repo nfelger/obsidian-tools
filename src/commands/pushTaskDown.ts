@@ -3,13 +3,17 @@ import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
 import { getPeriodicConfig } from '../utils/periodicNoteCreator';
 import {
-	buildTaskContent,
 	insertMultipleTasksWithDeduplication,
 	markTaskAsScheduled,
-	prepareTaskContentForTarget,
-	TaskMarker
+	prepareTaskContentForTarget
 } from '../utils/tasks';
-import { detectCollectorContext, detectProjectContext, insertProjectTasksInSection, parseProjectKeywords } from '../utils/projects';
+import {
+	detectCollectorContext,
+	detectProjectContext,
+	insertProjectTasksInSection,
+	parseProjectKeywords,
+	routeTaskInsert
+} from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import type { TaskInsertItem, ProjectTaskInsertItem } from '../types';
 import {
@@ -132,24 +136,9 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 
 			const children = getTransferableChildren(editor, listItems, taskLine);
 			const prepared = prepareTaskContentForTarget(lineText, children?.lines ?? [], { reopenStarted: true });
-			const { taskText, taskContent, childrenContent, lineForTarget: parentLineForTarget } = prepared;
 
 			const ctx = detectProjectContext(editor, listItems, taskLine, file.path, resolver, plugin.settings);
-			if (ctx) {
-				const strippedLine = ctx.hasOwnPrefix
-					? TaskMarker.replaceContent(parentLineForTarget, ctx.strippedText)
-					: parentLineForTarget;
-				const group = projectGroups.get(ctx.projectName) ?? [];
-				group.push({
-					taskText: ctx.strippedText,
-					taskContent: buildTaskContent(strippedLine, childrenContent ? childrenContent.split('\n') : []),
-					childrenContent,
-					linkText: ctx.linkText
-				});
-				projectGroups.set(ctx.projectName, group);
-			} else {
-				collectedTasks.push({ taskText, taskContent, childrenContent });
-			}
+			routeTaskInsert(ctx, prepared, projectGroups, collectedTasks);
 			sourceEdits.push({ taskLine, scheduledLine: markTaskAsScheduled(lineText), children });
 		}
 
