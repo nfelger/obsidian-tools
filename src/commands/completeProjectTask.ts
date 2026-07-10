@@ -12,8 +12,8 @@ import {
 } from '../utils/tasks';
 import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
-import { getActiveMarkdownFile, getListItems, findSelectedTaskLines } from '../utils/commandSetup';
-import { findProjectLinkInAncestors, isProjectNote, stripProjectPrefix } from '../utils/projects';
+import { getActiveMarkdownFile, getListItems, findSelectedTaskLines, resolveProjectLinkAndFile } from '../utils/commandSetup';
+import { isProjectNote, stripProjectPrefix } from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
@@ -69,34 +69,21 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);
 
-			const projectLink = findProjectLinkInAncestors(
-				editor,
-				listItems,
-				taskLine,
-				file.path,
-				resolver,
-				plugin.settings
+			const resolved = resolveProjectLinkAndFile(
+				editor, listItems, taskLine, file.path, plugin.app.vault, resolver, plugin.settings, 'Complete project task'
 			);
-			if (!projectLink) {
-				new Notice(`Complete project task: No project link found for task on line ${taskLine + 1}.`);
-				continue;
-			}
-
-			const projectFile = plugin.app.vault.getAbstractFileByPath(projectLink.link.path) as TFile;
-			if (!projectFile) {
-				new Notice(`Complete project task: Project note not found: ${projectLink.link.path}`);
-				continue;
-			}
+			if (!resolved) continue;
+			const { link: projectLink, projectFile } = resolved;
 
 			// Task text for matching: strip the [[Project]] prefix if present
-			const taskText = stripProjectPrefix(extractTaskText(lineText), projectLink.link.basename);
+			const taskText = stripProjectPrefix(extractTaskText(lineText), projectLink.basename);
 
 			// Log entry: the task line rendered [x] at zero indent, link stripped
 			const parentIndent = countIndent(lineText);
 			const completedLine = new TaskMarker(TaskState.Completed).applyToLine(lineText);
 			const strippedLine = TaskMarker.stripProjectLink(
 				completedLine.slice(parentIndent),
-				projectLink.link.basename
+				projectLink.basename
 			);
 
 			// All children move to the log entry — including completed
@@ -105,7 +92,7 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 			const childLines = children ? withoutTrailingEmptyLine(children.lines) : [];
 			const entryLines = [strippedLine, ...dedentLinesByAmount(childLines, parentIndent)];
 
-			const projectPath = projectLink.link.path;
+			const projectPath = projectLink.path;
 			if (!entriesByProject.has(projectPath)) {
 				entriesByProject.set(projectPath, { file: projectFile, entries: [] });
 			}

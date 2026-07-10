@@ -15,6 +15,7 @@ import {
 	findTaskMatch,
 	insertChildrenUnderTask,
 	buildTaskContent,
+	prepareTaskContentForTarget,
 	insertMultipleTasksWithDeduplication,
 	selectTransferableChildLines,
 	TaskMarker,
@@ -1075,6 +1076,43 @@ describe('buildTaskContent', () => {
 	it('preserves empty child lines', () => {
 		const result = buildTaskContent('- [ ] Task', ['  - Child', '']);
 		expect(result).toBe('- [ ] Task\n  - Child\n');
+	});
+});
+
+describe('prepareTaskContentForTarget', () => {
+	it('strips the source indent and dedents children to match', () => {
+		const result = prepareTaskContentForTarget(
+			'\t\t- [ ] Task', ['\t\t\t- Child'], { reopenStarted: false }
+		);
+		expect(result).toEqual({
+			taskText: 'Task',
+			taskContent: '- [ ] Task\n\t- Child',
+			childrenContent: '\t- Child',
+			lineForTarget: '- [ ] Task'
+		});
+	});
+
+	it('leaves a started task alone when reopenStarted is false', () => {
+		const result = prepareTaskContentForTarget('- [/] Task', [], { reopenStarted: false });
+		expect(result.lineForTarget).toBe('- [/] Task');
+		expect(result.taskContent).toBe('- [/] Task');
+	});
+
+	it('reopens a started task to [ ] when reopenStarted is true', () => {
+		const result = prepareTaskContentForTarget('- [/] Task', [], { reopenStarted: true });
+		expect(result.lineForTarget).toBe('- [ ] Task');
+		expect(result.taskContent).toBe('- [ ] Task');
+	});
+
+	it('leaves an already-open task alone when reopenStarted is true', () => {
+		const result = prepareTaskContentForTarget('- [ ] Task', [], { reopenStarted: true });
+		expect(result.lineForTarget).toBe('- [ ] Task');
+	});
+
+	it('returns an empty childrenContent when there are no children', () => {
+		const result = prepareTaskContentForTarget('- [ ] Task', [], { reopenStarted: false });
+		expect(result.childrenContent).toBe('');
+		expect(result.taskContent).toBe('- [ ] Task');
 	});
 });
 

@@ -76,7 +76,7 @@ Open design questions to settle at the start (use the brainstorming skill):
 - **Custom bullets**: mood, intention, drinks `[Y]`, event `[e]`, reading `[r]`.
   Decide per marker: real task state (extend `TaskState` — the five-location
   checklist is documented in `src/utils/taskMarker.ts` header) vs. visual-only
-  (CSS snippet in `snippets/custom-checkboxes.css` / `styles.css`, like `[o]`).
+  (CSS in `styles.css`, like `[o]`).
   Most are probably visual-only.
 - **Vault-wide completion logging**: completing/starting a task anywhere appends
   it to today's daily log; prepend a source-note wikilink when the task is

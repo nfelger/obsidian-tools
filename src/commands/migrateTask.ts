@@ -2,8 +2,7 @@ import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
 import { getPeriodicConfig } from '../utils/periodicNoteCreator';
-import { dedentLinesByAmount, extractTaskText, insertMultipleUnderTargetHeading, TaskMarker } from '../utils/tasks';
-import { countIndent } from '../utils/indent';
+import { insertMultipleUnderTargetHeading, prepareTaskContentForTarget, TaskMarker } from '../utils/tasks';
 import { detectCollectorContext, detectProjectContext, insertProjectTasksInSection, parseProjectKeywords } from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import type { ProjectTaskInsertItem } from '../types';
@@ -12,10 +11,9 @@ import {
 	getOrCreateFile,
 	getListItems,
 	findSelectedTaskLines,
-	getCollectorChildGroups,
+	decomposeCollectorForTransfer,
 	getTransferableChildren,
-	removeTransferredChildren,
-	type TransferableChildren
+	removeTransferredChildren
 } from '../utils/commandSetup';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
@@ -89,49 +87,21 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 			// own merits in the target. Non-task children stay in the source.
 			const collectorCtx = detectCollectorContext(lineText, file.path, resolver, plugin.settings);
 			if (collectorCtx) {
-				const groups = getCollectorChildGroups(editor, listItems, taskLine);
-				const group = projectGroups.get(collectorCtx.projectName) ?? [];
-				const decomposedRanges: Array<{ start: number; end: number }> = [];
-				for (const g of groups) {
-					if (!g.isTask) continue;
-					const childIndent = countIndent(g.lines[0]);
-					const strippedChildLine = g.lines[0].slice(childIndent);
-					const childMarker = TaskMarker.fromLine(strippedChildLine)!;
-					const childLineForTarget = childMarker.toOpen().applyToLine(strippedChildLine);
-					const childrenContentGroup = g.lines.length > 1
-						? dedentLinesByAmount(g.lines.slice(1), childIndent).join('\n')
-						: '';
-					group.push({
-						taskText: extractTaskText(childLineForTarget),
-						taskContent: childrenContentGroup ? `${childLineForTarget}\n${childrenContentGroup}` : childLineForTarget,
-						childrenContent: childrenContentGroup,
-						linkText: collectorCtx.linkText
-					});
-					decomposedRanges.push(g.range);
-				}
-				projectGroups.set(collectorCtx.projectName, group);
-				decomposedRanges.reverse();
-				const collectorChildren: TransferableChildren = { lines: [], removalRanges: decomposedRanges };
+				const decomposed = decomposeCollectorForTransfer(
+					editor, listItems, taskLine, collectorCtx, { reopenStarted: true }
+				);
+				const group = projectGroups.get(decomposed.projectName) ?? [];
+				group.push(...decomposed.items);
+				projectGroups.set(decomposed.projectName, group);
 				const sourceMarker = TaskMarker.fromLine(lineText);
 				const migratedLine = sourceMarker ? sourceMarker.toMigrated().applyToLine(lineText) : lineText;
-				sourceEdits.push({ taskLine, migratedLine, children: collectorChildren });
+				sourceEdits.push({ taskLine, migratedLine, children: decomposed.children });
 				continue;
 			}
 
 			const children = getTransferableChildren(editor, listItems, taskLine);
-
-			// Build content to migrate (parent line + transferable children)
-			const parentIndent = countIndent(lineText);
-			const parentLineStripped = lineText.slice(parentIndent);
-			// Convert started [/] to open [ ] in target
-			const marker = TaskMarker.fromLine(parentLineStripped);
-			const parentLineForTarget = marker ? marker.toOpen().applyToLine(parentLineStripped) : parentLineStripped;
-
-			let childrenContent = '';
-			if (children && children.lines.length > 0) {
-				const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
-				childrenContent = dedentedChildren.join('\n');
-			}
+			const prepared = prepareTaskContentForTarget(lineText, children?.lines ?? [], { reopenStarted: true });
+			const { taskContent, childrenContent, lineForTarget: parentLineForTarget } = prepared;
 
 			// A task nested under a project bullet loses that context in the
 			// target (it arrives top-level) — restore it via its collector's
@@ -150,7 +120,6 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 				});
 				projectGroups.set(ctx.projectName, group);
 			} else {
-				const taskContent = childrenContent ? `${parentLineForTarget}\n${childrenContent}` : parentLineForTarget;
 				collectedContent.push(taskContent);
 			}
 

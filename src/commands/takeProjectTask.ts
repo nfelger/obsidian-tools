@@ -1,14 +1,7 @@
 import { Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
-import {
-	buildTaskContent,
-	dedentLinesByAmount,
-	extractTaskText,
-	markTaskAsScheduled,
-	TaskMarker
-} from '../utils/tasks';
+import { markTaskAsScheduled, prepareTaskContentForTarget } from '../utils/tasks';
 import type { ProjectTaskInsertItem } from '../types';
-import { countIndent } from '../utils/indent';
 import {
 	getActiveMarkdownFile,
 	getOrCreateFile,
@@ -20,6 +13,7 @@ import {
 import { isProjectNote, getProjectName, parseProjectKeywords, insertProjectTasksInSection } from '../utils/projects';
 import { PeriodicNoteService } from '../utils/periodicNotes';
 import { getPeriodicConfig } from '../utils/periodicNoteCreator';
+import { formatTransferNotice } from '../utils/notices';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
 /**
@@ -89,28 +83,10 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 			const lineText = editor.getLine(taskLine);
 			const children = getTransferableChildren(editor, listItems, taskLine);
 
-			// Extract task text for deduplication
-			const taskText = extractTaskText(lineText);
-
-			// Build content to take (parent line + children)
-			const parentIndent = countIndent(lineText);
-			const parentLineStripped = lineText.slice(parentIndent);
-			// Convert started [/] to open [ ] in target
-			const marker = TaskMarker.fromLine(parentLineStripped);
-			const parentLineForTarget = marker ? marker.toOpen().applyToLine(parentLineStripped) : parentLineStripped;
-
-			// Prepare children content (dedented)
-			let childrenContent = '';
-			if (children && children.lines.length > 0) {
-				const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
-				childrenContent = dedentedChildren.join('\n');
-			}
-
-			// Build full task content (project-stripped — the routine renders
-			// the prefix, since daily notes never group under a collector)
-			const taskContent = buildTaskContent(
-				parentLineForTarget,
-				childrenContent ? childrenContent.split('\n') : []
+			// Content is project-stripped — the routine renders the prefix,
+			// since daily notes never group under a collector
+			const { taskText, taskContent, childrenContent } = prepareTaskContentForTarget(
+				lineText, children?.lines ?? [], { reopenStarted: true }
 			);
 
 			collectedTasks.push({
@@ -150,18 +126,7 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 		}
 
 		const taskCount = taskLines.length;
-		let message: string;
-		if (taskCount === 1) {
-			message = mergedCount > 0
-				? 'Take project task: Task merged with existing in daily note.'
-				: 'Take project task: Task taken to daily note.';
-		} else {
-			const parts: string[] = [];
-			if (newCount > 0) parts.push(`${newCount} new`);
-			if (mergedCount > 0) parts.push(`${mergedCount} merged`);
-			message = `Take project task: ${taskCount} tasks taken to daily note (${parts.join(', ')}).`;
-		}
-		new Notice(message);
+		new Notice(formatTransferNotice('Take project task', 'taken', 'daily note', taskCount, mergedCount, newCount));
 	} catch (e: any) {
 		new Notice(`Take project task error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('takeProjectTask error:', e);

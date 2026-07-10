@@ -11,6 +11,7 @@ import { countIndent, getLeadingWhitespace, detectIndentUnit, convertIndentUnit,
 import { findFirstResolvedLink, parseWikilinkText } from './wikilinks';
 import {
 	TaskMarker,
+	buildTaskContent,
 	extractTaskText,
 	findSectionRange,
 	findTaskBlockEnd,
@@ -19,7 +20,7 @@ import {
 	findSliceRange,
 	type TaskMatch
 } from './tasks';
-import type { ProjectTaskInsertItem } from '../types';
+import type { ProjectTaskInsertItem, TaskInsertItem } from '../types';
 
 /**
  * Check if a file path represents a project note.
@@ -65,7 +66,7 @@ export function getProjectName(filePath: string, settings: BulletFlowSettings = 
  * @param settings - Plugin settings
  * @returns true if the link points to a project note
  */
-export function isProjectLink(
+function isProjectLink(
 	link: ResolvedLink,
 	settings: BulletFlowSettings = DEFAULT_SETTINGS
 ): boolean {
@@ -201,7 +202,7 @@ export interface CollectorLineShape extends CollectorLink {
  * advance. Callers combine this with either a known project name
  * (`parseCollectorLine`) or link resolution (`detectCollectorContext`).
  */
-export function parseCollectorLineShape(line: string, keywords: string[]): CollectorLineShape | null {
+function parseCollectorLineShape(line: string, keywords: string[]): CollectorLineShape | null {
 	const match = line.match(/^\s*- (?:\[([ /])\] )?(.*)$/);
 	if (!match) return null;
 	const content = match[2].trim();
@@ -561,6 +562,39 @@ export function detectProjectContext(
 		};
 	}
 	return null;
+}
+
+/**
+ * Route a prepared task into its project group when `ctx` is set (rendering
+ * the project's own prefix if the task didn't already carry one), or into
+ * the plain collected-tasks list otherwise. Mutates `projectGroups` and
+ * `collectedTasks` in place.
+ */
+export function routeTaskInsert(
+	ctx: ProjectTaskContext | null,
+	prepared: { taskText: string; taskContent: string; childrenContent: string; lineForTarget: string },
+	projectGroups: Map<string, ProjectTaskInsertItem[]>,
+	collectedTasks: TaskInsertItem[]
+): void {
+	if (!ctx) {
+		collectedTasks.push({
+			taskText: prepared.taskText,
+			taskContent: prepared.taskContent,
+			childrenContent: prepared.childrenContent
+		});
+		return;
+	}
+	const strippedLine = ctx.hasOwnPrefix
+		? TaskMarker.replaceContent(prepared.lineForTarget, ctx.strippedText)
+		: prepared.lineForTarget;
+	const group = projectGroups.get(ctx.projectName) ?? [];
+	group.push({
+		taskText: ctx.strippedText,
+		taskContent: buildTaskContent(strippedLine, prepared.childrenContent ? prepared.childrenContent.split('\n') : []),
+		childrenContent: prepared.childrenContent,
+		linkText: ctx.linkText
+	});
+	projectGroups.set(ctx.projectName, group);
 }
 
 export interface CollectorContext {

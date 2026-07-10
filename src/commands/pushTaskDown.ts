@@ -3,27 +3,29 @@ import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
 import { getPeriodicConfig } from '../utils/periodicNoteCreator';
 import {
-	buildTaskContent,
-	dedentLinesByAmount,
-	extractTaskText,
 	insertMultipleTasksWithDeduplication,
 	markTaskAsScheduled,
-	TaskMarker
+	prepareTaskContentForTarget
 } from '../utils/tasks';
-import { detectCollectorContext, detectProjectContext, insertProjectTasksInSection, parseProjectKeywords } from '../utils/projects';
+import {
+	detectCollectorContext,
+	detectProjectContext,
+	insertProjectTasksInSection,
+	parseProjectKeywords,
+	routeTaskInsert
+} from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import type { TaskInsertItem, ProjectTaskInsertItem } from '../types';
-import { countIndent } from '../utils/indent';
 import {
 	getActiveMarkdownFile,
 	getOrCreateFile,
 	getListItems,
 	findSelectedTaskLines,
-	getCollectorChildGroups,
+	decomposeCollectorForTransfer,
 	getTransferableChildren,
-	removeTransferredChildren,
-	type TransferableChildren
+	removeTransferredChildren
 } from '../utils/commandSetup';
+import { formatTransferNotice } from '../utils/notices';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
 /**
@@ -122,77 +124,21 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 			// own merits in the target. Non-task children stay in the source.
 			const collectorCtx = detectCollectorContext(lineText, file.path, resolver, plugin.settings);
 			if (collectorCtx) {
-				const groups = getCollectorChildGroups(editor, listItems, taskLine);
-				const group = projectGroups.get(collectorCtx.projectName) ?? [];
-				const decomposedRanges: Array<{ start: number; end: number }> = [];
-				for (const g of groups) {
-					if (!g.isTask) continue;
-					const childIndent = countIndent(g.lines[0]);
-					const strippedChildLine = g.lines[0].slice(childIndent);
-					const childMarker = TaskMarker.fromLine(strippedChildLine)!;
-					const childLineForTarget = childMarker.toOpen().applyToLine(strippedChildLine);
-					const childrenContentGroup = g.lines.length > 1
-						? dedentLinesByAmount(g.lines.slice(1), childIndent).join('\n')
-						: '';
-					group.push({
-						taskText: extractTaskText(childLineForTarget),
-						taskContent: buildTaskContent(
-							childLineForTarget,
-							childrenContentGroup ? childrenContentGroup.split('\n') : []
-						),
-						childrenContent: childrenContentGroup,
-						linkText: collectorCtx.linkText
-					});
-					decomposedRanges.push(g.range);
-				}
-				projectGroups.set(collectorCtx.projectName, group);
-				decomposedRanges.reverse();
-				const collectorChildren: TransferableChildren = { lines: [], removalRanges: decomposedRanges };
-				sourceEdits.push({ taskLine, scheduledLine: markTaskAsScheduled(lineText), children: collectorChildren });
+				const decomposed = decomposeCollectorForTransfer(
+					editor, listItems, taskLine, collectorCtx, { reopenStarted: true }
+				);
+				const group = projectGroups.get(decomposed.projectName) ?? [];
+				group.push(...decomposed.items);
+				projectGroups.set(decomposed.projectName, group);
+				sourceEdits.push({ taskLine, scheduledLine: markTaskAsScheduled(lineText), children: decomposed.children });
 				continue;
 			}
 
 			const children = getTransferableChildren(editor, listItems, taskLine);
-
-			// Extract task text for deduplication
-			const taskText = extractTaskText(lineText);
-
-			// Build content to push (parent line + children)
-			const parentIndent = countIndent(lineText);
-			const parentLineStripped = lineText.slice(parentIndent);
-			// Convert started [/] to open [ ] in target
-			const marker = TaskMarker.fromLine(parentLineStripped);
-			const parentLineForTarget = marker ? marker.toOpen().applyToLine(parentLineStripped) : parentLineStripped;
-
-			// Prepare children content (dedented)
-			let childrenContent = '';
-			if (children && children.lines.length > 0) {
-				const dedentedChildren = dedentLinesByAmount(children.lines, parentIndent);
-				childrenContent = dedentedChildren.join('\n');
-			}
-
-			// Build full task content for new insertions
-			const taskContent = buildTaskContent(
-				parentLineForTarget,
-				childrenContent ? childrenContent.split('\n') : []
-			);
+			const prepared = prepareTaskContentForTarget(lineText, children?.lines ?? [], { reopenStarted: true });
 
 			const ctx = detectProjectContext(editor, listItems, taskLine, file.path, resolver, plugin.settings);
-			if (ctx) {
-				const strippedLine = ctx.hasOwnPrefix
-					? TaskMarker.replaceContent(parentLineForTarget, ctx.strippedText)
-					: parentLineForTarget;
-				const group = projectGroups.get(ctx.projectName) ?? [];
-				group.push({
-					taskText: ctx.strippedText,
-					taskContent: buildTaskContent(strippedLine, childrenContent ? childrenContent.split('\n') : []),
-					childrenContent,
-					linkText: ctx.linkText
-				});
-				projectGroups.set(ctx.projectName, group);
-			} else {
-				collectedTasks.push({ taskText, taskContent, childrenContent });
-			}
+			routeTaskInsert(ctx, prepared, projectGroups, collectedTasks);
 			sourceEdits.push({ taskLine, scheduledLine: markTaskAsScheduled(lineText), children });
 		}
 
@@ -231,18 +177,7 @@ export async function pushTaskDown(plugin: BulletFlowPlugin): Promise<void> {
 		}
 
 		const taskCount = taskLines.length;
-		let message: string;
-		if (taskCount === 1) {
-			message = mergedCount > 0
-				? 'Push task down: Task merged with existing in lower note.'
-				: 'Push task down: Task pushed to lower note.';
-		} else {
-			const parts: string[] = [];
-			if (newCount > 0) parts.push(`${newCount} new`);
-			if (mergedCount > 0) parts.push(`${mergedCount} merged`);
-			message = `Push task down: ${taskCount} tasks pushed to lower note (${parts.join(', ')}).`;
-		}
-		new Notice(message);
+		new Notice(formatTransferNotice('Push task down', 'pushed', 'lower note', taskCount, mergedCount, newCount));
 	} catch (e: any) {
 		new Notice(`Push task down error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('pushTaskDown error:', e);
