@@ -2,7 +2,10 @@
 
 Date: 2026-07-06 (revised same day: daily notes never group tasks under
 collectors — daily tasks are completed out of order and carry different
-priorities, so they stay individually prefixed)
+priorities, so they stay individually prefixed; revised 2026-07-10 after a
+field report: selecting the collector line itself for push/pull/migrate
+decomposes its task children into individual project tasks instead of
+transferring the collector as an opaque blob)
 Status: Proposed
 
 ## Problem
@@ -148,6 +151,61 @@ flat append-under-heading path.
 prefix-stripping is already alias-aware, and their targets (project note Todo /
 Log) have no collector concept.
 
+## Selecting the collector line itself
+
+A collector (`- [ ] Push [[Project]]`) is itself an incomplete task, so
+`findSelectedTaskLines` can return it directly — the user selects the whole
+group and pushes/pulls/migrates it in one gesture, same as any other task.
+Before this revision, that path was project-blind: `detectProjectContext`
+only recognizes a task's *own* leading prefix or its *ancestor's* project
+link, and a collector's own line content (`Push [[Project]]`) is neither —
+so the collector transferred through the plain (non-project) path as one
+opaque blob, children and all. Two failures followed directly from that:
+
+- The target's own identical `Push [[Project]]` collector line matched by
+  exact text, so the plain merge path fired and blindly concatenated the
+  incoming children under the existing collector — with no per-child dedup.
+  A child already present as `[<]` in the target stayed `[<]`, right next to
+  a freshly duplicated `[ ]` copy.
+- Even without a matching target collector, the moved blob carried a bare
+  `- [ ] Push [[Project]]` line into a possibly unrelated section, and its
+  children arrived with no project prefix at all — indistinguishable from a
+  random task titled "Push \[\[Project\]\]".
+
+**Fix: decompose instead of transferring the blob.** When the selected task's
+own line matches the collector shape (`<keyword> <wikilink>`) and the link
+resolves to a project note, the command does not treat it as one task with
+children. Instead:
+
+- Each **direct child that is itself a task** (open, started, or already
+  live) becomes its own project task — `linkText` is the collector's own
+  link (alias included), `taskText`/`taskContent` are the child's own line
+  and its own subtree, exactly as if that child task had been individually
+  prefixed with the collector's link. Each one is routed through
+  `insertProjectTasksInSection` like any other project task, so the existing
+  rules apply without new logic: a live copy in the target reopens and
+  merges (this is what fixes the reported bug — the `[<]` child now matches
+  and reopens instead of duplicating), an existing target collector absorbs
+  it, and so on per the target note's grouping flag.
+- Each **direct child that is not a task** (a plain bullet, a note) has no
+  dedup identity as a project task and is left where it is — it **stays in
+  the source**, still nested under the collector line. Only the decomposed
+  task children are removed from the source; non-task children and any
+  already-terminal subtrees (unchanged by the existing
+  `selectTransferableChildLines` rule) are untouched.
+- The collector line itself is marked scheduled/migrated in the source, same
+  as any other transferred task — it does not travel to the target as a
+  line; its identity was only ever a grouping device.
+
+This applies to `pushTaskDown`, `pullTaskUp`, and `migrateTask` — the three
+commands whose target insertion is now project-aware. `takeProjectTask`
+cannot encounter this: its source is always a project note, where a
+`Push [[Project]]`-shaped line has no special meaning (there is no periodic
+note context for it to be a collector *in*). `dropTaskToProject` and
+`completeProjectTask` can technically have a collector line selected too —
+flagged as a follow-up below, not fixed here, since their targets are
+project notes with no collector concept to preserve or lose.
+
 ## Decisions
 
 - **Daily notes never group.** Collector grouping is a planning shape for
@@ -208,15 +266,32 @@ Log) have no collector concept.
     `insertProjectTasksInSection`) implementing cases 1–4 plus the
     multi-select rule, taking the collector-grouping flag, returning
     merged/new counts like `insertMultipleTasksWithDeduplication`.
+  - `parseCollectorLineShape(line, keywords)` — the keyword-plus-wikilink
+    parse shared by `parseCollectorLine` (which additionally checks the link
+    against a known project name) and `detectCollectorContext` (which
+    resolves the link itself, since the project isn't known yet).
+  - `detectCollectorContext(lineText, sourcePath, resolver, settings)` —
+    source-side counterpart to `detectProjectContext`: is *this* line a
+    collector for a resolvable project? Returns the project name and the
+    collector's own link text, or null.
 - `src/utils/tasks.ts` — expose the section/sub-section slice math
   (`findSectionRange` already exists; add the innermost-slice lookup) and
   extract the merge step of `insertMultipleTasksWithDeduplication` as a
   reusable helper for case 1.
+- `src/utils/commandSetup.ts` — `getCollectorChildGroups(editor, listItems,
+  collectorLine)`: splits a collector's transferable children (as already
+  computed by `selectTransferableChildLines`) into top-level groups, each
+  tagged `isTask` and carrying its own absolute source range. This is what
+  lets a command move only the task groups and leave non-task groups (and
+  already-terminal subtrees, which never appear here) in place.
 - `src/types.ts` — extend `TaskInsertItem` (or add a project-task variant) to
   carry the resolved project and source alias.
 - `src/commands/pushTaskDown.ts`, `pullTaskUp.ts`, `migrateTask.ts`,
   `takeProjectTask.ts` — wire project tasks through the shared routine;
-  `takeProjectTask` drops its inline collector logic.
+  `takeProjectTask` drops its inline collector logic. `pushTaskDown`,
+  `pullTaskUp`, and `migrateTask` additionally decompose a selected
+  collector line into its task children (see "Selecting the collector line
+  itself" above) before falling back to the plain task path.
 
 No new settings: reuses `projectKeywords`, `projectsFolder`, and
 `periodicNoteTaskTargetHeading`. Phase order is untouched: collect (read-only)
@@ -282,6 +357,15 @@ Unit (`tests/unit/`):
   unresolved targets.
 - `findCollector`: keyword matrix × bullet/task × alias/no-alias, scoping to
   the section, first-of-several.
+- `detectCollectorContext`: recognizes a resolvable collector line
+  (plain-bullet and task forms, keyword matrix, alias); returns null for a
+  non-collector line, an unresolvable link, or a link outside the projects
+  folder.
+- `getCollectorChildGroups`: splits direct task children from direct
+  non-task children; a terminal (completed/migrated) child subtree is
+  excluded entirely (matching `selectTransferableChildLines`); each task
+  group carries its own subtree and absolute source range; blank lines
+  attach to the preceding group.
 - Insertion routine: each case 1–4; alias preference matrix (target-alias
   wins, source-alias fallback); stray folding under an existing collector;
   sub-section boundary → fallback to prefixed append; multi-select collector
@@ -307,6 +391,14 @@ Integration (`tests/integration/`, markdown-first), per command:
   still duplicates as today; daily→daily migration (mid-week) never groups —
   prefixed append even next to a collector; daily→weekly migration (last day
   of the week) groups.
+- push/pull/migrate, selecting the collector line itself: the reported bug
+  (a `[<]` child reopens instead of duplicating next to a fresh copy) as an
+  end-to-end regression test; a non-task child (plain bullet) stays in the
+  source under the now-scheduled/migrated collector while task children
+  move; a terminal (already `[x]`/`[>]`) child subtree stays untouched; a
+  collector whose link does not resolve to a project note falls back to the
+  plain (non-project) transfer of the whole blob, unchanged from before this
+  fix.
 
 ## Follow-ups (out of scope)
 
@@ -314,3 +406,9 @@ Integration (`tests/integration/`, markdown-first), per command:
   currently scans the whole file.
 - Collector completion hygiene: what happens to an empty collector after all
   its children complete or move away is unspecified today and unchanged here.
+- `dropTaskToProject` and `completeProjectTask` can also have a collector
+  line selected directly (it's an ordinary incomplete task to
+  `findSelectedTaskLines`), with the same blob-transfer risk this fix
+  addresses for push/pull/migrate. Not fixed here since their targets
+  (project note Todo / Log) have no collector concept — worth a dedicated
+  look if it comes up in practice.
