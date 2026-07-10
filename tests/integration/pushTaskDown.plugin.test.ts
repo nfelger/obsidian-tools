@@ -574,4 +574,71 @@ Some content
 		});
 	});
 
+	describe('selecting the collector line itself', () => {
+		it('decomposes children: a live target copy reopens instead of duplicating', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] Push [[Migration Initiative]]
+	- [ ] Storyline sketchen
+`,
+				sourceFileName: '2026-01 Jan',
+				targetContent: `
+## Todo
+- [ ] Push [[Migration Initiative]]
+	- [<] Storyline sketchen
+`,
+				today: new Date(2026, 0, 22),
+				cursorLine: 0, // the collector line itself
+				projectNotes: ['Migration Initiative']
+			});
+
+			expect(result.target!.match(/Storyline sketchen/g)).toHaveLength(1);
+			expect(result.target).not.toContain('[<]');
+			expect(result.target).toContain('\t- [ ] Storyline sketchen');
+			// Source: collector scheduled, moved task child removed
+			expect(result.source).toContain('- [<] Push [[Migration Initiative]]');
+			expect(result.source).not.toContain('Storyline sketchen');
+		});
+
+		it('leaves a non-task child in the source while moving task children', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] Push [[Migration Initiative]]
+	- [ ] Storyline sketchen
+	- a stray note directly under the collector
+`,
+				sourceFileName: '2026-01 Jan',
+				targetContent: '## Todo',
+				today: new Date(2026, 0, 22),
+				cursorLine: 0,
+				projectNotes: ['Migration Initiative']
+			});
+
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Storyline sketchen');
+			// Source: collector scheduled, note left in place, task removed
+			expect(result.source).toContain('- [<] Push [[Migration Initiative]]');
+			expect(result.source).toContain('a stray note directly under the collector');
+			expect(result.source).not.toContain('Storyline sketchen');
+		});
+
+		it('falls back to a plain transfer when the collector link does not resolve to a project note', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] Push [[Missing Note]]
+	- [ ] Storyline sketchen
+`,
+				sourceFileName: '2026-01 Jan',
+				targetContent: '## Todo',
+				today: new Date(2026, 0, 22),
+				cursorLine: 0,
+				projectNotes: [] // link does not resolve
+			});
+
+			// Unchanged, pre-decomposition behavior: the whole blob transfers verbatim
+			expect(result.target).toContain('- [ ] Push [[Missing Note]]');
+			expect(result.target).toContain('\t- [ ] Storyline sketchen');
+			expect(result.source).toContain('- [<] Push [[Missing Note]]');
+		});
+	});
+
 });
