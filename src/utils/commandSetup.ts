@@ -332,19 +332,23 @@ export function decomposeCollectorForTransfer(
  * @param editor - The active editor
  * @param listItems - List items from metadata cache
  * @param commandName - Command name for user-facing notices
+ * @param isCollectorLine - Optional predicate identifying a collector line,
+ *   so its direct task children count as top-level (see
+ *   `findTopLevelTasksInRange`)
  * @returns Array of task line numbers, or null if no tasks found
  */
 export function findSelectedTaskLines(
 	editor: Editor,
 	listItems: ListItem[],
-	commandName: string
+	commandName: string,
+	isCollectorLine?: (lineText: string) => boolean
 ): number[] | null {
 	if (editor.somethingSelected()) {
 		const taskLineSet = new Set<number>();
 		for (const selection of editor.listSelections()) {
 			const startLine = Math.min(selection.anchor.line, selection.head.line);
 			const endLine = Math.max(selection.anchor.line, selection.head.line);
-			for (const line of findTopLevelTasksInRange(editor, listItems || [], startLine, endLine)) {
+			for (const line of findTopLevelTasksInRange(editor, listItems || [], startLine, endLine, isCollectorLine)) {
 				taskLineSet.add(line);
 			}
 		}

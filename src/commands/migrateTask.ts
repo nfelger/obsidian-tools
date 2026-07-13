@@ -60,7 +60,10 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		const listItems = getListItems(plugin, file);
 
-		const taskLines = findSelectedTaskLines(editor, listItems, 'Migrate task');
+		const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
+		const isCollectorLine = (lineText: string) =>
+			!!detectCollectorContext(lineText, file.path, resolver, plugin.settings);
+		const taskLines = findSelectedTaskLines(editor, listItems, 'Migrate task', isCollectorLine);
 		if (!taskLines) return;
 
 		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
@@ -75,8 +78,6 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 			migratedLine: string;
 			children: ReturnType<typeof getTransferableChildren>;
 		}> = [];
-
-		const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
 
 		for (const taskLine of taskLines) {
 			const lineText = editor.getLine(taskLine);

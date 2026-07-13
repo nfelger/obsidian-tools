@@ -89,7 +89,10 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 
 		const listItems = getListItems(plugin, file);
 
-		const taskLines = findSelectedTaskLines(editor, listItems, 'Pull task up');
+		const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
+		const isCollectorLine = (lineText: string) =>
+			!!detectCollectorContext(lineText, file.path, resolver, plugin.settings);
+		const taskLines = findSelectedTaskLines(editor, listItems, 'Pull task up', isCollectorLine);
 		if (!taskLines) return;
 
 		// Process tasks bottom-to-top so deferred source edits keep valid line numbers
@@ -97,7 +100,6 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 
 		// Phase 1: Collect task data (read-only — source edits are deferred
 		// until the target write has succeeded)
-		const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
 		const collectedTasks: TaskInsertItem[] = [];
 		const projectGroups = new Map<string, ProjectTaskInsertItem[]>();
 		const sourceEdits: Array<{

@@ -619,6 +619,31 @@ describe('findTopLevelTasksInRange', () => {
 		// Only Task B should be included
 		expect(result).toEqual([2]);
 	});
+
+	it('treats direct children of a collector line as top-level when isCollectorLine matches', () => {
+		const content = `- [ ] Push [[Project]]
+	- [ ] Task A
+	- [ ] Task B`;
+		const editor = createMockEditor({ content });
+		const listItems = parseMarkdownToListItems(content);
+		const isCollectorLine = (lineText: string) => lineText.includes('Push [[Project]]');
+
+		// Select only the two children, not the collector line itself
+		const result = findTopLevelTasksInRange(editor, listItems, 1, 2, isCollectorLine);
+		expect(result).toEqual([1, 2]);
+	});
+
+	it('still blocks children of an ordinary task when isCollectorLine does not match it', () => {
+		const content = `- [ ] Push [[Project]]
+	- [ ] Task A
+	- [ ] Task B`;
+		const editor = createMockEditor({ content });
+		const listItems = parseMarkdownToListItems(content);
+		const isCollectorLine = () => false;
+
+		const result = findTopLevelTasksInRange(editor, listItems, 1, 2, isCollectorLine);
+		expect(result).toEqual([]);
+	});
 });
 
 describe('markTaskAsScheduled', () => {

@@ -50,19 +50,25 @@ export function dedentLinesByAmount(lines: string[], amount: number): string[] {
 /**
  * Find all top-level incomplete tasks within a line range.
  *
- * "Top-level" means tasks that are not children of other tasks.
+ * "Top-level" means tasks that are not children of other tasks. A collector
+ * line (e.g. "- [ ] Push [[Project]]") is not a real parent for this
+ * purpose — its own task children are individually transferable project
+ * tasks, not a subtree that travels with the collector, so `isCollectorLine`
+ * lets callers exempt them from the ancestor-blocking check.
  *
  * @param editor - Editor object with getLine method
  * @param listItems - List items from metadataCache
  * @param startLine - Start of selection range (inclusive)
  * @param endLine - End of selection range (inclusive)
+ * @param isCollectorLine - Optional predicate identifying a collector line
  * @returns Array of line numbers for top-level incomplete tasks
  */
 export function findTopLevelTasksInRange(
 	editor: { getLine: (line: number) => string },
 	listItems: ListItem[],
 	startLine: number,
-	endLine: number
+	endLine: number,
+	isCollectorLine?: (lineText: string) => boolean
 ): number[] {
 	if (!listItems || listItems.length === 0) return [];
 
@@ -101,7 +107,9 @@ export function findTopLevelTasksInRange(
 		while (typeof parentLine === 'number' && parentLine >= 0) {
 			const parentText = editor.getLine(parentLine);
 			if (isIncompleteTask(parentText)) {
-				isChild = true;
+				if (!isCollectorLine || !isCollectorLine(parentText)) {
+					isChild = true;
+				}
 				break;
 			}
 			const parentItem = lineToItem.get(parentLine);
