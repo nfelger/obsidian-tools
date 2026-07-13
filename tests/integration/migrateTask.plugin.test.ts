@@ -707,6 +707,31 @@ title: Note
 			expect(result.target).toContain('\t- [ ] Storyline sketchen');
 			expect(result.source).toContain('- [>] Push [[Missing Note]]');
 		});
+
+		it('multi-select of a collector\'s own children migrates each as its own project task', async () => {
+			const result = await testMigrateTaskPlugin({
+				source: `
+- [ ] Push [[Migration Initiative|MI]]
+	- [ ] Storyline sketchen
+	- [ ] Draft plan
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: '## Todo',
+				selectionStartLine: 1,
+				selectionEndLine: 2,
+				projects: ['Migration Initiative']
+			});
+
+			// Both project tasks recognized via the source collector ancestor;
+			// grouped under a fresh collector in the target (multi-task insert)
+			expect(result.notice).not.toMatch(/no incomplete tasks/i);
+			expect(result.target).toContain('- [ ] Push [[Migration Initiative|MI]]');
+			expect(result.target).toContain('\t- [ ] Storyline sketchen');
+			expect(result.target).toContain('\t- [ ] Draft plan');
+			expect(result.source).toContain('- [ ] Push [[Migration Initiative|MI]]');
+			expect(result.source).toContain('- [>] Storyline sketchen');
+			expect(result.source).toContain('- [>] Draft plan');
+		});
 	});
 
 });

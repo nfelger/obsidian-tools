@@ -621,6 +621,29 @@ Some content
 			expect(result.source).not.toContain('Storyline sketchen');
 		});
 
+		it('multi-select of a collector\'s own children pushes each as its own project task', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] Push [[Migration Initiative|MI]]
+	- [ ] Storyline sketchen
+	- [ ] Draft plan
+`,
+				sourceFileName: '2026-01-W04',
+				targetContent: '## Todo',
+				today: new Date(2026, 0, 22),
+				selectionStartLine: 1,
+				selectionEndLine: 2,
+				projectNotes: ['Migration Initiative']
+			});
+
+			expect(result.notice).not.toMatch(/no incomplete tasks/i);
+			expect(result.target).toContain('- [ ] [[Migration Initiative|MI]] Storyline sketchen');
+			expect(result.target).toContain('- [ ] [[Migration Initiative|MI]] Draft plan');
+			expect(result.source).toContain('- [ ] Push [[Migration Initiative|MI]]');
+			expect(result.source).toContain('- [<] Storyline sketchen');
+			expect(result.source).toContain('- [<] Draft plan');
+		});
+
 		it('falls back to a plain transfer when the collector link does not resolve to a project note', async () => {
 			const result = await testPushTaskDownPlugin({
 				source: `
