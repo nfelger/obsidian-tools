@@ -5,6 +5,16 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Multi-selecting a collector's task children (e.g. two sub-tasks under
+  `Push [[Project]]`) and running push/pull/migrate no longer reports "No
+  incomplete tasks in selection" — each selected child now transfers as its
+  own project task, matching what already happened when selecting one at
+  a time.
+
 ## [0.15.1] - 2026-07-10
 
 ### Maintenance
