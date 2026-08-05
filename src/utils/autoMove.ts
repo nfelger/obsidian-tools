@@ -130,20 +130,35 @@ export function findLogInsertionLine(
 }
 
 /**
- * Compute the changes needed to move a completed or started task from Todo to Log.
+ * The block a trigger line files to Log: the trigger's root ancestor within
+ * the Todo section, plus that root's children.
+ */
+export interface AutoMoveBlock {
+	/** Root ancestor of the trigger line — the first line of the block */
+	rootLine: number;
+	/** Inclusive start of the block (same as rootLine) */
+	startLine: number;
+	/** Exclusive end of the block */
+	endLine: number;
+}
+
+/**
+ * Locate the block a completed or started task files to Log, or null when the
+ * line isn't a live trigger inside the Todo section.
+ *
+ * Callers that need to know *what* moves before deciding how (e.g. project
+ * auto-completion, which claims the trigger's children) use this; computeAutoMove
+ * builds on it.
  *
  * @param docText - Full document text
  * @param triggerLine - Line number of the just-completed or just-started task
  * @param todoHeading - The Todo section heading (e.g., "## Todo")
- * @param logHeading - The Log section heading (e.g., "## Log")
- * @returns Array of CM6-compatible changes (sorted by position), or null if no move needed
  */
-export function computeAutoMove(
+export function findAutoMoveBlock(
 	docText: string,
 	triggerLine: number,
-	todoHeading: string,
-	logHeading: string
-): { changes: Array<{ from: number; to: number; insert: string }> } | null {
+	todoHeading: string
+): AutoMoveBlock | null {
 	const lines = docText.split('\n');
 
 	// Check that the line is a completed or started task
@@ -159,7 +174,36 @@ export function computeAutoMove(
 	// Find root ancestor and collect the block
 	const rootLine = findRootAncestorLine(lines, triggerLine, todoRange.start);
 	const block = collectBlock(lines, rootLine, todoRange.end);
-	const blockText = lines.slice(block.startLine, block.endLine).join('\n');
+	return { rootLine, startLine: block.startLine, endLine: block.endLine };
+}
+
+/**
+ * Compute the changes needed to move a completed or started task from Todo to Log.
+ *
+ * @param docText - Full document text
+ * @param triggerLine - Line number of the just-completed or just-started task
+ * @param todoHeading - The Todo section heading (e.g., "## Todo")
+ * @param logHeading - The Log section heading (e.g., "## Log")
+ * @param options.moveLineOnly - File only the block's first line under Log and
+ *   drop the rest of the block, for tasks whose children have already been
+ *   written elsewhere (project auto-completion)
+ * @returns Array of CM6-compatible changes (sorted by position), or null if no move needed
+ */
+export function computeAutoMove(
+	docText: string,
+	triggerLine: number,
+	todoHeading: string,
+	logHeading: string,
+	options: { moveLineOnly?: boolean } = {}
+): { changes: Array<{ from: number; to: number; insert: string }> } | null {
+	const lines = docText.split('\n');
+
+	const block = findAutoMoveBlock(docText, triggerLine, todoHeading);
+	if (!block) return null;
+
+	const blockText = options.moveLineOnly
+		? lines[block.startLine]
+		: lines.slice(block.startLine, block.endLine).join('\n');
 
 	// Find Log section (may not exist yet)
 	const logRange = findSectionRange(lines, logHeading);

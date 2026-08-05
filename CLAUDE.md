@@ -24,7 +24,7 @@ obsidian-tools/
 │   │   ├── completeProjectTask.ts
 │   │   └── finishProject.ts
 │   ├── events/
-│   │   └── autoMoveCompleted.ts  # CM6 extension for auto-move
+│   │   └── autoMoveCompleted.ts  # CM6 extension for auto-move (+ auto project completion)
 │   ├── ui/
 │   │   └── HotkeyModal.ts       # Leader-key hotkey modal
 │   └── utils/                    # Domain services & pure functions
@@ -37,6 +37,7 @@ obsidian-tools/
 │       ├── listItems.ts          # List item operations
 │       ├── indent.ts             # Indentation utilities
 │       ├── projects.ts           # Project note detection
+│       ├── projectCompletion.ts  # Project-note side of completing a task
 │       ├── autoMove.ts           # Auto-move computation logic
 │       └── notices.ts            # Shared transfer-command notice text
 ├── tests/

@@ -613,6 +613,7 @@ describe('detectProjectContext', () => {
 `);
 		expect(detectProjectContext(editor, listItems, 0, 'daily.md', resolver)).toEqual({
 			projectName: 'P',
+			path: '1 Projekte/P.md',
 			linkText: '[[P|EU]]',
 			strippedText: 'Draft plan',
 			hasOwnPrefix: true
@@ -626,6 +627,7 @@ describe('detectProjectContext', () => {
 `);
 		expect(detectProjectContext(editor, listItems, 1, 'daily.md', resolver)).toEqual({
 			projectName: 'P',
+			path: '1 Projekte/P.md',
 			linkText: '[[P|EU]]',
 			strippedText: 'Draft plan',
 			hasOwnPrefix: false

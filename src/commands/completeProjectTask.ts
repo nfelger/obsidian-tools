@@ -1,28 +1,11 @@
-import { Notice, TFile } from 'obsidian';
+import { Notice } from 'obsidian';
 import type BulletFlowPlugin from '../main';
-import {
-	dedentLinesByAmount,
-	extractTaskText,
-	findTaskMatch,
-	findTaskBlockEnd,
-	insertUnderSubheading,
-	parseTargetHeading,
-	TaskMarker,
-	TaskState
-} from '../utils/tasks';
 import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from '../utils/listItems';
-import { countIndent } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines, resolveProjectLinkAndFile } from '../utils/commandSetup';
-import { isProjectNote, stripProjectPrefix } from '../utils/projects';
+import { isProjectNote } from '../utils/projects';
+import { buildCompletionEntry, notifyCompletion, writeProjectCompletions, type CompletionsByProject } from '../utils/projectCompletion';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
-
-interface CompletionEntry {
-	/** Task text without any [[Project]] prefix, for matching in the project note */
-	taskText: string;
-	/** Log entry lines: the [x] task line at zero indent plus its children */
-	entryLines: string[];
-}
 
 /**
  * Complete a project task from the daily note (or any non-project note).
@@ -59,7 +42,7 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 		if (!taskLines) return;
 
 		// Phase 1: Collect (read-only). Group entries by project file.
-		const entriesByProject = new Map<string, { file: TFile; entries: CompletionEntry[] }>();
+		const entriesByProject: CompletionsByProject = new Map();
 		const sourceCompletions: Array<{
 			taskLine: number;
 			completedLine: string;
@@ -67,36 +50,25 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 		}> = [];
 
 		for (const taskLine of taskLines) {
-			const lineText = editor.getLine(taskLine);
-
 			const resolved = resolveProjectLinkAndFile(
 				editor, listItems, taskLine, file.path, plugin.app.vault, resolver, plugin.settings, 'Complete project task'
 			);
 			if (!resolved) continue;
 			const { link: projectLink, projectFile } = resolved;
 
-			// Task text for matching: strip the [[Project]] prefix if present
-			const taskText = stripProjectPrefix(extractTaskText(lineText), projectLink.basename);
-
-			// Log entry: the task line rendered [x] at zero indent, link stripped
-			const parentIndent = countIndent(lineText);
-			const completedLine = new TaskMarker(TaskState.Completed).applyToLine(lineText);
-			const strippedLine = TaskMarker.stripProjectLink(
-				completedLine.slice(parentIndent),
-				projectLink.basename
-			);
-
 			// All children move to the log entry — including completed
 			// subtrees, which are part of the day's record
 			const children = findChildrenBlockFromListItems(editor, listItems, taskLine);
 			const childLines = children ? withoutTrailingEmptyLine(children.lines) : [];
-			const entryLines = [strippedLine, ...dedentLinesByAmount(childLines, parentIndent)];
+			const { entry, completedLine } = buildCompletionEntry(
+				editor.getLine(taskLine), childLines, projectLink.basename
+			);
 
 			const projectPath = projectLink.path;
 			if (!entriesByProject.has(projectPath)) {
 				entriesByProject.set(projectPath, { file: projectFile, entries: [] });
 			}
-			entriesByProject.get(projectPath)!.entries.push({ taskText, entryLines });
+			entriesByProject.get(projectPath)!.entries.push(entry);
 
 			sourceCompletions.push({
 				taskLine,
@@ -108,48 +80,7 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 		if (sourceCompletions.length === 0) return;
 
 		// Phase 2: Write each project note — remove the Todo copy, append the log
-		const todoHeading = plugin.settings.projectNoteTaskTargetHeading;
-		const logHeading = plugin.settings.logExtractionTargetHeading;
-		const { level: logLevel } = parseTargetHeading(logHeading);
-		const subHeadingPrefix = '#'.repeat(logLevel + 1);
-		const mismatches: string[] = [];
-
-		for (const [, { file: projectFile, entries }] of entriesByProject) {
-			await plugin.app.vault.process(projectFile, (data: string) => {
-				const lines = data.split('\n');
-				const projectName = projectFile.basename;
-				const logLines: string[] = [];
-
-				for (const entry of entries) {
-					logLines.push(...entry.entryLines);
-
-					const match = findTaskMatch(lines, entry.taskText, {
-						heading: todoHeading,
-						includeCompleted: true
-					});
-					if (!match) {
-						mismatches.push(`"${entry.taskText}" has no matching task in [[${projectName}]]`);
-						continue;
-					}
-					if (match.state === TaskState.Completed) {
-						mismatches.push(`"${entry.taskText}" is already completed in [[${projectName}]]`);
-						continue;
-					}
-					// Remove the finished task and its subtree from Todo — the
-					// log entry below is the record. Leftover children under the
-					// copy (terminal subtrees left behind on take) move into the
-					// log entry so their history isn't lost.
-					const blockEnd = findTaskBlockEnd(lines, match.lineNumber);
-					const copyIndent = countIndent(lines[match.lineNumber]);
-					const leftovers = lines.slice(match.lineNumber + 1, blockEnd);
-					logLines.push(...dedentLinesByAmount(leftovers, copyIndent));
-					lines.splice(match.lineNumber, blockEnd - match.lineNumber);
-				}
-
-				// Append the log entry, grouped under one sub-heading per source note
-				return insertUnderSubheading(lines, logLines, logHeading, `${subHeadingPrefix} [[${file.basename}]]`);
-			});
-		}
+		const mismatches = await writeProjectCompletions(plugin, file.basename, entriesByProject);
 
 		// Phase 3: Complete the source tasks in place and move their children
 		// out. Deleting children shifts later line numbers, so edits run
@@ -165,16 +96,11 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 			editor.setLine(completion.taskLine, completion.completedLine);
 		}
 
-		const count = sourceCompletions.length;
-		const projectNames = [...entriesByProject.values()].map(p => `[[${p.file.basename}]]`);
-		const base = count === 1
-			? `Complete project task: Task completed and logged to ${projectNames[0]}.`
-			: `Complete project task: ${count} tasks completed and logged to ${projectNames.join(', ')}.`;
-		if (mismatches.length > 0) {
-			new Notice(`${base} Mismatches: ${mismatches.join('; ')}`, NOTICE_TIMEOUT_ERROR);
-		} else {
-			new Notice(base);
-		}
+		notifyCompletion(
+			sourceCompletions.length,
+			[...entriesByProject.values()].map(p => p.file.basename),
+			mismatches
+		);
 	} catch (e: any) {
 		new Notice(`Complete project task error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('completeProjectTask error:', e);

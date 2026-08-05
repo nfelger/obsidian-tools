@@ -4,6 +4,7 @@ import {
 	collectBlock,
 	findLogInsertionLine,
 	computeAutoMove,
+	findAutoMoveBlock,
 	findAutoMoveTriggerLine
 } from '../../src/utils/autoMove';
 
@@ -484,6 +485,68 @@ describe('computeAutoMove', () => {
 		].join('\n');
 
 		expect(computeAutoMove(doc, 1, '## Todo', '## Log')).toBeNull();
+	});
+});
+
+describe('findAutoMoveBlock', () => {
+	it('reports the trigger as its own root when it is top-level', () => {
+		const doc = [
+			'## Todo',
+			'- [x] Draft rollout plan',
+			'  - agreed on phased approach',
+			'- [ ] Other task'
+		].join('\n');
+
+		expect(findAutoMoveBlock(doc, 1, '## Todo')).toEqual({
+			rootLine: 1,
+			startLine: 1,
+			endLine: 3
+		});
+	});
+
+	it('reports the root ancestor when the trigger is nested', () => {
+		const doc = [
+			'## Todo',
+			'- [ ] Parent task',
+			'  - [x] Completed child'
+		].join('\n');
+
+		expect(findAutoMoveBlock(doc, 2, '## Todo')).toEqual({
+			rootLine: 1,
+			startLine: 1,
+			endLine: 3
+		});
+	});
+
+	it('returns null for a line that is not a live trigger in Todo', () => {
+		const doc = ['## Todo', '- [ ] Open task', '', '## Log', '- [x] Already logged'].join('\n');
+
+		expect(findAutoMoveBlock(doc, 1, '## Todo')).toBeNull();
+		expect(findAutoMoveBlock(doc, 4, '## Todo')).toBeNull();
+	});
+});
+
+describe('computeAutoMove with moveLineOnly', () => {
+	it('files the task line and drops the children it no longer owns', () => {
+		const doc = [
+			'## Todo',
+			'- [x] [[Project]] Draft rollout plan',
+			'  - agreed on phased approach',
+			'- [ ] Other task',
+			'',
+			'## Log',
+			'- Did something'
+		].join('\n');
+
+		const result = computeAutoMove(doc, 1, '## Todo', '## Log', { moveLineOnly: true });
+		const applied = applyChanges(doc, result!.changes);
+
+		expect(applied).toContain('- [x] [[Project]] Draft rollout plan');
+		expect(applied).not.toContain('agreed on phased approach');
+
+		const lines = applied.split('\n');
+		expect(lines.indexOf('- [x] [[Project]] Draft rollout plan')).toBeGreaterThan(lines.indexOf('## Log'));
+		expect(lines).toContain('- [ ] Other task');
 	});
 });
 
