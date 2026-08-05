@@ -19,7 +19,7 @@ import { PeriodicNoteService } from '../utils/periodicNotes';
 import { getPeriodicConfig } from '../utils/periodicNoteCreator';
 import { TaskMarker, TaskState } from '../utils/tasks';
 import { computeAutoMove, findAutoMoveBlock, findAutoMoveTriggerLine } from '../utils/autoMove';
-import { completeProjectTaskAtLine } from '../utils/projectCompletion';
+import { completeProjectTaskAtLine, type AutoCompletionOutcome } from '../utils/projectCompletion';
 
 const autoMoveAnnotation = Annotation.define<boolean>();
 
@@ -173,12 +173,12 @@ async function completeTriggerInProject(
 	docText: string,
 	triggerLine: number,
 	todoHeading: string
-): Promise<'not-project' | 'completed' | 'failed'> {
+): Promise<AutoCompletionOutcome> {
 	const lines = docText.split('\n');
-	if (TaskMarker.fromLine(lines[triggerLine])?.state !== TaskState.Completed) return 'not-project';
+	if (TaskMarker.fromLine(lines[triggerLine])?.state !== TaskState.Completed) return 'skipped';
 
 	const block = findAutoMoveBlock(docText, triggerLine, todoHeading);
-	if (!block || block.rootLine !== triggerLine) return 'not-project';
+	if (!block || block.rootLine !== triggerLine) return 'skipped';
 
 	const childLines = lines.slice(triggerLine + 1, block.endLine);
 	return completeProjectTaskAtLine(plugin, file, docText, triggerLine, childLines);

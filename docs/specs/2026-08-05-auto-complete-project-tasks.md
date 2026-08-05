@@ -35,24 +35,33 @@ The ticked task must:
 - be **completed**, not started — `[/]` files under Log as before, since
   started work isn't done;
 - carry **its own resolvable `[[Project]]` prefix** — `detectProjectContext`
-  semantics, so a mid-line project link doesn't count;
+  semantics, so a mid-line project link doesn't count; and
 - be the **root of the block auto-move files** — a task nested under something
   else is not the task the project note knows about, and the block that would
-  move isn't it either; and
-- still have a **live copy in the project's Todo section**.
+  move isn't it either.
 
-The last one is where the automatic path deliberately parts with the command.
-The command logs a completion even when the copy is missing or already `[x]`,
-because the user explicitly asked to close *this* task and the log is the paper
-trail. A ticked checkbox is not that request: with nothing to close, an
-automatic run writes nothing and the task just files under `## Log` with its
-notes intact. That also makes running the command inside a daily note
-idempotent — the `[x]` it leaves behind wakes this extension, which finds the
-copy already gone and doesn't log the completion twice.
+Whether the project note ever listed the task is **not** a condition. Ticking
+follows the command: the completion is logged either way, so work invented on
+the fly in the daily note is filed to its project like anything else. A missing
+Todo copy is the normal shape for such a task, so — unlike the command, where
+it answers an explicit request about a specific task — the automatic path does
+not report it; a copy left `[x]` in Todo still is, since the user may want to
+tidy it.
 
-The root rule is the other place this is narrower than the command, which
-resolves a project through the ancestor chain (collectors, project bullets). A
-ticked sub-task under a `Push [[Project]]` collector is therefore left alone.
+## Idempotency
+
+The record that a completion was filed is the log entry itself, so that is what
+a repeat run checks (`isCompletionLogged`): a completed task with the same text
+inside the source note's sub-section of the project log. This makes running the
+command inside a daily note idempotent — the `[x]` it leaves behind wakes the
+extension, which finds its own entry already there and writes nothing — and
+covers untick/re-tick and any other repeat path, without making "was it listed
+in the project?" stand in for "was it already filed?". The check is scoped to
+the sub-heading, so the same task completed on another day gets its own entry.
+
+The root rule is where this is narrower than the command, which resolves a
+project through the ancestor chain (collectors, project bullets). A ticked
+sub-task under a `Push [[Project]]` collector is therefore left alone.
 That is a deliberately narrow start: daily notes never group under collectors (see
 [key insights](../key-insights.md), *Project Task Consolidation*), so the
 prefixed shape `takeProjectTask` produces is the one that matters here, and an
@@ -81,8 +90,9 @@ synchronous version didn't have:
 - `src/utils/projectCompletion.ts` (new) — the project-note side of a
   completion, extracted from `completeProjectTask.ts` so the command and the
   extension share one implementation: `buildCompletionEntry`,
-  `writeProjectCompletions`, `notifyCompletion`, plus the editor-free
-  `completeProjectTaskAtLine` used by auto-move.
+  `writeProjectCompletions` (per-entry `CompletionResult`s, so each caller
+  decides what is worth reporting), `notifyCompletion`, `isCompletionLogged`,
+  plus the editor-free `completeProjectTaskAtLine` used by auto-move.
 - `src/utils/autoMove.ts` — `findAutoMoveBlock` exposes the block a trigger
   files (so the caller can tell root from nested, and claim the children);
   `computeAutoMove` gains `moveLineOnly` for tasks whose children now live in
@@ -96,11 +106,13 @@ No new settings: the behavior follows auto-move, which is likewise always on.
 
 ## Testing
 
-- Unit: `findAutoMoveBlock`, and `computeAutoMove` under `moveLineOnly`.
+- Unit: `findAutoMoveBlock`, `computeAutoMove` under `moveLineOnly`,
+  `isCompletionLogged` and `completionSubHeading`.
 - Integration (`tests/integration/autoMoveCompleted.plugin.test.ts`, driving
   `runAutoMove` over markdown): project task completed and filed line-only;
-  aliased links; no live project copy (including the state the command leaves
-  behind) writes nothing; failed project write leaves the daily note untouched;
-  started task, sub-task, and mid-line link all fall through to plain
-  auto-move; document edited during the project write, both when the trigger
-  can be re-located and when it can't.
+  aliased links; a task the project never listed logged all the same; the same
+  task logged again on a later day; an entry already in today's sub-section
+  (the state the command leaves behind) not logged twice; failed project write
+  leaves the daily note untouched; started task, sub-task, and mid-line link
+  all fall through to plain auto-move; document edited during the project
+  write, both when the trigger can be re-located and when it can't.

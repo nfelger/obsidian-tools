@@ -88,14 +88,15 @@ editor view (otherwise two quick completions both file the same task to the
 project note), and the trigger line is re-located afterwards and matched by
 text (otherwise an intervening edit could file the wrong task line-only,
 dropping its children). Auto-completion is deliberately narrower than the
-command: only a completed task carrying its **own** project prefix, sitting at
-the root of the block being filed, and still having a live copy in the
-project's Todo section qualifies. An ancestor collector or project bullet
-doesn't count — the ticked line wouldn't be the task the project note knows
-about — and where the command logs a missing copy anyway (the user asked for
-it), an automatic run with nothing to close writes nothing. That last rule is
-also what keeps the command idempotent inside a daily note: the `[x]` it leaves
-behind wakes the extension, which finds no copy and doesn't log twice.
+command: only a completed task carrying its **own** project prefix and sitting
+at the root of the block being filed qualifies — an ancestor collector or
+project bullet doesn't count, since the ticked line wouldn't be the task the
+project note knows about. Whether the project ever listed the task is not a
+condition either way: both paths log the completion, so ad-hoc daily-note work
+reaches its project. What makes a completion idempotent is the log entry
+itself (`isCompletionLogged` — same task text, same source-note sub-heading),
+which is why the command's `[x]` waking the extension doesn't file the work
+twice, and why the same task completed on another day still gets an entry.
 
 Children handling differs by command: on migrate/push/pull/take,
 completed/migrated child subtrees stay in the source

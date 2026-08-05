@@ -3,7 +3,7 @@ import type BulletFlowPlugin from '../main';
 import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from '../utils/listItems';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines, resolveProjectLinkAndFile } from '../utils/commandSetup';
 import { isProjectNote } from '../utils/projects';
-import { buildCompletionEntry, notifyCompletion, writeProjectCompletions, type CompletionsByProject } from '../utils/projectCompletion';
+import { buildCompletionEntry, describeMismatch, notifyCompletion, writeProjectCompletions, type CompletionsByProject } from '../utils/projectCompletion';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
@@ -80,7 +80,7 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 		if (sourceCompletions.length === 0) return;
 
 		// Phase 2: Write each project note — remove the Todo copy, append the log
-		const mismatches = await writeProjectCompletions(plugin, file.basename, entriesByProject);
+		const results = await writeProjectCompletions(plugin, file.basename, entriesByProject);
 
 		// Phase 3: Complete the source tasks in place and move their children
 		// out. Deleting children shifts later line numbers, so edits run
@@ -99,7 +99,7 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 		notifyCompletion(
 			sourceCompletions.length,
 			[...entriesByProject.values()].map(p => p.file.basename),
-			mismatches
+			results.filter(r => r.outcome !== 'removed').map(describeMismatch)
 		);
 	} catch (e: any) {
 		new Notice(`Complete project task error: ${e.message}`, NOTICE_TIMEOUT_ERROR);

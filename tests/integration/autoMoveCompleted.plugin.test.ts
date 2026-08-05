@@ -125,7 +125,7 @@ describe('auto-move', () => {
 			expect(project.slice(project.indexOf('## Log'))).toContain('- [x] Draft rollout plan');
 		});
 
-		it('writes nothing when the project has no live copy to close', async () => {
+		it('logs a task the project never listed', async () => {
 			const result = await testAutoMove({
 				source: `
 ## Todo
@@ -145,15 +145,54 @@ describe('auto-move', () => {
 				}
 			});
 
-			// Plain auto-move: the task keeps its notes and files under Log
+			// Filed like any other project task: line to Log, notes to the project
 			expect(result.source).toContain(
-				'## Log\n- [x] [[Migration Initiative]] Reworded since it was taken\n\t- what actually happened'
+				'## Log\n- [x] [[Migration Initiative]] Reworded since it was taken'
 			);
-			expect(result.project('Migration Initiative')).toBe('## Todo\n- [<] Draft rollout plan\n\n## Log');
-			expect(result.notices).toEqual([]);
+			expect(result.source).not.toContain('what actually happened');
+
+			const project = result.project('Migration Initiative')!;
+			expect(project).toContain('- [<] Draft rollout plan');
+			const log = project.slice(project.indexOf('## Log'));
+			expect(log).toContain('### [[2026-07-02 Thu]]');
+			expect(log).toContain('- [x] Reworded since it was taken');
+			expect(log).toContain('what actually happened');
+
+			// A task the project never listed is normal here, not worth reporting
+			expect(result.notice).toBe(
+				'Complete project task: Task completed and logged to [[Migration Initiative]].'
+			);
 		});
 
-		it('does not log a second time after the command already completed the task', async () => {
+		it('logs a completion again on a later day', async () => {
+			const result = await testAutoMove({
+				source: `
+## Todo
+
+- [x] [[Migration Initiative]] Weekly report
+
+## Log
+`,
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+
+## Log
+
+### [[2026-07-01 Tue]]
+
+- [x] Weekly report
+`
+				}
+			});
+
+			// Yesterday's entry doesn't stand in for today's
+			const project = result.project('Migration Initiative')!;
+			expect(project).toContain('### [[2026-07-02 Thu]]');
+			expect(project.match(/- \[x\] Weekly report/g)).toHaveLength(2);
+		});
+
+		it('does not log a second time when the completion is already in the project log', async () => {
 			// What the daily note looks like right after Complete project task:
 			// the task is [x] in place, its children moved to the project log
 			const result = await testAutoMove({
