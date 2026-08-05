@@ -5,6 +5,19 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Ticking a `[[Project]]`-prefixed task in a daily note now completes it in its
+  project note automatically: the project's Todo copy is removed and a log
+  entry with the task and its notes is written, the same as running **Complete
+  project task**. The daily note keeps the completed task line under `## Log`.
+  Nothing is written unless the project note still lists the task, so ticking
+  a checkbox never comes as a surprise. Started `[/]` tasks, sub-tasks, and
+  tasks that merely mention a project mid-line are filed under `## Log`
+  unchanged, as before.
+
 ## [0.15.3] - 2026-07-13
 
 ### Fixed
