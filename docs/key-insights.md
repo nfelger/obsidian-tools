@@ -81,8 +81,15 @@ collected content exists only in memory, so the old order could lose tasks on a
 failed write.
 
 Auto-move follows the same order when a ticked task turns out to be a project
-task: the project write is awaited before anything moves, and a failed write
-aborts the run. Because that await happens inside an editor extension, two
+task — in either section of the daily note: ticked in Todo it is filed to the
+project and moved under Log, ticked where it already sits in Log only its notes
+travel (`completeTriggerInProject` is one code path, parameterised by the
+section heading). The Log pass needs the ticked line's **text** carried over
+from the update listener: completed tasks accumulate there, so "first completed
+in the section" — reliable in Todo, where auto-move files them immediately —
+says nothing about which line the user just ticked, and two identical lines
+make the tick unattributable, so the run bails. In both cases the project write
+is awaited before anything moves, and a failed write aborts the run. Because that await happens inside an editor extension, two
 things must hold that a synchronous run got for free — runs are serialized per
 editor view (otherwise two quick completions both file the same task to the
 project note), and the trigger line is re-located afterwards and matched by

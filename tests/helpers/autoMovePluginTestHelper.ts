@@ -24,6 +24,12 @@ interface TestAutoMoveOptions {
 	failProjectWrite?: boolean;
 	/** Rewrite the source while the project write is in flight */
 	editDuringProjectWrite?: (text: string) => string;
+	/**
+	 * The line the user just ticked, as the editor extension captures it.
+	 * Defaults to the first `[x]` line in the source — the tick the scenario
+	 * describes. Pass explicitly to disambiguate when there are several.
+	 */
+	tickedLine?: string;
 }
 
 interface TestAutoMoveResult {
@@ -59,7 +65,8 @@ export async function testAutoMove({
 	projectNotes = {},
 	projectsFolder = '1 Projekte',
 	failProjectWrite = false,
-	editDuringProjectWrite
+	editDuringProjectWrite,
+	tickedLine
 }: TestAutoMoveOptions): Promise<TestAutoMoveResult> {
 	const sourcePath = `${diaryFolder}/${sourceFileName}.md`;
 	let sourceContent = normalizeMarkdown(source);
@@ -114,6 +121,10 @@ export async function testAutoMove({
 
 	const mockPlugin = { app: mockApp, settings } as unknown as BulletFlowPlugin;
 
+	const completedLine = tickedLine
+		?? sourceContent.split('\n').find(line => /^\s*- \[x\] /.test(line))
+		?? null;
+
 	try {
 		const { runAutoMove } = await import('../../src/events/autoMoveCompleted');
 		await runAutoMove(mockPlugin, mockSourceFile as any, {
@@ -121,7 +132,7 @@ export async function testAutoMove({
 			dispatch: (changes) => {
 				sourceContent = applyChanges(sourceContent, changes);
 			}
-		});
+		}, completedLine);
 	} finally {
 		NoticeSpy.mockRestore();
 		(globalThis as any).__periodicNoteSettings = undefined;

@@ -246,6 +246,62 @@ export function computeAutoMove(
 }
 
 /**
+ * Find a completed task in a section by its exact line text.
+ *
+ * The counterpart to `findAutoMoveTriggerLine` for the Log section, where
+ * completed tasks accumulate and "the first one" says nothing about which line
+ * the user just ticked. Matching by text survives the line shifts that make a
+ * captured line *number* unusable. Returns null when the text appears more
+ * than once — which of the twins was ticked is unknowable, and guessing would
+ * strip the wrong entry's notes.
+ *
+ * @param docText - Full document text
+ * @param sectionHeading - The section to search (e.g., "## Log")
+ * @param lineText - The line to find, matched in full including indentation
+ * @returns Line number (0-indexed), or null if absent or ambiguous
+ */
+export function findCompletedTaskLineByText(
+	docText: string,
+	sectionHeading: string,
+	lineText: string
+): number | null {
+	const lines = docText.split('\n');
+	const range = findSectionRange(lines, sectionHeading);
+	if (!range) return null;
+
+	let found: number | null = null;
+	for (let i = range.start + 1; i < range.end; i++) {
+		if (lines[i] !== lineText) continue;
+		if (TaskMarker.fromLine(lines[i])?.state !== TaskState.Completed) continue;
+		if (found !== null) return null;
+		found = i;
+	}
+	return found;
+}
+
+/**
+ * Compute the change that deletes the line range [startLine, endLine) — the
+ * source side of children that have been filed into a project note.
+ *
+ * @returns The change, or null when the range is empty
+ */
+export function computeLineRangeRemoval(
+	docText: string,
+	startLine: number,
+	endLine: number
+): { changes: Array<{ from: number; to: number; insert: string }> } | null {
+	if (endLine <= startLine) return null;
+
+	const lines = docText.split('\n');
+	const docLength = docText.length;
+	const from = lineToOffset(lines, startLine, docLength);
+	const to = lineToOffset(lines, endLine, docLength);
+	if (to <= from) return null;
+
+	return { changes: [{ from, to, insert: '' }] };
+}
+
+/**
  * Find the line number of the first completed or started task in the Todo section.
  * Called fresh after each setTimeout to avoid stale line references.
  *

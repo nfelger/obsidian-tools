@@ -335,6 +335,141 @@ describe('auto-move', () => {
 		});
 	});
 
+	describe('project tasks ticked in the log section', () => {
+		it('files the completion without moving the line, notes and all', async () => {
+			const result = await testAutoMove({
+				source: `
+## Todo
+
+- [ ] Call the dentist
+
+## Log
+
+- stood up late
+- [x] [[Migration Initiative]] Unblocked the staging deploy
+	- the cert had expired
+- 14:00 Sync
+`,
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+- [<] Draft rollout plan
+
+## Log
+`
+				}
+			});
+
+			// The entry stays exactly where it was written; only its notes leave
+			expect(result.source).toBe(`
+## Todo
+
+- [ ] Call the dentist
+
+## Log
+
+- stood up late
+- [x] [[Migration Initiative]] Unblocked the staging deploy
+- 14:00 Sync
+`.trim());
+
+			const project = result.project('Migration Initiative')!;
+			const log = project.slice(project.indexOf('## Log'));
+			expect(log).toContain('### [[2026-07-02 Thu]]');
+			expect(log).toContain('- [x] Unblocked the staging deploy');
+			expect(log).toContain('the cert had expired');
+			// The unrelated Todo task is left alone
+			expect(project).toContain('- [<] Draft rollout plan');
+		});
+
+		it('leaves a plain ticked log entry alone', async () => {
+			const source = `
+## Todo
+
+## Log
+
+- [x] Took the bins out
+	- recycling day
+`;
+			const result = await testAutoMove({
+				source,
+				projectNotes: { 'Migration Initiative': '## Todo\n\n## Log' }
+			});
+
+			expect(result.source).toBe(source.trim());
+			expect(result.project('Migration Initiative')).toBe('## Todo\n\n## Log');
+			expect(result.notices).toEqual([]);
+		});
+
+		it('leaves an entry nested under another bullet alone', async () => {
+			const source = `
+## Todo
+
+## Log
+
+- 14:00 Sync
+	- [x] [[Migration Initiative]] Agreed the cutover date
+		- Tuesday it is
+`;
+			const result = await testAutoMove({
+				source,
+				projectNotes: { 'Migration Initiative': '## Todo\n\n## Log' }
+			});
+
+			expect(result.source).toBe(source.trim());
+			expect(result.project('Migration Initiative')).toBe('## Todo\n\n## Log');
+		});
+
+		it('does not file twice when the Todo pass just moved the task here', async () => {
+			const result = await testAutoMove({
+				source: `
+## Todo
+
+- [x] [[Migration Initiative]] Draft rollout plan
+	- agreed on phased approach
+
+## Log
+`,
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+- [<] Draft rollout plan
+
+## Log
+`
+				}
+			});
+
+			const project = result.project('Migration Initiative')!;
+			expect(project.match(/- \[x\] Draft rollout plan/g)).toHaveLength(1);
+			expect(project.match(/agreed on phased approach/g)).toHaveLength(1);
+			expect(result.notices).toHaveLength(1);
+		});
+
+		it('leaves the note alone when the ticked text is ambiguous', async () => {
+			const source = `
+## Todo
+
+## Log
+
+- [x] [[Migration Initiative]] Standup
+	- first one
+- [x] [[Migration Initiative]] Standup
+	- second one
+`;
+			const result = await testAutoMove({
+				source,
+				projectNotes: { 'Migration Initiative': '## Todo\n\n## Log' },
+				tickedLine: '- [x] [[Migration Initiative]] Standup'
+			});
+
+			// Which twin was ticked is unknowable — stripping either one's notes
+			// would be a guess
+			expect(result.source).toBe(source.trim());
+			expect(result.project('Migration Initiative')).toBe('## Todo\n\n## Log');
+		});
+	});
+
 	describe('edits during the project write', () => {
 		it('follows the task when the document shifts under it', async () => {
 			const result = await testAutoMove({

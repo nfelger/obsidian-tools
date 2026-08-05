@@ -4,8 +4,10 @@ import {
 	collectBlock,
 	findLogInsertionLine,
 	computeAutoMove,
+	computeLineRangeRemoval,
 	findAutoMoveBlock,
-	findAutoMoveTriggerLine
+	findAutoMoveTriggerLine,
+	findCompletedTaskLineByText
 } from '../../src/utils/autoMove';
 
 describe('findRootAncestorLine', () => {
@@ -547,6 +549,53 @@ describe('computeAutoMove with moveLineOnly', () => {
 		const lines = applied.split('\n');
 		expect(lines.indexOf('- [x] [[Project]] Draft rollout plan')).toBeGreaterThan(lines.indexOf('## Log'));
 		expect(lines).toContain('- [ ] Other task');
+	});
+});
+
+describe('findCompletedTaskLineByText', () => {
+	const doc = [
+		'## Todo',
+		'- [x] Standup',
+		'',
+		'## Log',
+		'- [x] [[P]] Unblocked the deploy',
+		'\t- the cert had expired',
+		'- [x] Standup',
+		'- [ ] Not completed'
+	].join('\n');
+
+	it('finds a completed task in the given section', () => {
+		expect(findCompletedTaskLineByText(doc, '## Log', '- [x] [[P]] Unblocked the deploy')).toBe(4);
+	});
+
+	it('ignores identical lines outside the section', () => {
+		expect(findCompletedTaskLineByText(doc, '## Log', '- [x] Standup')).toBe(6);
+	});
+
+	it('returns null when the line is absent, incomplete, or the section is missing', () => {
+		expect(findCompletedTaskLineByText(doc, '## Log', '- [x] Never written')).toBeNull();
+		expect(findCompletedTaskLineByText(doc, '## Log', '- [ ] Not completed')).toBeNull();
+		expect(findCompletedTaskLineByText(doc, '## Missing', '- [x] Standup')).toBeNull();
+	});
+
+	it('returns null when the same line appears twice in the section', () => {
+		const twins = ['## Log', '- [x] [[P]] Standup', '- [x] [[P]] Standup'].join('\n');
+		expect(findCompletedTaskLineByText(twins, '## Log', '- [x] [[P]] Standup')).toBeNull();
+	});
+});
+
+describe('computeLineRangeRemoval', () => {
+	it('deletes the given line range', () => {
+		const doc = ['## Log', '- [x] Task', '\t- a note', '\t- another', '- Next entry'].join('\n');
+
+		const result = computeLineRangeRemoval(doc, 2, 4);
+		expect(applyChanges(doc, result!.changes)).toBe(
+			['## Log', '- [x] Task', '- Next entry'].join('\n')
+		);
+	});
+
+	it('returns null for an empty range', () => {
+		expect(computeLineRangeRemoval('## Log\n- [x] Task', 2, 2)).toBeNull();
 	});
 });
 

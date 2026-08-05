@@ -15,9 +15,9 @@ clean-up.
 
 ## Behavior
 
-When the auto-move extension picks up a ticked task in a daily note's Todo
-section, it now asks whether that task belongs to a project. If it does, the
-project-note side of `completeProjectTask` runs before the task is filed:
+When the auto-move extension picks up a ticked task in a daily note, it now
+asks whether that task belongs to a project. If it does, the project-note side
+of `completeProjectTask` runs before the task is filed:
 
 1. **In the project note** — the Todo-section copy is removed and a log entry
    (task line `[x]`, project prefix stripped, plus the task's children) is
@@ -28,6 +28,32 @@ project-note side of `completeProjectTask` runs before the task is filed:
 A notice reports the completion (and any mismatch), so the user sees that the
 children moved rather than vanished.
 
+## Both sections
+
+Work reaches the daily note two ways, so both are watched:
+
+- **Ticked in Todo** — the task is filed to the project and its line moves
+  under `## Log`, as auto-move has always done.
+- **Ticked in Log** — work written straight into the day's log as it happened.
+  Nothing moves (the line is already where it belongs), but its notes travel to
+  the project log all the same, so the project note holds the detail.
+
+The Log section needs a different way to find the trigger. In Todo a completed
+task is transient — auto-move files it immediately — so "the first completed
+task in the section" is reliably the one just ticked. In Log completed tasks
+accumulate, and nothing in the document distinguishes today's tick from last
+week's entry. So the update listener now carries the ticked line's **text**
+(never its number, which intervening edits invalidate) and
+`findCompletedTaskLineByText` re-locates it. Two identical lines in the section
+mean the tick is unattributable: the run bails rather than strip the wrong
+entry's notes.
+
+Both passes share `completeTriggerInProject` — the qualifying rules, the
+project write, and the children hand-off are one code path parameterised by the
+section heading. Only the source-side change differs: a move for Todo
+(`computeAutoMove`), a plain deletion of the filed children for Log
+(`computeLineRangeRemoval`).
+
 ## Qualifying tasks
 
 The ticked task must:
@@ -36,9 +62,9 @@ The ticked task must:
   started work isn't done;
 - carry **its own resolvable `[[Project]]` prefix** — `detectProjectContext`
   semantics, so a mid-line project link doesn't count; and
-- be the **root of the block auto-move files** — a task nested under something
-  else is not the task the project note knows about, and the block that would
-  move isn't it either.
+- be the **root of its block** — a task nested under something else is not the
+  task the project note knows about, and the block that would move isn't it
+  either.
 
 Whether the project note ever listed the task is **not** a condition. Ticking
 follows the command: the completion is logged either way, so work invented on
@@ -47,6 +73,15 @@ Todo copy is the normal shape for such a task, so — unlike the command, where
 it answers an explicit request about a specific task — the automatic path does
 not report it; a copy left `[x]` in Todo still is, since the user may want to
 tidy it.
+
+The root rule is where this is narrower than the command, which resolves a
+project through the ancestor chain (collectors, project bullets). A ticked
+sub-task under a `Push [[Project]]` collector — or under a `- 14:00 Sync`
+bullet in the Log — is therefore left alone. That is a deliberately narrow
+start: daily notes never group under collectors (see
+[key insights](../key-insights.md), *Project Task Consolidation*), so the
+prefixed shape `takeProjectTask` produces is the one that matters here, and an
+automatic cross-file write should not guess.
 
 ## Idempotency
 
@@ -58,14 +93,6 @@ extension, which finds its own entry already there and writes nothing — and
 covers untick/re-tick and any other repeat path, without making "was it listed
 in the project?" stand in for "was it already filed?". The check is scoped to
 the sub-heading, so the same task completed on another day gets its own entry.
-
-The root rule is where this is narrower than the command, which resolves a
-project through the ancestor chain (collectors, project bullets). A ticked
-sub-task under a `Push [[Project]]` collector is therefore left alone.
-That is a deliberately narrow start: daily notes never group under collectors (see
-[key insights](../key-insights.md), *Project Task Consolidation*), so the
-prefixed shape `takeProjectTask` produces is the one that matters here, and an
-automatic cross-file write should not guess.
 
 ## Phase order and the async gap
 
@@ -96,9 +123,11 @@ synchronous version didn't have:
 - `src/utils/autoMove.ts` — `findAutoMoveBlock` exposes the block a trigger
   files (so the caller can tell root from nested, and claim the children);
   `computeAutoMove` gains `moveLineOnly` for tasks whose children now live in
-  the project note.
+  the project note; `findCompletedTaskLineByText` and `computeLineRangeRemoval`
+  serve the Log pass.
 - `src/events/autoMoveCompleted.ts` — `runAutoMove` holds the document-level
-  logic (testable without CM6); the extension only wires the view to it.
+  logic (testable without CM6) and drives both passes; the extension only wires
+  the view to it and captures the ticked line.
 - `src/utils/projects.ts` — `ProjectTaskContext` carries the project note's
   `path`, so callers reach the file without re-resolving the link.
 
@@ -107,7 +136,8 @@ No new settings: the behavior follows auto-move, which is likewise always on.
 ## Testing
 
 - Unit: `findAutoMoveBlock`, `computeAutoMove` under `moveLineOnly`,
-  `isCompletionLogged` and `completionSubHeading`.
+  `findCompletedTaskLineByText` (section scoping, ambiguity),
+  `computeLineRangeRemoval`, `isCompletionLogged` and `completionSubHeading`.
 - Integration (`tests/integration/autoMoveCompleted.plugin.test.ts`, driving
   `runAutoMove` over markdown): project task completed and filed line-only;
   aliased links; a task the project never listed logged all the same; the same
@@ -115,4 +145,7 @@ No new settings: the behavior follows auto-move, which is likewise always on.
   (the state the command leaves behind) not logged twice; failed project write
   leaves the daily note untouched; started task, sub-task, and mid-line link
   all fall through to plain auto-move; document edited during the project
-  write, both when the trigger can be re-located and when it can't.
+  write, both when the trigger can be re-located and when it can't. For the Log
+  pass: an entry filed in place with its notes moved and its position kept, a
+  plain entry and a nested one both left alone, no second filing when the Todo
+  pass just moved the task there, and an ambiguous ticked text left alone.

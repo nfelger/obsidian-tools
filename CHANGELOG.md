@@ -18,11 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ticking a `[[Project]]`-prefixed task in a daily note now completes it in its
   project note automatically: the project's Todo copy is removed and a log
   entry with the task and its notes is written, the same as running **Complete
-  project task**. The daily note keeps the completed task line under `## Log`.
-  Tasks the project never listed — work invented on the fly in the daily note —
-  are logged to the project too. Completing the same task twice doesn't log it
+  project task**. Ticked under `## Todo`, the task line then moves to `## Log`
+  as usual; ticked in `## Log` — work written down as it happened — the line
+  stays put and only its notes travel to the project. Tasks the project never
+  listed are logged too, and completing the same task twice doesn't log it
   twice. Started `[/]` tasks, sub-tasks, and tasks that merely mention a project
-  mid-line are filed under `## Log` unchanged, as before.
+  mid-line are unaffected.
 
 ## [0.15.3] - 2026-07-13
 
