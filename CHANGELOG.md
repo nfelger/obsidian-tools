@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Releases carry `main.js`, `manifest.json`, and `styles.css` again, so BRAT
+  can install and update the plugin. Uploads had been silently rejected since
+  the repository started enforcing immutable releases.
+
 ### Added
 
 - Ticking a `[[Project]]`-prefixed task in a daily note now completes it in its
