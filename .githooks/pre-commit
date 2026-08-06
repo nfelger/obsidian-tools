@@ -46,10 +46,21 @@ fi
 # keep a clean baseline reachable without forcing a bad refactor. What they must
 # not be is invisible, because the diff of exceptions is the highest-signal
 # place to start a review. So this lists them and moves on.
-EXCEPTIONS=$(git diff --cached -U0 -- 'src' 'tests' .oxlintrc.json .fallowrc.json vitest.config.js 2>/dev/null \
-  | grep -E '^\+' \
-  | grep -E 'fallow-ignore|oxlint-disable|eslint-disable|@expected-unused|max-(lines|params|depth|statements)|complexity|thresholds|maxC(yclomatic|ognitive|rap)' \
-  | grep -vE '^\+\+\+')
+
+# Added suppression comments, anywhere in the source.
+SUPPRESSIONS=$(git diff --cached -U0 -- 'src' 'tests' 2>/dev/null \
+  | grep -E '^\+' | grep -vE '^\+\+\+' \
+  | grep -E 'fallow-ignore|oxlint-disable|eslint-disable|@expected-unused')
+
+# Threshold changes in the config files. The line must carry a number, or every
+# passing mention of "complexity" in a comment reads as a raised limit — and a
+# ledger that cries wolf is one nobody reads.
+THRESHOLDS=$(git diff --cached -U0 -- .oxlintrc.json .fallowrc.json vitest.config.js stryker.config.json 2>/dev/null \
+  | grep -E '^\+' | grep -vE '^\+\+\+' \
+  | grep -E '(max-?(lines|params|depth|statements)|complexity|maxC(yclomatic|ognitive|rap)|maxUnitSize|thresholds|lines|branches|functions|statements)' \
+  | grep -E '[0-9]')
+
+EXCEPTIONS=$(printf '%s\n%s' "$SUPPRESSIONS" "$THRESHOLDS" | grep -vE '^$')
 
 if [ -n "$EXCEPTIONS" ]; then
   echo "Note: this commit adds quality exceptions. Not blocking — review them."
