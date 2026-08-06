@@ -7,7 +7,7 @@ Böckeler's [maintainability sensors](https://martinfowler.com/articles/sensors-
 3.14.0, Oxlint, and Stryker.
 
 > **Status: partly implemented.** The linting layer (§5), coverage-weighted complexity (§9),
-> LLM-shaped lint messages (§8) and the agent hooks (§4.1) are built; Fallow adoption,
+> LLM-shaped lint messages (§8), the agent hooks (§4.1) and Fallow adoption (§6.1) are built;
 > boundary rules, mutation testing and the cadenced review are not. §11 carries the current
 > state per item — trust that table over any prose here. Every command quoted was run
 > against this repository; §3 is measured, not estimated. Findings are marked
@@ -268,10 +268,9 @@ while a file that never ran (unresolvable import, module-level throw) reports **
 tests and carries its reason on the file entry. Reading assertions alone loses that error
 completely.
 
-Known gap: warnings introduced by *new* code are not surfaced at edit time, because
-"newly introduced" needs a baseline to compare against. `fallow audit --gate new-only` (P3)
-is the natural home for that, and would let `Stop` report a warning delta rather than
-nothing.
+The gap this left — no way to distinguish findings *introduced* by a change from inherited
+debt — was closed by P3, which added `fallow audit` as a third sensor to the same `Stop`
+hook. See §6.1.
 
 ## 5. P2 — Add the linter layer, with the AI-specific rules turned on
 
@@ -362,16 +361,9 @@ Leave it on. The control is not denying the escape hatch — it is requiring a r
 reviewing the diff (§8). Fallow already supports the reason syntax:
 `// fallow-ignore-next-line unused-export -- kept for plugin consumers`.
 
-Baselines are saved once, on a clean ref:
-
-```bash
-npx fallow dead-code --save-baseline && npx fallow health --save-baseline \
-  && npx fallow dupes --save-baseline
-```
-
 Pin the version (`npm i -D fallow`) rather than `npx …@latest`: a sensor must be
 deterministic across time, not just across runs, or a tool release turns CI red on an
-unchanged codebase.
+unchanged codebase. Pin it *exactly* — `^3.14.0` still lets a minor bump change the verdict.
 
 **Split Fallow's output by consumer.** This follows directly from §1.5, and my first draft
 conflated the two:
@@ -383,6 +375,51 @@ conflated the two:
   deliberate DI factory and a shared schema module as defects. Its real use is *risk
   triage*: knowing a changed file has 10+ callers tells a reviewer where to look. This
   repo has a natural candidate — `src/types.ts` has fan-in 29.
+
+### 6.1 As built
+
+Fallow pinned at `3.14.0` (exactly, not `^`), configured in `.fallowrc.json`, wired into CI
+and added as a third sensor on the `Stop` hook. That last part is the payoff: the gate can now
+distinguish findings **this change introduced** from inherited debt, which is what P1 could
+not do alone.
+
+**[revised] No baseline files.** The plan called for three saved baselines. They turned out
+to be redundant: `audit`'s `new-only` gate derives attribution from git — it snapshots the
+merge-base and diffs findings — so a saved baseline adds a second source of truth that must
+be regenerated whenever the code improves, and would go stale silently. Dropping them also
+avoids deciding whether to commit them (CI needs them shared, `.fallow/` is ignored).
+
+**The config is smaller than proposed, and one entry is a whole rule off.**
+`ignoreDependencies` plus `usedClassMembers` silence five of the seven §3 false positives
+precisely. `dev-dependencies-in-production` is disabled outright rather than per-finding,
+because the rule's *premise* fails for a bundled plugin (see §3) — that is a different act
+from suppressing a true finding, and the config says so.
+
+`audit.css: false` was added after seeing the output: `styles.css` has ~30 declarations, so
+every styling metric came back flagged "low confidence" and swamped the real findings. §1.7
+again — noise costs more than the missing signal.
+
+**Verified against a real regression, not just a green run.** With a deliberately convoluted
+new function added, `audit` exits 1 and attributes it precisely
+(`high-complexity:src/utils/indent.ts:121:gateProbe:cyclomatic=19,cognitive=26,crap=97.0`),
+while the 31 pre-existing findings stay excluded. Removing the probe returns it to exit 0.
+The `Stop` hook renders the same data as labelled findings with Fallow's own suggested
+actions (`refactor-function`, `increase-coverage` — notably *not* raising a threshold).
+
+**Two CI details that would have made this silently useless:**
+
+- `actions/checkout@v3` clones shallow by default, so there is no merge-base to diff
+  against. `fetch-depth: 0` is required.
+- CI ran `npm test`, which does **not** enforce the coverage floor — so the ratchet added in
+  P6a was decorative there. CI now runs `npm run test:coverage`, plus `npm run test:crap`
+  for the istanbul data Fallow's CRAP scores need.
+
+**Known characteristic, not a bug:** on the `Stop` hook the base is the merge-base with the
+branch's upstream, so it asks "what have I introduced since my last push" — the right
+question mid-session, but pushing does move findings into the baseline. CI pins the base to
+the PR's target instead (`FALLOW_AUDIT_BASE`), so nothing is laundered at the point that
+matters. In-session sensors give early feedback; CI confirms against main — which is exactly
+the split Böckeler describes.
 
 ## 7. P4 — Turn the architecture prose into dependency rules
 
@@ -568,7 +605,7 @@ surfaced. It is also nearly free — the coverage data already exists.
 | P5a | LLM-shaped lint messages via `lint-guided.mjs` | ~1h | — | **done** (v0.16.2) |
 | P1 | Agent hooks: Oxlint on `PostToolUse`, lint + tests on `Stop` | ~1h | **G1** | **done** (v0.16.2) |
 | P5b | LLM-shaped messages for the existing git hooks; advisory ledger | ~1h | — | open |
-| P3 | Pinned Fallow + `.fallowrc.json` + baselines + CI step | ~2h | G3 | open |
+| P3 | Pinned Fallow + `.fallowrc.json` + CI step + `Stop` integration | ~2h | G3 | **done** (v0.16.2) |
 | P4 | Boundary zones, after deciding the `utils/` question | ~2h | G4 | open |
 | P6b | Stryker on `tasks.ts` / `projects.ts` / `autoMove.ts` + query script | ~3h | — | open |
 | P7 | `modularity-review` skill, per release | ~2h | — | open |

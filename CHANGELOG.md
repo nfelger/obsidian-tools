@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Maintenance
 
+- Added codebase analysis (dead code, duplication, complexity) that reports only
+  what a change newly introduces, leaving the existing backlog to be worked
+  down deliberately. It runs in CI and alongside AI coding sessions.
 - Lint and the test suite now run automatically before an AI coding session can
   finish a turn, and lint errors in a file are reported back as soon as it is
   written. Failures come with the suggested fix attached, so problems get caught

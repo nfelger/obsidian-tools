@@ -13,12 +13,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          # fallow audit compares against the merge-base, which a shallow
+          # clone does not contain.
+          fetch-depth: 0
       - uses: actions/setup-node@v3
         with:
           node-version: '20'
       - name: Install dependencies
         run: npm ci
+      - name: Lint
+        run: npm run lint
+      # Runs the suite and enforces the coverage floor in vitest.config.js.
       - name: Run tests
-        run: npm test
+        run: npm run test:coverage
       - name: Build
         run: npm run build
+
+      # Coverage feeds the audit's CRAP scores; without it complexity risk is
+      # estimated from export references and ranks badly.
+      - name: Coverage for complexity scoring
+        run: npm run test:crap
+
+      # Gates on findings this change introduced, not the inherited baseline.
+      - name: Code audit
+        run: npm run audit:code
+        env:
+          FALLOW_AUDIT_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}

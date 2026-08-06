@@ -147,6 +147,67 @@ const tests = spawnSync(
 
 const testsFailed = tests.status !== 0;
 
+// --- Sensor 3: findings this change introduced ------------------------------
+//
+// `fallow audit` attributes each finding to the changeset or to the inherited
+// baseline, and `gate: new-only` in .fallowrc.json means only the former count.
+// That distinction is what makes this reportable at all: the repo carries real
+// duplication and complexity today, and nagging about inherited debt would be
+// the "warnings are a backlog" rule violated by the tooling itself.
+
+/** Introduced findings, as "what: where — numbers", plus fallow's own actions. */
+function introducedFindings() {
+	const audit = spawnSync('npx', ['fallow', 'audit', '--format', 'json', '--quiet'], {
+		cwd: projectDir,
+		encoding: 'utf8',
+		maxBuffer: 32 * 1024 * 1024,
+	});
+
+	if (audit.error || typeof audit.stdout !== 'string') return [];
+
+	let report;
+	try {
+		report = JSON.parse(audit.stdout);
+	} catch {
+		return [];
+	}
+
+	// Anything other than an explicit failed verdict is not ours to act on:
+	// a validation or network error must not masquerade as a code problem.
+	if (report.verdict !== 'fail') return [];
+
+	const label = { dead_code: 'dead code', complexity: 'complexity', duplication: 'duplication' };
+	const found = [];
+	for (const section of ['dead_code', 'complexity', 'duplication']) {
+		for (const group of Object.values(report[section] ?? {})) {
+			if (!Array.isArray(group)) continue;
+			for (const f of group) {
+				if (f?.introduced !== true) continue;
+				const name = f.name ?? f.export_name ?? '(unnamed)';
+				const where = f.path ? `${f.path}:${f.line ?? '?'}` : 'unknown location';
+				const metrics = [
+					f.cyclomatic != null ? `cyclomatic ${f.cyclomatic}` : null,
+					f.cognitive != null ? `cognitive ${f.cognitive}` : null,
+					f.crap != null ? `CRAP ${f.crap}` : null,
+					f.line_count != null ? `${f.line_count} lines` : null,
+				].filter(Boolean);
+				const actions = (f.actions ?? [])
+					.map((a) => a.type)
+					.filter((t) => t && t !== 'suppress-line');
+
+				found.push(
+					`- [${label[section]}] ${name} at ${where}` +
+						(metrics.length ? ` (${metrics.join(', ')})` : '') +
+						(actions.length ? `\n  Suggested: ${actions.join(', ')}` : '')
+				);
+			}
+		}
+	}
+	return found;
+}
+
+const introduced = introducedFindings();
+
 /**
  * Trim a broken runner's output down to the part that explains the break.
  *
@@ -204,7 +265,7 @@ function failedTests() {
 	return failures;
 }
 
-if (lintErrors.length === 0 && !testsFailed) {
+if (lintErrors.length === 0 && !testsFailed && introduced.length === 0) {
 	saveState({ ...state, lastPassed: current });
 	quiet();
 }
@@ -253,9 +314,23 @@ if (testsFailed) {
 	}
 }
 
+if (introduced.length > 0) {
+	sections.push(
+		[
+			`New maintainability findings introduced by this change (${introduced.length}):`,
+			...introduced.slice(0, 8),
+			introduced.length > 8 ? `- ...and ${introduced.length - 8} more` : null,
+			'These are attributed to your changes, not inherited debt — `npm run audit:code`',
+			'reproduces them.',
+		]
+			.filter(Boolean)
+			.join('\n')
+	);
+}
+
 const report = sections.join('\n\n');
 const signature = createHash('sha1')
-	.update(`${lintErrors.length}|${testsFailed}|${report.slice(0, 2000)}`)
+	.update(`${lintErrors.length}|${testsFailed}|${introduced.length}|${report.slice(0, 2000)}`)
 	.digest('hex');
 
 // Already reported this exact failure once — let the turn end rather than
@@ -264,7 +339,8 @@ if (state.blocked?.includes(signature)) {
 	emit({
 		systemMessage:
 			'Quality gate still failing after a previous attempt ' +
-			`(${lintErrors.length} lint error(s), tests ${testsFailed ? 'failing' : 'passing'}). ` +
+			`(${lintErrors.length} lint error(s), tests ${testsFailed ? 'failing' : 'passing'}, ` +
+			`${introduced.length} new finding(s)). ` +
 			'Allowing the turn to end so the session does not loop — this needs a look.',
 	});
 }
@@ -280,6 +356,8 @@ emit({
 		'',
 		'Fix the cause rather than the check: do not relax a threshold, delete a test,',
 		'or narrow an assertion to get past this. If a finding genuinely cannot be',
-		'refactored, suppress that single line with a `-- reason` and say so.',
+		'refactored — the complexity is the design — suppress that single line with a',
+		'`-- reason` explaining why, and say so in your reply. A documented exception',
+		'is fine; a loosened shared limit is not.',
 	].join('\n'),
 });

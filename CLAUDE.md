@@ -114,6 +114,7 @@ npm run test:watch    # Watch mode (TDD)
 npm run test:coverage # Coverage report (fails below the floor in vitest.config.js)
 npm run lint          # Errors block; complexity/size limits are advisory warnings
 npm run lint:guided   # Same findings, each with how to fix it
+npm run audit:code    # Dead code, duplication, complexity — only what this change adds
 ```
 
 Write tests first. See @tests/CLAUDE.md for patterns and mock API reference.
