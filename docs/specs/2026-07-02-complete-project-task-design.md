@@ -54,10 +54,13 @@ succeed.
 ## Decisions (roadmap open questions)
 
 - **Project copy not found, or already `[x]`:** still write the log entry and
-  complete the source task; show a notice naming the mismatch ("no matching
-  task in project" / "already completed in project"). The log is the paper
-  trail; the Todo removal is best-effort. Aborting would punish reworded
-  tasks. Already-`[x]` copies are left untouched.
+  complete the source task. The log is the paper trail; the Todo removal is
+  best-effort. Aborting would punish reworded tasks. Already-`[x]` copies are
+  left untouched, and reported. (Revised 2026-08-06: a *missing* copy is no
+  longer reported — see the
+  [auto-completion spec](2026-08-05-auto-complete-project-tasks.md), where
+  logging became unconditional and "not listed in the project" turned into the
+  ordinary shape for work invented in the daily note.)
 - **Move, not copy** (revised after testing): the task's children move to the
   project log entry, like extract log — the daily note keeps only the `[x]`
   task line (which auto-move files under `## Log`), and the project log holds
@@ -118,7 +121,7 @@ No new settings: reuses `projectNoteTaskTargetHeading` and
 - Project file missing (broken link): per-task notice, task skipped.
 - Mismatch notices as described under Decisions.
 - Success notice reports the number of tasks completed and the project names,
-  with per-task mismatch details appended when any occurred.
+  with per-task details appended for any reportable mismatch.
 
 ## Testing
 

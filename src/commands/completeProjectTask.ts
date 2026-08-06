@@ -4,7 +4,7 @@ import { extractTaskText } from '../utils/tasks';
 import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from '../utils/listItems';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines, resolveProjectLinkAndFile } from '../utils/commandSetup';
 import { isProjectNote, stripResolvedProjectPrefix } from '../utils/projects';
-import { buildCompletionEntry, describeMismatch, notifyCompletion, writeProjectCompletions, type CompletionsByProject } from '../utils/projectCompletion';
+import { buildCompletionEntry, notifyCompletion, writeProjectCompletions, type CompletionsByProject } from '../utils/projectCompletion';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
@@ -102,7 +102,7 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 		notifyCompletion(
 			sourceCompletions.length,
 			[...entriesByProject.values()].map(p => p.file.basename),
-			results.filter(r => r.outcome !== 'removed').map(describeMismatch)
+			results
 		);
 	} catch (e: any) {
 		new Notice(`Complete project task error: ${e.message}`, NOTICE_TIMEOUT_ERROR);

@@ -123,11 +123,19 @@ export function isCompletionLogged(
 	return false;
 }
 
-/** Describe a copy outcome for a user-facing notice. */
-export function describeMismatch(result: CompletionResult): string {
-	return result.outcome === 'already-completed'
-		? `"${result.taskText}" is already completed in [[${result.projectName}]]`
-		: `"${result.taskText}" has no matching task in [[${result.projectName}]]`;
+/**
+ * The copy outcomes worth telling the user about.
+ *
+ * A task the project never listed is not one of them: since completions are
+ * logged whether or not the project listed the task, work invented in the
+ * daily note has no copy by definition, and reporting it would flag the
+ * ordinary case as a problem. A copy left `[x]` in Todo is worth a word — it
+ * is a duplicate the user may want to tidy.
+ */
+function describeMismatches(results: CompletionResult[]): string[] {
+	return results
+		.filter(r => r.outcome === 'already-completed')
+		.map(r => `"${r.taskText}" is already completed in [[${r.projectName}]]`);
 }
 
 /**
@@ -196,9 +204,12 @@ export async function writeProjectCompletions(
 
 /**
  * Report the outcome of one or more completions, appending mismatch details
- * when any occurred.
+ * when any are worth reporting (see `describeMismatches`). Both the command
+ * and the automatic path go through here, so they say the same thing about
+ * the same outcome.
  */
-export function notifyCompletion(count: number, projectNames: string[], mismatches: string[]): void {
+export function notifyCompletion(count: number, projectNames: string[], results: CompletionResult[]): void {
+	const mismatches = describeMismatches(results);
 	const rendered = projectNames.map(name => `[[${name}]]`);
 	const base = count === 1
 		? `Complete project task: Task completed and logged to ${rendered[0]}.`
@@ -285,14 +296,7 @@ export async function completeProjectTaskAtLine(
 			file.basename,
 			new Map([[ctx.path, { file: projectFile, entries: [entry] }]])
 		);
-
-		// A task the project never listed is the normal shape for work invented
-		// in the daily note — not something to report. A copy left `[x]` in Todo
-		// is worth a word, since the user may want to tidy it.
-		const mismatches = results
-			.filter(r => r.outcome === 'already-completed')
-			.map(describeMismatch);
-		notifyCompletion(1, [ctx.projectName], mismatches);
+		notifyCompletion(1, [ctx.projectName], results);
 		return 'completed';
 	} catch (e: any) {
 		new Notice(`Complete project task error: ${e.message}`, NOTICE_TIMEOUT_ERROR);

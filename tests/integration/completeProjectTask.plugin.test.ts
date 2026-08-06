@@ -324,7 +324,11 @@ describe('completeProjectTask', () => {
 			const project = result.project('Migration Initiative')!;
 			expect(project).toContain('### [[2026-07-02 Thu]]');
 			expect(project).toContain('- [ ] Something unrelated');
-			expect(result.notices.some(n => n.includes('no matching task'))).toBe(true);
+			// A task the project never listed is the ordinary shape for ad-hoc
+			// work, not a mismatch to report
+			expect(result.notice).toBe(
+				'Complete project task: Task completed and logged to [[Migration Initiative]].'
+			);
 		});
 
 		it('does not double-mark an already completed project copy', async () => {

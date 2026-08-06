@@ -69,11 +69,11 @@ The ticked task must:
 
 Whether the project note ever listed the task is **not** a condition. Ticking
 follows the command: the completion is logged either way, so work invented on
-the fly in the daily note is filed to its project like anything else. A missing
-Todo copy is the normal shape for such a task, so — unlike the command, where
-it answers an explicit request about a specific task — the automatic path does
-not report it; a copy left `[x]` in Todo still is, since the user may want to
-tidy it.
+the fly in the daily note is filed to its project like anything else. Neither
+path reports a missing Todo copy — once logging is unconditional, "the project
+never listed this" is the ordinary shape for ad-hoc work, and flagging it would
+read as a problem. A copy left `[x]` in Todo is still reported by both, since
+it is a duplicate the user may want to tidy.
 
 The root rule is where this is narrower than the command, which resolves a
 project through the ancestor chain (collectors, project bullets). A ticked
@@ -119,8 +119,8 @@ synchronous version didn't have:
 - `src/utils/projectCompletion.ts` (new) — the project-note side of a
   completion, extracted from `completeProjectTask.ts` so the command and the
   extension share one implementation: `buildCompletionEntry`,
-  `writeProjectCompletions` (per-entry `CompletionResult`s, so each caller
-  decides what is worth reporting), `notifyCompletion`, `isCompletionLogged`,
+  `writeProjectCompletions` (per-entry `CompletionResult`s), `notifyCompletion`
+  (which applies the one notice policy both callers share), `isCompletionLogged`,
   plus the editor-free `completeProjectTaskAtLine` used by auto-move.
 - `src/utils/autoMove.ts` — `findAutoMoveBlock` exposes the block a trigger
   files (so the caller can tell root from nested, and claim the children);

@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same way the task's text has always been matched. Affects **Complete
   project task**, the automatic completion on ticking, and **Drop task to
   project**.
+- **Complete project task** no longer warns "has no matching task in
+  [[Project]]" when completing work the project note never listed. Logging a
+  completion doesn't depend on the project listing the task, so that is the
+  ordinary case for work invented in the daily note — the command now says the
+  same as the automatic completion does. A copy left `[x]` in the project's
+  Todo is still reported by both.
 
 ## [0.16.0] - 2026-08-06
 
