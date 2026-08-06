@@ -639,11 +639,30 @@ file carries the action its numbers imply — uncovered mutants mean *add tests*
 with coverage mean *strengthen assertions*. That distinction is the whole value over
 coverage.
 
-**Verified on `src/utils/indent.ts`: 79.6%, 113 killed, 28 survived.** The survivors are
-real assertion gaps, not noise — `if (ch === ' ' || ch === '\t')` mutated to `if (true)`
-survives, so no test distinguishes whitespace from any other character on that path, and
-`while (k < l.length && …)` survives becoming `while (true && …)`. This is a module with
-98% line coverage. Exactly Böckeler's point: coverage said the lines ran.
+**Baseline: 79.4% over 1,903 mutants** — 1,511 killed, 349 survived, 43 never executed.
+Recorded as `thresholds.low` so it can only rise. The report is 1.6MB, which settles the
+question of whether the query tool was necessary.
+
+| Module | Score | | Module | Score |
+|---|---|---|---|---|
+| `listItems.ts` | 68.7% | | `indent.ts` | 79.6% |
+| `autoMove.ts` | 72.9% | | `projects.ts` | 87.1% |
+| `wikilinks.ts` | 74.4% | | `taskMarker.ts` | 88.9% |
+| `periodicNotes.ts` | 76.0% | | `notices.ts` | 100% |
+| `tasks.ts` | 79.0% | | | |
+
+**The ranking is not the coverage ranking, which is the entire point.**
+`src/utils/listItems.ts` has 98.55% line coverage and the *worst* mutation score in the
+codebase; `notices.ts` kills every mutant. The survivors are real gaps, not noise: in
+`indent.ts`, `if (ch === ' ' || ch === '\t')` mutated to `if (true)` survives, so no test
+distinguishes whitespace from any other character on that path, and
+`while (k < l.length && …)` survives becoming `while (true && …)`. Exactly Böckeler's point —
+coverage confirmed those lines ran.
+
+Every module reports "strengthen assertions" rather than "add tests" (survivors far exceed
+uncovered mutants), which is a coherent diagnosis for this suite: `tests/CLAUDE.md` mandates
+input → output verification, and the tests do execute the code — they just assert on the
+final string rather than on each branch's contribution to it.
 
 **A caution proved on our own tooling.** Refactoring `introducedFindings` in the `Stop` hook
 to clear a complexity warning turned `SECTIONS` from an array into an object and left a
