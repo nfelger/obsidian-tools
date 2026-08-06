@@ -3,6 +3,34 @@ import { testCompleteProjectTaskPlugin } from '../helpers/completeProjectTaskPlu
 
 describe('completeProjectTask', () => {
 	describe('happy path', () => {
+		it('strips the project link in every form it resolves through', async () => {
+			const links = [
+				'[[Catchup S26|P: Catchup]]',
+				'[[Catchup S26#Todo|P: Catchup]]',
+				'[[1 Projekte/Catchup S26|P: Catchup]]'
+			];
+
+			for (const link of links) {
+				const result = await testCompleteProjectTaskPlugin({
+					source: `
+- [ ] ${link} Inbox Zero: Asana
+`,
+					sourceFileName: '2026-08-05 Wed',
+					sourcePath: '+Diary/2026-08-05 Wed.md',
+					projectNotes: { 'Catchup S26': '# Catchup S26\n\n## Todo\n- [<] Inbox Zero: Asana\n\n## Log' },
+					cursorLine: 0
+				});
+
+				const project = result.project('Catchup S26')!;
+				expect(project, link).toContain('- [x] Inbox Zero: Asana');
+				expect(project, link).not.toContain('[[Catchup S26');
+				expect(project, link).not.toContain('P: Catchup');
+				// The Todo copy is matched and removed, not reported as missing
+				expect(project, link).not.toContain('[<]');
+				expect(result.notices.some(n => n.includes('no matching task')), link).toBe(false);
+			}
+		});
+
 		it('logs to the project, removes the Todo copy, and moves the children out of the daily note', async () => {
 			const result = await testCompleteProjectTaskPlugin({
 				source: `

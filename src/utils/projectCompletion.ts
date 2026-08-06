@@ -20,7 +20,7 @@ import {
 	TaskState
 } from './tasks';
 import { countIndent } from './indent';
-import { detectProjectContext, stripProjectPrefix } from './projects';
+import { detectProjectContext } from './projects';
 import { ObsidianLinkResolver } from './wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
@@ -38,28 +38,26 @@ export type CompletionsByProject = Map<string, { file: TFile; entries: Completio
 /**
  * Render a completed task as a project log entry.
  *
- * The entry is dedented to zero indent and stripped of its project-link
- * prefix; all children travel with it, including completed subtrees — the log
- * entry is the day's record, so `selectTransferableChildLines` does not apply.
+ * The entry is dedented to zero indent and carries the project-stripped text;
+ * all children travel with it, including completed subtrees — the log entry is
+ * the day's record, so `selectTransferableChildLines` does not apply.
  *
  * @param lineText - The task line as it appears in the source, with indent
  * @param childLines - The task's children, original indentation
- * @param projectName - Project note basename, for prefix stripping
+ * @param taskText - The task's text with its project prefix already stripped
+ *   (`stripResolvedProjectPrefix`, or a resolved `ProjectTaskContext`); the
+ *   log line is rendered from it, so the prefix cannot survive into the
+ *   project note in a form the caller didn't recognise
  * @returns The log entry and the source line rendered `[x]` in place
  */
 export function buildCompletionEntry(
 	lineText: string,
 	childLines: string[],
-	projectName: string
+	taskText: string
 ): { entry: CompletionEntry; completedLine: string } {
-	const taskText = stripProjectPrefix(extractTaskText(lineText), projectName);
-
 	const parentIndent = countIndent(lineText);
 	const completedLine = new TaskMarker(TaskState.Completed).applyToLine(lineText);
-	const strippedLine = TaskMarker.stripProjectLink(
-		completedLine.slice(parentIndent),
-		projectName
-	);
+	const strippedLine = TaskMarker.replaceContent(completedLine.slice(parentIndent), taskText);
 
 	return {
 		entry: { taskText, entryLines: [strippedLine, ...dedentLinesByAmount(childLines, parentIndent)] },
@@ -267,7 +265,9 @@ export async function completeProjectTaskAtLine(
 	if (!projectFile) return 'skipped';
 
 	try {
-		const { entry } = buildCompletionEntry(lines[taskLine], childLines, ctx.projectName);
+		// ctx.strippedText comes from the resolved prefix, so every link form
+		// the project resolves through is stripped the same way
+		const { entry } = buildCompletionEntry(lines[taskLine], childLines, ctx.strippedText);
 
 		const logHeading = plugin.settings.logExtractionTargetHeading;
 		const projectContent = await plugin.app.vault.read(projectFile);

@@ -164,6 +164,36 @@ export function stripProjectPrefix(taskText: string, projectName: string): strin
 }
 
 /**
+ * Strip a leading project-link prefix from task text when the link points at
+ * the given project note, deciding by *resolving* it.
+ *
+ * Every form Obsidian accepts then strips alike — `[[Project]]`,
+ * `[[folder/Project]]`, `[[Project#Section]]`, a different case, or a
+ * frontmatter alias — because the link is looked up rather than compared to
+ * the project's name. Callers that render a task for a project note must use
+ * this (or the text it returns) rather than re-deriving the prefix from the
+ * project's name: a link that resolves but doesn't match the name string would
+ * otherwise travel into the project note.
+ *
+ * Falls back to the basename convention when the link doesn't resolve, so a
+ * broken link still reads as a prefix.
+ */
+export function stripResolvedProjectPrefix(
+	taskText: string,
+	project: { path: string; basename: string },
+	sourcePath: string,
+	resolver: LinkResolver
+): string {
+	const prefix = parseProjectPrefix(taskText);
+	if (!prefix) return taskText;
+
+	const resolved = resolver.resolve(prefix.linkTarget, sourcePath);
+	if (resolved) return resolved.path === project.path ? prefix.rest : taskText;
+
+	return stripProjectPrefix(taskText, project.basename);
+}
+
+/**
  * Parse the projectKeywords setting into an array of keyword strings.
  *
  * The setting format is comma-separated, quote-enclosed: "Push", "Finish"

@@ -11,7 +11,7 @@ import type { TaskInsertItem } from '../types';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines, resolveProjectLinkAndFile } from '../utils/commandSetup';
-import { isProjectNote, stripProjectPrefix } from '../utils/projects';
+import { isProjectNote, stripResolvedProjectPrefix } from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
@@ -71,13 +71,15 @@ export async function dropTaskToProject(plugin: BulletFlowPlugin): Promise<void>
 			const children = findChildrenBlockFromListItems(editor, listItems || [], taskLine);
 
 			// Extract task text - strip any existing [[Project]] prefix for matching
-			const rawTaskText = stripProjectPrefix(extractTaskText(lineText), projectLink.basename);
+			const rawTaskText = stripResolvedProjectPrefix(
+				extractTaskText(lineText), projectLink, file.path, resolver
+			);
 
-			// Build content for the project note (without project link prefix)
+			// Build content for the project note, rendered from the stripped text
+			// so the prefix can't survive in a form the strip didn't recognise
 			const parentIndent = countIndent(lineText);
 			const parentLineStripped = lineText.slice(parentIndent);
-			// Strip project link from the task line for the project note version
-			const parentLineForProject = TaskMarker.stripProjectLink(parentLineStripped, projectLink.basename);
+			const parentLineForProject = TaskMarker.replaceContent(parentLineStripped, rawTaskText);
 
 			// Prepare children content (dedented)
 			let childrenContent = '';

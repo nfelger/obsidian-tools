@@ -1,8 +1,9 @@
 import { Notice } from 'obsidian';
 import type BulletFlowPlugin from '../main';
+import { extractTaskText } from '../utils/tasks';
 import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from '../utils/listItems';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines, resolveProjectLinkAndFile } from '../utils/commandSetup';
-import { isProjectNote } from '../utils/projects';
+import { isProjectNote, stripResolvedProjectPrefix } from '../utils/projects';
 import { buildCompletionEntry, describeMismatch, notifyCompletion, writeProjectCompletions, type CompletionsByProject } from '../utils/projectCompletion';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
@@ -60,9 +61,11 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 			// subtrees, which are part of the day's record
 			const children = findChildrenBlockFromListItems(editor, listItems, taskLine);
 			const childLines = children ? withoutTrailingEmptyLine(children.lines) : [];
-			const { entry, completedLine } = buildCompletionEntry(
-				editor.getLine(taskLine), childLines, projectLink.basename
+			const lineText = editor.getLine(taskLine);
+			const taskText = stripResolvedProjectPrefix(
+				extractTaskText(lineText), projectLink, file.path, resolver
 			);
+			const { entry, completedLine } = buildCompletionEntry(lineText, childLines, taskText);
 
 			const projectPath = projectLink.path;
 			if (!entriesByProject.has(projectPath)) {

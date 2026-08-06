@@ -85,6 +85,8 @@ export async function testAutoMove({
 		allFiles.push(projectFile);
 		linkDests.set(`${name}|${sourcePath}`, projectFile);
 		linkDests.set(name, projectFile);
+		// Obsidian resolves path-form targets too
+		linkDests.set(`${projectsFolder}/${name}`, projectFile);
 	}
 
 	const mockVault = createMockVault({ files: allFiles });

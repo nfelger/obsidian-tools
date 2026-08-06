@@ -133,17 +133,6 @@ export class TaskMarker {
 	static replaceContent(line: string, text: string): string {
 		return line.replace(/^(\s*- \[.\]\s*).*$/, `$1${text}`);
 	}
-
-	/**
-	 * Strip a [[ProjectName]] or [[ProjectName|Alias]] prefix from a task
-	 * line's content.
-	 * e.g., "- [ ] [[Project]] Task text" → "- [ ] Task text"
-	 */
-	static stripProjectLink(line: string, projectName: string): string {
-		const escaped = projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		const pattern = new RegExp(`(- \\[.\\]\\s*)\\[\\[${escaped}(?:\\|[^\\]]*)?\\]\\]\\s*`);
-		return line.replace(pattern, '$1');
-	}
 }
 
 // === Single-line task predicates and transitions ===

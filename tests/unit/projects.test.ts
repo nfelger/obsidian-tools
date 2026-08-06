@@ -8,6 +8,7 @@ import {
 	parseProjectKeywords,
 	insertUnderCollectorTask,
 	stripProjectPrefix,
+	stripResolvedProjectPrefix,
 	parseProjectPrefix,
 	linkTargetBasename,
 	parseCollectorLine,
@@ -122,6 +123,47 @@ describe('parseProjectPrefix', () => {
 
 	it('returns null for a pure link with no rest', () => {
 		expect(parseProjectPrefix('[[Migration Initiative]]')).toBeNull();
+	});
+});
+
+describe('stripResolvedProjectPrefix', () => {
+	const project = { path: '1 Projekte/Catchup S26.md', basename: 'Catchup S26' };
+	// Stands in for Obsidian's resolution: case-insensitive, path- and
+	// section-tolerant, and aware of a frontmatter alias
+	const resolver = {
+		resolve: (linkPath: string) => {
+			const target = linkPath.split('/').pop()!.toLowerCase();
+			if (target === 'catchup s26' || target === 'catchup') {
+				return { path: project.path, basename: project.basename, extension: 'md', index: 0, matchText: '', inner: '' };
+			}
+			if (target === 'other project') {
+				return { path: '1 Projekte/Other Project.md', basename: 'Other Project', extension: 'md', index: 0, matchText: '', inner: '' };
+			}
+			return null;
+		}
+	};
+	const strip = (taskText: string) => stripResolvedProjectPrefix(taskText, project, 'daily.md', resolver);
+
+	it('strips every link form that resolves to the project', () => {
+		expect(strip('[[Catchup S26]] Inbox Zero')).toBe('Inbox Zero');
+		expect(strip('[[Catchup S26|P: Catchup]] Inbox Zero')).toBe('Inbox Zero');
+		expect(strip('[[1 Projekte/Catchup S26|P: Catchup]] Inbox Zero')).toBe('Inbox Zero');
+		expect(strip('[[Catchup S26#Todo|P: Catchup]] Inbox Zero')).toBe('Inbox Zero');
+		expect(strip('[[catchup s26]] Inbox Zero')).toBe('Inbox Zero');
+		// Resolves via a frontmatter alias — the text matches no basename
+		expect(strip('[[Catchup]] Inbox Zero')).toBe('Inbox Zero');
+	});
+
+	it('leaves prefixes for other notes, and mid-line links, alone', () => {
+		expect(strip('[[Other Project]] Inbox Zero')).toBe('[[Other Project]] Inbox Zero');
+		expect(strip('Ask about [[Catchup S26]] tomorrow')).toBe('Ask about [[Catchup S26]] tomorrow');
+		expect(strip('Inbox Zero')).toBe('Inbox Zero');
+	});
+
+	it('falls back to the basename convention for an unresolvable link', () => {
+		expect(strip('[[Catchup S26 (missing)]] Task')).toBe('[[Catchup S26 (missing)]] Task');
+		expect(stripResolvedProjectPrefix('[[Catchup S26]] Task', project, 'daily.md', { resolve: () => null }))
+			.toBe('Task');
 	});
 });
 

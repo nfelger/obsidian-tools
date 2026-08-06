@@ -1053,34 +1053,6 @@ describe('TaskMarker', () => {
 		});
 	});
 
-	describe('stripProjectLink', () => {
-		it('strips project link from task line', () => {
-			const result = TaskMarker.stripProjectLink('- [ ] [[MyProject]] Task text', 'MyProject');
-			expect(result).toBe('- [ ] Task text');
-		});
-
-		it('handles different task states', () => {
-			expect(TaskMarker.stripProjectLink('- [/] [[Proj]] Do thing', 'Proj'))
-				.toBe('- [/] Do thing');
-			expect(TaskMarker.stripProjectLink('- [<] [[Proj]] Do thing', 'Proj'))
-				.toBe('- [<] Do thing');
-		});
-
-		it('strips aliased project links', () => {
-			const result = TaskMarker.stripProjectLink('- [ ] [[MyProject|MP]] Task text', 'MyProject');
-			expect(result).toBe('- [ ] Task text');
-		});
-
-		it('leaves line unchanged when no project link present', () => {
-			const result = TaskMarker.stripProjectLink('- [ ] Task without link', 'MyProject');
-			expect(result).toBe('- [ ] Task without link');
-		});
-
-		it('handles project names with special regex characters', () => {
-			const result = TaskMarker.stripProjectLink('- [ ] [[My (Project)]] Task', 'My (Project)');
-			expect(result).toBe('- [ ] Task');
-		});
-	});
 });
 
 describe('buildTaskContent', () => {

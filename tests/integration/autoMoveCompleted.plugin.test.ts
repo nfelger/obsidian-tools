@@ -225,6 +225,32 @@ describe('auto-move', () => {
 			expect(result.notices).toEqual([]);
 		});
 
+		it('strips the project link in every form it resolves through', async () => {
+			const links = [
+				'[[Catchup S26|P: Catchup]]',
+				'[[Catchup S26#Todo|P: Catchup]]',
+				'[[1 Projekte/Catchup S26|P: Catchup]]'
+			];
+
+			for (const link of links) {
+				const result = await testAutoMove({
+					source: `
+## Todo
+
+- [x] ${link} Inbox Zero: Asana
+
+## Log
+`,
+					projectNotes: { 'Catchup S26': '# Catchup S26\n\n## Todo\n\n## Log' }
+				});
+
+				const project = result.project('Catchup S26')!;
+				expect(project, link).toContain('- [x] Inbox Zero: Asana');
+				expect(project, link).not.toContain('[[Catchup S26');
+				expect(project, link).not.toContain('P: Catchup');
+			}
+		});
+
 		it('leaves the daily note untouched when the project write fails', async () => {
 			const source = `
 ## Todo
