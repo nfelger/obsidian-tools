@@ -29,6 +29,23 @@
         "max-params": "off",
         "complexity": "off"
       }
+    },
+    {
+      "files": ["src/utils/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "obsidian",
+                "allowTypeImports": true,
+                "message": "Domain code must not import Obsidian values. Put the Obsidian call in src/adapters/ and pass the result in, or take a narrow interface (see LinkResolver in src/types.ts). For moment, import from src/vendor.ts."
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }

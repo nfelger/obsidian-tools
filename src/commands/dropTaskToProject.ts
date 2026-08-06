@@ -10,7 +10,7 @@ import {
 import type { TaskInsertItem } from '../types';
 import { findChildrenBlockFromListItems } from '../utils/listItems';
 import { countIndent } from '../utils/indent';
-import { getActiveMarkdownFile, getListItems, findSelectedTaskLines, resolveProjectLinkAndFile } from '../utils/commandSetup';
+import { getActiveMarkdownFile, getListItems, findSelectedTaskLines, resolveProjectLinkAndFile } from '../adapters/commandSetup';
 import { isProjectNote, stripResolvedProjectPrefix } from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';

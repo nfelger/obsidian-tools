@@ -10,7 +10,7 @@
  *
  * A ticked task carrying a [[Project]] prefix is completed in its project note
  * on the way, running the same logic as the Complete project task command
- * (see src/utils/projectCompletion.ts) so the loop closes without a keystroke.
+ * (see src/adapters/projectCompletion.ts) so the loop closes without a keystroke.
  * That applies in both sections: a task ticked in Todo is filed to its project
  * and moved under Log, and one ticked where it already sits in Log is filed
  * without moving.
@@ -22,7 +22,7 @@ import type { ChangeSet, Text } from '@codemirror/state';
 import { editorInfoField, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
-import { getPeriodicConfig } from '../utils/periodicNoteCreator';
+import { getPeriodicConfig } from '../adapters/periodicNoteCreator';
 import { TaskMarker, TaskState } from '../utils/tasks';
 import {
 	computeAutoMove,
@@ -31,7 +31,7 @@ import {
 	findAutoMoveTriggerLine,
 	findCompletedTaskLineByText
 } from '../utils/autoMove';
-import { completeProjectTaskAtLine, type AutoCompletionOutcome } from '../utils/projectCompletion';
+import { completeProjectTaskAtLine, type AutoCompletionOutcome } from '../adapters/projectCompletion';
 
 const autoMoveAnnotation = Annotation.define<boolean>();
 

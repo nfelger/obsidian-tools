@@ -1,7 +1,7 @@
 import { Notice } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
-import { getPeriodicConfig } from '../utils/periodicNoteCreator';
+import { getPeriodicConfig } from '../adapters/periodicNoteCreator';
 import {
 	insertMultipleTasksWithDeduplication,
 	markTaskAsScheduled,
@@ -24,7 +24,7 @@ import {
 	decomposeCollectorForTransfer,
 	getTransferableChildren,
 	removeTransferredChildren
-} from '../utils/commandSetup';
+} from '../adapters/commandSetup';
 import { formatTransferNotice } from '../utils/notices';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 

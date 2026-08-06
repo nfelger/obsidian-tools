@@ -1,6 +1,6 @@
 import { Notice } from 'obsidian';
 import type BulletFlowPlugin from '../main';
-import { getActiveMarkdownFile } from '../utils/commandSetup';
+import { getActiveMarkdownFile } from '../adapters/commandSetup';
 import { isProjectNote } from '../utils/projects';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 

@@ -8,7 +8,7 @@ import {
 } from '../utils/wikilinks';
 import { dedentLines } from '../utils/indent';
 import { findChildrenBlockFromListItems, getListItemAtLine, stripListPrefix } from '../utils/listItems';
-import { getActiveMarkdownFile, getListItems } from '../utils/commandSetup';
+import { getActiveMarkdownFile, getListItems } from '../adapters/commandSetup';
 import { NOTICE_TIMEOUT_SUCCESS, NOTICE_TIMEOUT_ERROR } from '../config';
 import { insertBlockAfterHeading, parseTargetHeading } from '../utils/tasks';
 

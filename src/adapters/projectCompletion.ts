@@ -18,10 +18,10 @@ import {
 	parseTargetHeading,
 	TaskMarker,
 	TaskState
-} from './tasks';
-import { countIndent } from './indent';
-import { detectProjectContext } from './projects';
-import { ObsidianLinkResolver } from './wikilinks';
+} from '../utils/tasks';
+import { countIndent } from '../utils/indent';
+import { detectProjectContext } from '../utils/projects';
+import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
 /** One completed task headed for a project note's log. */

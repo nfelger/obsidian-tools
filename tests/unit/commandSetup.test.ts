@@ -5,7 +5,7 @@ import {
 	getCollectorChildGroups,
 	resolveProjectLinkAndFile,
 	decomposeCollectorForTransfer
-} from '../../src/utils/commandSetup';
+} from '../../src/adapters/commandSetup';
 import { parseMarkdownToListItems, normalizeMarkdown } from '../helpers/markdownParser.js';
 import { createMockEditor } from '../mocks/obsidian.js';
 import type { ListItem } from '../../src/types';

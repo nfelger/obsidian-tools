@@ -27,6 +27,33 @@
     "dev-dependencies-in-production": "off"
   },
 
+  // Pins the layering CLAUDE.md describes. The companion rule is the
+  // no-restricted-imports override in .oxlintrc.json, which stops domain code
+  // calling the Obsidian API; this stops the layers importing each other the
+  // wrong way round, and stops new files appearing outside the structure.
+  "boundaries": {
+    "zones": [
+      { "name": "entry", "patterns": ["src/main.ts", "src/settings.ts", "src/vendor.ts"] },
+      { "name": "ui", "patterns": ["src/ui/**"] },
+      { "name": "commands", "patterns": ["src/commands/**", "src/events/**"] },
+      { "name": "adapters", "patterns": ["src/adapters/**"] },
+      { "name": "domain", "patterns": ["src/utils/**", "src/types.ts", "src/config.ts"] }
+    ],
+    "rules": [
+      { "from": "entry", "allow": ["ui", "commands", "adapters", "domain"] },
+      { "from": "ui", "allow": ["commands", "domain", "entry"] },
+      { "from": "commands", "allow": ["adapters", "domain", "entry"] },
+      { "from": "adapters", "allow": ["domain", "entry"] },
+      { "from": "domain", "allow": ["domain", "entry"] }
+    ],
+    // Zones cover src/ only: every new file there must declare which layer it
+    // belongs to. Tests and build tooling sit outside the layering.
+    "coverage": {
+      "requireAllFiles": true,
+      "allowUnmatched": ["tests/**", "scripts/**", "*.mjs", "*.js", "*.css"]
+    }
+  },
+
   "health": {
     // Written by `npm run test:crap`. Without it CRAP scores are estimated
     // from export references, which flattens the risk ranking badly.
