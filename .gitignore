@@ -9,6 +9,9 @@ coverage-istanbul/
 # Fallow analysis cache and baselines
 .fallow/
 
+# Per-session state written by the agent quality-gate hook
+.claude/hooks/.state/
+
 # Build outputs
 dist/
 build/

@@ -118,6 +118,9 @@ npm run lint:guided   # Same findings, each with how to fix it
 
 Write tests first. See @tests/CLAUDE.md for patterns and mock API reference.
 
+Lint and tests also run automatically before a turn can end (`.claude/hooks/`). That is a
+backstop, not a substitute for running them as you work.
+
 ## Code Conventions
 
 **NEVER add planning comments to committed code.** TODO, FIXME, MVP, Slice references

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Maintenance
 
+- Lint and the test suite now run automatically before an AI coding session can
+  finish a turn, and lint errors in a file are reported back as soon as it is
+  written. Failures come with the suggested fix attached, so problems get caught
+  while the work is fresh rather than at review time. Development-only; the
+  plugin itself is unchanged.
 - Added linting to the development setup, configured with the size and
   complexity limits that catch the mistakes AI-assisted changes tend to make.
   Findings carry a suggested fix rather than only naming the rule, and the

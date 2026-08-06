@@ -6,8 +6,11 @@ Böckeler's [maintainability sensors](https://martinfowler.com/articles/sensors-
 (27 May 2026) and evaluated concretely against [Fallow](https://github.com/fallow-rs/fallow)
 3.14.0, Oxlint, and Stryker.
 
-> **Status: proposal.** Nothing below is implemented. Every command quoted was run against
-> this repository at the commit above; §3 is measured, not estimated. Findings are marked
+> **Status: partly implemented.** The linting layer (§5), coverage-weighted complexity (§9),
+> LLM-shaped lint messages (§8) and the agent hooks (§4.1) are built; Fallow adoption,
+> boundary rules, mutation testing and the cadenced review are not. §11 carries the current
+> state per item — trust that table over any prose here. Every command quoted was run
+> against this repository; §3 is measured, not estimated. Findings are marked
 > **[verified]** where the code was read to confirm the tool was right, **[false positive]**
 > where it was not.
 >
@@ -191,7 +194,8 @@ through the public surface. Decide once; do not read it as dead code.
 
 ## 4. P1 — Put a sensor inside the agent's turn
 
-**Closes G1, the highest-leverage gap.** `.claude/settings.json` is currently `{}`.
+**Closes G1, the highest-leverage gap.** Implemented — see §4.1 for what was built and why
+it differs from the sketch below.
 
 Böckeler ran sensors *continuously*, via a config-driven sidecar CLI in watch mode, which
 gave the agent "a token-efficient and guidance-enriched summary" on demand — including
@@ -215,18 +219,59 @@ push the agent to "fix" work it was about to finish. Split by blast radius:
 
 That is backpressure: the agent cannot claim completion while a changed-file gate is red.
 
-Fallow scaffolds the `Stop` half (verified via `--dry-run`: updates `.claude/settings.json`
-with one handler, creates `.claude/hooks/fallow-gate.sh`):
-
-```bash
-npx fallow hooks install --target agent --agent claude
-```
-
-Do **not** pass `--gitignore-claude`. The hook and settings should be tracked — the point is
-that every contributor's agent inherits them.
+Fallow can scaffold the `Stop` half once P3 lands (`npx fallow hooks install --target agent
+--agent claude`; verified via `--dry-run` to update `.claude/settings.json` and create
+`.claude/hooks/fallow-gate.sh`). Do **not** pass `--gitignore-claude` — the hooks and
+settings must be tracked, since the point is that every contributor's agent inherits them.
 
 Per §1.1–1.2, the hook's failure text is a prompt, not a log line. Name the finding, the
 file, and the expected remedy. §5 covers how.
+
+### 4.1 As built
+
+Implemented in v0.16.2 as two tracked scripts under `.claude/hooks/`, wired through
+`.claude/settings.json`. Fallow is not part of the gate yet — P3 is still open — so the
+`Stop` half runs the sensors that exist: lint errors and the test suite.
+
+**The hook contract shaped the design more than the plan did.** At exit 0 a hook's stdout
+goes only to the debug log; the agent never sees it. Findings reach the agent one of two
+ways, and the choice is the whole design:
+
+- `PostToolUse` uses `hookSpecificOutput.additionalContext`, which places the finding beside
+  the tool result **without failing the edit**. This is Böckeler's "good kind of prompt
+  injection" almost literally — the agent is told what it broke and how to fix it, and
+  carries on.
+- `Stop` returns `{"decision": "block", "reason": ...}`, which refuses to end the turn and
+  hands the reason back. That is the backpressure.
+
+Three behaviours are load-bearing, and each would be a defect if missing:
+
+1. **`PostToolUse` reports errors only, never the advisory warnings.** `Stop` fires on
+   *every* turn including conversational ones, and per-edit complexity nagging is exactly
+   the over-engineering spiral of §1.7 — it would also contradict the "warnings are a
+   backlog" rule in `CLAUDE.md`. Errors are categorically different: an unused import is
+   never a deliberate intermediate state.
+2. **`Stop` skips when nothing changed.** It fingerprints `src/` and `tests/` by path, size
+   and mtime, and returns immediately when that matches the last green run. Measured: 11s
+   on a real run, 0.065s when unchanged. Without this, every conversational turn would pay
+   for a full suite, and the gate would be disabled within a week.
+3. **`Stop` blocks a given failure only once.** A repeat of the same failure signature is
+   allowed through with a `systemMessage` to the human instead. An agent that genuinely
+   cannot fix something must not be trapped in a loop.
+
+**Test failures are read from the JSON reporter, not console output.** This was a real bug
+caught in testing: several suites deliberately exercise failure paths and log stack traces
+to stderr *while passing*, so a tail of the console output reported those instead of the
+actual failure — misleading exactly when accuracy matters most. The reporter also uses two
+different shapes, and both are needed: failed assertions carry their message per test,
+while a file that never ran (unresolvable import, module-level throw) reports **zero** failed
+tests and carries its reason on the file entry. Reading assertions alone loses that error
+completely.
+
+Known gap: warnings introduced by *new* code are not surfaced at edit time, because
+"newly introduced" needs a baseline to compare against. `fallow audit --gate new-only` (P3)
+is the natural home for that, and would let `Stop` report a warning delta rather than
+nothing.
 
 ## 5. P2 — Add the linter layer, with the AI-specific rules turned on
 
@@ -521,7 +566,7 @@ surfaced. It is also nearly free — the coverage data already exists.
 | P2 | Oxlint + the four AI-failure-mode rules + fix the findings | ~1h | G2 | **done** (v0.16.2) |
 | P6a | Istanbul coverage for CRAP, ratchet the floor | ~1h | — | **done** (v0.16.2) |
 | P5a | LLM-shaped lint messages via `lint-guided.mjs` | ~1h | — | **done** (v0.16.2) |
-| P1 | Agent hooks: Oxlint on `PostToolUse`, `fallow audit` + tests on `Stop` | ~1h | **G1** | open |
+| P1 | Agent hooks: Oxlint on `PostToolUse`, lint + tests on `Stop` | ~1h | **G1** | **done** (v0.16.2) |
 | P5b | LLM-shaped messages for the existing git hooks; advisory ledger | ~1h | — | open |
 | P3 | Pinned Fallow + `.fallowrc.json` + baselines + CI step | ~2h | G3 | open |
 | P4 | Boundary zones, after deciding the `utils/` question | ~2h | G4 | open |
