@@ -5,6 +5,10 @@ the project log extract-log style, the Todo copy is removed instead of
 flipped, and completions group under one sub-heading per source note)
 Status: Implemented (decisions follow the suggestions in
 [the roadmap](../plans/2026-06-12-next-features-roadmap.md) §1).
+Extended by [auto-complete project tasks](2026-08-05-auto-complete-project-tasks.md),
+which runs this command's project-note side automatically when a project task
+is ticked in a daily note — so the manual invocation described below is no
+longer the only way to close the loop.
 
 ## Problem
 

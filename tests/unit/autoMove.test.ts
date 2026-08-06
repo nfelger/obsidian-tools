@@ -4,7 +4,10 @@ import {
 	collectBlock,
 	findLogInsertionLine,
 	computeAutoMove,
-	findAutoMoveTriggerLine
+	computeLineRangeRemoval,
+	findAutoMoveBlock,
+	findAutoMoveTriggerLine,
+	findCompletedTaskLineByText
 } from '../../src/utils/autoMove';
 
 describe('findRootAncestorLine', () => {
@@ -484,6 +487,107 @@ describe('computeAutoMove', () => {
 		].join('\n');
 
 		expect(computeAutoMove(doc, 1, '## Todo', '## Log')).toBeNull();
+	});
+});
+
+describe('findAutoMoveBlock', () => {
+	it('reports the trigger as its own root when it is top-level', () => {
+		const doc = [
+			'## Todo',
+			'- [x] Draft rollout plan',
+			'  - agreed on phased approach',
+			'- [ ] Other task'
+		].join('\n');
+
+		expect(findAutoMoveBlock(doc, 1, '## Todo')).toEqual({ rootLine: 1, endLine: 3 });
+	});
+
+	it('reports the root ancestor when the trigger is nested', () => {
+		const doc = [
+			'## Todo',
+			'- [ ] Parent task',
+			'  - [x] Completed child'
+		].join('\n');
+
+		expect(findAutoMoveBlock(doc, 2, '## Todo')).toEqual({ rootLine: 1, endLine: 3 });
+	});
+
+	it('returns null for a line that is not a live trigger in Todo', () => {
+		const doc = ['## Todo', '- [ ] Open task', '', '## Log', '- [x] Already logged'].join('\n');
+
+		expect(findAutoMoveBlock(doc, 1, '## Todo')).toBeNull();
+		expect(findAutoMoveBlock(doc, 4, '## Todo')).toBeNull();
+	});
+});
+
+describe('computeAutoMove with moveLineOnly', () => {
+	it('files the task line and drops the children it no longer owns', () => {
+		const doc = [
+			'## Todo',
+			'- [x] [[Project]] Draft rollout plan',
+			'  - agreed on phased approach',
+			'- [ ] Other task',
+			'',
+			'## Log',
+			'- Did something'
+		].join('\n');
+
+		const result = computeAutoMove(doc, 1, '## Todo', '## Log', { moveLineOnly: true });
+		const applied = applyChanges(doc, result!.changes);
+
+		expect(applied).toContain('- [x] [[Project]] Draft rollout plan');
+		expect(applied).not.toContain('agreed on phased approach');
+
+		const lines = applied.split('\n');
+		expect(lines.indexOf('- [x] [[Project]] Draft rollout plan')).toBeGreaterThan(lines.indexOf('## Log'));
+		expect(lines).toContain('- [ ] Other task');
+	});
+});
+
+describe('findCompletedTaskLineByText', () => {
+	const doc = [
+		'## Todo',
+		'- [x] Standup',
+		'',
+		'## Log',
+		'- [x] [[P]] Unblocked the deploy',
+		'\t- the cert had expired',
+		'- [x] Standup',
+		'- [ ] Not completed'
+	].join('\n');
+
+	it('finds a completed task in the given section', () => {
+		expect(findCompletedTaskLineByText(doc, '## Log', '- [x] [[P]] Unblocked the deploy')).toBe(4);
+	});
+
+	it('ignores identical lines outside the section', () => {
+		expect(findCompletedTaskLineByText(doc, '## Log', '- [x] Standup')).toBe(6);
+	});
+
+	it('returns null when the line is absent, incomplete, or the section is missing', () => {
+		expect(findCompletedTaskLineByText(doc, '## Log', '- [x] Never written')).toBeNull();
+		expect(findCompletedTaskLineByText(doc, '## Log', '- [ ] Not completed')).toBeNull();
+		expect(findCompletedTaskLineByText(doc, '## Missing', '- [x] Standup')).toBeNull();
+	});
+
+	it('returns null when the same line appears twice in the section', () => {
+		const twins = ['## Log', '- [x] [[P]] Standup', '- [x] [[P]] Standup'].join('\n');
+		expect(findCompletedTaskLineByText(twins, '## Log', '- [x] [[P]] Standup')).toBeNull();
+	});
+});
+
+describe('computeLineRangeRemoval', () => {
+	it('deletes the given line range', () => {
+		const doc = ['## Log', '- [x] Task', '\t- a note', '\t- another', '- Next entry'].join('\n');
+
+		const result = computeLineRangeRemoval(doc, 2, 4);
+		expect(applyChanges(doc, result!.changes)).toBe(
+			['## Log', '- [x] Task', '- Next entry'].join('\n')
+		);
+	});
+
+	it('returns null for an empty range', () => {
+		expect(computeLineRangeRemoval('## Log\n- [x] Task', 2, 2)).toBeNull();
 	});
 });
 

@@ -130,20 +130,33 @@ export function findLogInsertionLine(
 }
 
 /**
- * Compute the changes needed to move a completed or started task from Todo to Log.
+ * The block a trigger line belongs to: the trigger's root ancestor within its
+ * section, plus that root's children.
+ */
+export interface AutoMoveBlock {
+	/** Root ancestor of the trigger line — the first line of the block */
+	rootLine: number;
+	/** Exclusive end of the block */
+	endLine: number;
+}
+
+/**
+ * Locate the block a completed or started task belongs to, or null when the
+ * line isn't a live trigger inside the given section.
+ *
+ * Callers that need to know *what* the block is before deciding what to do with
+ * it (e.g. project auto-completion, which claims the trigger's children) use
+ * this; computeAutoMove builds on it.
  *
  * @param docText - Full document text
  * @param triggerLine - Line number of the just-completed or just-started task
- * @param todoHeading - The Todo section heading (e.g., "## Todo")
- * @param logHeading - The Log section heading (e.g., "## Log")
- * @returns Array of CM6-compatible changes (sorted by position), or null if no move needed
+ * @param sectionHeading - The section the trigger sits in (e.g., "## Todo")
  */
-export function computeAutoMove(
+export function findAutoMoveBlock(
 	docText: string,
 	triggerLine: number,
-	todoHeading: string,
-	logHeading: string
-): { changes: Array<{ from: number; to: number; insert: string }> } | null {
+	sectionHeading: string
+): AutoMoveBlock | null {
 	const lines = docText.split('\n');
 
 	// Check that the line is a completed or started task
@@ -151,22 +164,51 @@ export function computeAutoMove(
 	const marker = TaskMarker.fromLine(lines[triggerLine]);
 	if (!marker || (marker.state !== TaskState.Completed && marker.state !== TaskState.Started)) return null;
 
-	// Find Todo section and verify the line is in it
-	const todoRange = findSectionRange(lines, todoHeading);
-	if (!todoRange) return null;
-	if (triggerLine <= todoRange.start || triggerLine >= todoRange.end) return null;
+	// Verify the line is inside the section
+	const range = findSectionRange(lines, sectionHeading);
+	if (!range) return null;
+	if (triggerLine <= range.start || triggerLine >= range.end) return null;
 
 	// Find root ancestor and collect the block
-	const rootLine = findRootAncestorLine(lines, triggerLine, todoRange.start);
-	const block = collectBlock(lines, rootLine, todoRange.end);
-	const blockText = lines.slice(block.startLine, block.endLine).join('\n');
+	const rootLine = findRootAncestorLine(lines, triggerLine, range.start);
+	const block = collectBlock(lines, rootLine, range.end);
+	return { rootLine, endLine: block.endLine };
+}
+
+/**
+ * Compute the changes needed to move a completed or started task from Todo to Log.
+ *
+ * @param docText - Full document text
+ * @param triggerLine - Line number of the just-completed or just-started task
+ * @param todoHeading - The Todo section heading (e.g., "## Todo")
+ * @param logHeading - The Log section heading (e.g., "## Log")
+ * @param options.moveLineOnly - File only the block's first line under Log and
+ *   drop the rest of the block, for tasks whose children have already been
+ *   written elsewhere (project auto-completion)
+ * @returns Array of CM6-compatible changes (sorted by position), or null if no move needed
+ */
+export function computeAutoMove(
+	docText: string,
+	triggerLine: number,
+	todoHeading: string,
+	logHeading: string,
+	options: { moveLineOnly?: boolean } = {}
+): { changes: Array<{ from: number; to: number; insert: string }> } | null {
+	const lines = docText.split('\n');
+
+	const block = findAutoMoveBlock(docText, triggerLine, todoHeading);
+	if (!block) return null;
+
+	const blockText = options.moveLineOnly
+		? lines[block.rootLine]
+		: lines.slice(block.rootLine, block.endLine).join('\n');
 
 	// Find Log section (may not exist yet)
 	const logRange = findSectionRange(lines, logHeading);
 
 	// Calculate character offsets for delete
 	const docLength = docText.length;
-	const deleteFrom = lineToOffset(lines, block.startLine, docLength);
+	const deleteFrom = lineToOffset(lines, block.rootLine, docLength);
 	const deleteTo = lineToOffset(lines, block.endLine, docLength);
 
 	if (logRange) {
@@ -199,6 +241,62 @@ export function computeAutoMove(
 		changes.sort((a, b) => a.from - b.from);
 		return { changes };
 	}
+}
+
+/**
+ * Find a completed task in a section by its exact line text.
+ *
+ * The counterpart to `findAutoMoveTriggerLine` for the Log section, where
+ * completed tasks accumulate and "the first one" says nothing about which line
+ * the user just ticked. Matching by text survives the line shifts that make a
+ * captured line *number* unusable. Returns null when the text appears more
+ * than once — which of the twins was ticked is unknowable, and guessing would
+ * strip the wrong entry's notes.
+ *
+ * @param docText - Full document text
+ * @param sectionHeading - The section to search (e.g., "## Log")
+ * @param lineText - The line to find, matched in full including indentation
+ * @returns Line number (0-indexed), or null if absent or ambiguous
+ */
+export function findCompletedTaskLineByText(
+	docText: string,
+	sectionHeading: string,
+	lineText: string
+): number | null {
+	const lines = docText.split('\n');
+	const range = findSectionRange(lines, sectionHeading);
+	if (!range) return null;
+
+	let found: number | null = null;
+	for (let i = range.start + 1; i < range.end; i++) {
+		if (lines[i] !== lineText) continue;
+		if (TaskMarker.fromLine(lines[i])?.state !== TaskState.Completed) continue;
+		if (found !== null) return null;
+		found = i;
+	}
+	return found;
+}
+
+/**
+ * Compute the change that deletes the line range [startLine, endLine) — the
+ * source side of children that have been filed into a project note.
+ *
+ * @returns The change, or null when the range is empty
+ */
+export function computeLineRangeRemoval(
+	docText: string,
+	startLine: number,
+	endLine: number
+): { changes: Array<{ from: number; to: number; insert: string }> } | null {
+	if (endLine <= startLine) return null;
+
+	const lines = docText.split('\n');
+	const docLength = docText.length;
+	const from = lineToOffset(lines, startLine, docLength);
+	const to = lineToOffset(lines, endLine, docLength);
+	if (to <= from) return null;
+
+	return { changes: [{ from, to, insert: '' }] };
 }
 
 /**

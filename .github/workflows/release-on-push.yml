@@ -69,6 +69,9 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: "main.js,manifest.json,styles.css"
+          # This repo enforces immutable releases: assets cannot be attached
+          # after publishing. Create a draft, upload, then publish.
+          immutableCreate: true
           tag: ${{ steps.version.outputs.base_version }}
           name: "v${{ steps.version.outputs.base_version }}"
           body: |
@@ -98,6 +101,9 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: "main.js,manifest.json,styles.css"
+          # This repo enforces immutable releases: assets cannot be attached
+          # after publishing. Create a draft, upload, then publish.
+          immutableCreate: true
           tag: ${{ steps.version.outputs.dev_version }}
           name: "Development Build (v${{ steps.version.outputs.dev_version }})"
           body: |

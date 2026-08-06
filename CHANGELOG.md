@@ -5,6 +5,26 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Releases carry `main.js`, `manifest.json`, and `styles.css` again, so BRAT
+  can install and update the plugin. Uploads had been silently rejected since
+  the repository started enforcing immutable releases.
+
+### Added
+
+- Ticking a `[[Project]]`-prefixed task in a daily note now completes it in its
+  project note automatically: the project's Todo copy is removed and a log
+  entry with the task and its notes is written, the same as running **Complete
+  project task**. Ticked under `## Todo`, the task line then moves to `## Log`
+  as usual; ticked in `## Log` — work written down as it happened — the line
+  stays put and only its notes travel to the project. Tasks the project never
+  listed are logged too, and completing the same task twice doesn't log it
+  twice. Started `[/]` tasks, sub-tasks, and tasks that merely mention a project
+  mid-line are unaffected.
+
 ## [0.15.3] - 2026-07-13
 
 ### Fixed

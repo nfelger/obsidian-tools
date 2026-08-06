@@ -1,0 +1,302 @@
+/**
+ * The project-note side of completing a project task.
+ *
+ * Shared by the `Complete project task` command (explicit, multi-select) and
+ * by the auto-move extension, which runs the same logic transparently when a
+ * project task is ticked in a daily note.
+ */
+
+import { Notice, TFile } from 'obsidian';
+import type BulletFlowPlugin from '../main';
+import {
+	dedentLinesByAmount,
+	extractTaskText,
+	findSectionRange,
+	findTaskBlockEnd,
+	findTaskMatch,
+	insertUnderSubheading,
+	parseTargetHeading,
+	TaskMarker,
+	TaskState
+} from './tasks';
+import { countIndent } from './indent';
+import { detectProjectContext, stripProjectPrefix } from './projects';
+import { ObsidianLinkResolver } from './wikilinks';
+import { NOTICE_TIMEOUT_ERROR } from '../config';
+
+/** One completed task headed for a project note's log. */
+export interface CompletionEntry {
+	/** Task text without any [[Project]] prefix, for matching in the project note */
+	taskText: string;
+	/** Log entry lines: the [x] task line at zero indent plus its children */
+	entryLines: string[];
+}
+
+/** Completions destined for one project note, keyed by project path. */
+export type CompletionsByProject = Map<string, { file: TFile; entries: CompletionEntry[] }>;
+
+/**
+ * Render a completed task as a project log entry.
+ *
+ * The entry is dedented to zero indent and stripped of its project-link
+ * prefix; all children travel with it, including completed subtrees — the log
+ * entry is the day's record, so `selectTransferableChildLines` does not apply.
+ *
+ * @param lineText - The task line as it appears in the source, with indent
+ * @param childLines - The task's children, original indentation
+ * @param projectName - Project note basename, for prefix stripping
+ * @returns The log entry and the source line rendered `[x]` in place
+ */
+export function buildCompletionEntry(
+	lineText: string,
+	childLines: string[],
+	projectName: string
+): { entry: CompletionEntry; completedLine: string } {
+	const taskText = stripProjectPrefix(extractTaskText(lineText), projectName);
+
+	const parentIndent = countIndent(lineText);
+	const completedLine = new TaskMarker(TaskState.Completed).applyToLine(lineText);
+	const strippedLine = TaskMarker.stripProjectLink(
+		completedLine.slice(parentIndent),
+		projectName
+	);
+
+	return {
+		entry: { taskText, entryLines: [strippedLine, ...dedentLinesByAmount(childLines, parentIndent)] },
+		completedLine
+	};
+}
+
+/** What became of a completed task's copy in the project's Todo section. */
+export type CompletionCopyOutcome =
+	/** The copy was found live and removed — the log entry is now the record */
+	| 'removed'
+	/** The project note never listed this task */
+	| 'no-copy'
+	/** The copy was already `[x]`; it was left untouched */
+	| 'already-completed';
+
+export interface CompletionResult {
+	taskText: string;
+	projectName: string;
+	outcome: CompletionCopyOutcome;
+}
+
+/**
+ * The sub-heading completions from one source note are grouped under, one
+ * level below the log heading (e.g. "### [[2026-07-02 Thu]]").
+ */
+export function completionSubHeading(logHeading: string, sourceBasename: string): string {
+	const { level } = parseTargetHeading(logHeading);
+	return `${'#'.repeat(level + 1)} [[${sourceBasename}]]`;
+}
+
+/**
+ * Whether a project note's log already holds this completion for this source
+ * note: a completed task with the same text inside the source note's
+ * sub-section.
+ *
+ * This is what makes completing a task idempotent — the log entry itself is
+ * the record that the work was filed, so a repeat run (the command's `[x]`
+ * waking the auto-move extension, an undo followed by a re-tick) writes
+ * nothing instead of logging twice. Scoped to the sub-heading, so the same
+ * task completed on another day still gets its own entry.
+ */
+export function isCompletionLogged(
+	projectContent: string,
+	taskText: string,
+	logHeading: string,
+	subHeading: string
+): boolean {
+	if (!taskText) return false;
+
+	const lines = projectContent.split('\n');
+	const section = findSectionRange(lines, logHeading);
+	if (!section) return false;
+
+	const body = lines.slice(section.start + 1, section.end);
+	const sub = findSectionRange(body, subHeading);
+	if (!sub) return false;
+
+	for (let i = sub.start + 1; i < sub.end; i++) {
+		const marker = TaskMarker.fromLine(body[i]);
+		if (marker?.state === TaskState.Completed && extractTaskText(body[i]) === taskText) return true;
+	}
+	return false;
+}
+
+/** Describe a copy outcome for a user-facing notice. */
+export function describeMismatch(result: CompletionResult): string {
+	return result.outcome === 'already-completed'
+		? `"${result.taskText}" is already completed in [[${result.projectName}]]`
+		: `"${result.taskText}" has no matching task in [[${result.projectName}]]`;
+}
+
+/**
+ * Write completions into their project notes: remove each task's copy from the
+ * Todo section (the log is the record) and append the log entries under one
+ * sub-heading per source note.
+ *
+ * One `vault.process` per project note. A missing copy, or one already `[x]`,
+ * is reported but never fatal — the log entry is written either way, so a task
+ * invented in the daily note is filed to its project like any other.
+ *
+ * @param plugin - BulletFlow plugin instance
+ * @param sourceBasename - Basename of the note the tasks were completed in
+ * @param entriesByProject - Completions grouped per project note
+ * @returns One result per entry, in write order
+ */
+export async function writeProjectCompletions(
+	plugin: BulletFlowPlugin,
+	sourceBasename: string,
+	entriesByProject: CompletionsByProject
+): Promise<CompletionResult[]> {
+	const todoHeading = plugin.settings.projectNoteTaskTargetHeading;
+	const logHeading = plugin.settings.logExtractionTargetHeading;
+	const results: CompletionResult[] = [];
+
+	for (const [, { file: projectFile, entries }] of entriesByProject) {
+		await plugin.app.vault.process(projectFile, (data: string) => {
+			const lines = data.split('\n');
+			const projectName = projectFile.basename;
+			const logLines: string[] = [];
+
+			for (const entry of entries) {
+				logLines.push(...entry.entryLines);
+
+				const match = findTaskMatch(lines, entry.taskText, {
+					heading: todoHeading,
+					includeCompleted: true
+				});
+				if (!match) {
+					results.push({ taskText: entry.taskText, projectName, outcome: 'no-copy' });
+					continue;
+				}
+				if (match.state === TaskState.Completed) {
+					results.push({ taskText: entry.taskText, projectName, outcome: 'already-completed' });
+					continue;
+				}
+				results.push({ taskText: entry.taskText, projectName, outcome: 'removed' });
+				// Remove the finished task and its subtree from Todo — the
+				// log entry below is the record. Leftover children under the
+				// copy (terminal subtrees left behind on take) move into the
+				// log entry so their history isn't lost.
+				const blockEnd = findTaskBlockEnd(lines, match.lineNumber);
+				const copyIndent = countIndent(lines[match.lineNumber]);
+				const leftovers = lines.slice(match.lineNumber + 1, blockEnd);
+				logLines.push(...dedentLinesByAmount(leftovers, copyIndent));
+				lines.splice(match.lineNumber, blockEnd - match.lineNumber);
+			}
+
+			// Append the log entry, grouped under one sub-heading per source note
+			return insertUnderSubheading(lines, logLines, logHeading, completionSubHeading(logHeading, sourceBasename));
+		});
+	}
+
+	return results;
+}
+
+/**
+ * Report the outcome of one or more completions, appending mismatch details
+ * when any occurred.
+ */
+export function notifyCompletion(count: number, projectNames: string[], mismatches: string[]): void {
+	const rendered = projectNames.map(name => `[[${name}]]`);
+	const base = count === 1
+		? `Complete project task: Task completed and logged to ${rendered[0]}.`
+		: `Complete project task: ${count} tasks completed and logged to ${rendered.join(', ')}.`;
+
+	if (mismatches.length > 0) {
+		new Notice(`${base} Mismatches: ${mismatches.join('; ')}`, NOTICE_TIMEOUT_ERROR);
+	} else {
+		new Notice(base);
+	}
+}
+
+/** What happened when a ticked task was checked for project membership. */
+export type AutoCompletionOutcome =
+	/** Not a project task, or this completion is already in the project's log */
+	| 'skipped'
+	/** The project note was updated; the task's children now live there */
+	| 'completed'
+	/** The project write failed; the source must be left untouched */
+	| 'failed';
+
+/**
+ * Complete a single ticked task in its project note, without an editor.
+ *
+ * The task qualifies when it carries its own resolvable `[[Project]]` prefix
+ * (`detectProjectContext` semantics) — a project link somewhere in an ancestor
+ * bullet is not enough, because the ticked line would not be the task the
+ * project note knows about.
+ *
+ * Whether the project note ever listed the task is deliberately *not* a
+ * condition: like the command, this logs the completion either way, so work
+ * invented in the daily note is filed to its project too. Repeat runs are held
+ * off by `isCompletionLogged` instead — the entry already in the project's log
+ * is the record that this completion was filed.
+ *
+ * @param plugin - BulletFlow plugin instance
+ * @param file - The note the task was ticked in
+ * @param docText - Current text of that note
+ * @param taskLine - Line number of the ticked task
+ * @param childLines - The task's children, which move to the project log
+ */
+export async function completeProjectTaskAtLine(
+	plugin: BulletFlowPlugin,
+	file: TFile,
+	docText: string,
+	taskLine: number,
+	childLines: string[]
+): Promise<AutoCompletionOutcome> {
+	const lines = docText.split('\n');
+	const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
+	// No list items: with no hierarchy to walk, detectProjectContext considers
+	// only the line's own prefix — which is exactly what qualifies here
+	const ctx = detectProjectContext(
+		{ getLine: (line: number) => lines[line] ?? '' },
+		[],
+		taskLine,
+		file.path,
+		resolver,
+		plugin.settings
+	);
+	if (!ctx || !ctx.hasOwnPrefix) return 'skipped';
+
+	const projectFile = plugin.app.vault.getAbstractFileByPath(ctx.path) as TFile;
+	if (!projectFile) return 'skipped';
+
+	try {
+		const { entry } = buildCompletionEntry(lines[taskLine], childLines, ctx.projectName);
+
+		const logHeading = plugin.settings.logExtractionTargetHeading;
+		const projectContent = await plugin.app.vault.read(projectFile);
+		if (isCompletionLogged(
+			projectContent,
+			entry.taskText,
+			logHeading,
+			completionSubHeading(logHeading, file.basename)
+		)) {
+			return 'skipped';
+		}
+
+		const results = await writeProjectCompletions(
+			plugin,
+			file.basename,
+			new Map([[ctx.path, { file: projectFile, entries: [entry] }]])
+		);
+
+		// A task the project never listed is the normal shape for work invented
+		// in the daily note — not something to report. A copy left `[x]` in Todo
+		// is worth a word, since the user may want to tidy it.
+		const mismatches = results
+			.filter(r => r.outcome === 'already-completed')
+			.map(describeMismatch);
+		notifyCompletion(1, [ctx.projectName], mismatches);
+		return 'completed';
+	} catch (e: any) {
+		new Notice(`Complete project task error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		console.error('completeProjectTaskAtLine error:', e);
+		return 'failed';
+	}
+}

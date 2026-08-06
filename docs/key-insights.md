@@ -80,6 +80,31 @@ source. The source must never be modified before the target write succeeds;
 collected content exists only in memory, so the old order could lose tasks on a
 failed write.
 
+Auto-move follows the same order when a ticked task turns out to be a project
+task — in either section of the daily note: ticked in Todo it is filed to the
+project and moved under Log, ticked where it already sits in Log only its notes
+travel (`completeTriggerInProject` is one code path, parameterised by the
+section heading). The Log pass needs the ticked line's **text** carried over
+from the update listener: completed tasks accumulate there, so "first completed
+in the section" — reliable in Todo, where auto-move files them immediately —
+says nothing about which line the user just ticked, and two identical lines
+make the tick unattributable, so the run bails. In both cases the project write
+is awaited before anything moves, and a failed write aborts the run. Because that await happens inside an editor extension, two
+things must hold that a synchronous run got for free — runs are serialized per
+editor view (otherwise two quick completions both file the same task to the
+project note), and the trigger line is re-located afterwards and matched by
+text (otherwise an intervening edit could file the wrong task line-only,
+dropping its children). Auto-completion is deliberately narrower than the
+command: only a completed task carrying its **own** project prefix and sitting
+at the root of the block being filed qualifies — an ancestor collector or
+project bullet doesn't count, since the ticked line wouldn't be the task the
+project note knows about. Whether the project ever listed the task is not a
+condition either way: both paths log the completion, so ad-hoc daily-note work
+reaches its project. What makes a completion idempotent is the log entry
+itself (`isCompletionLogged` — same task text, same source-note sub-heading),
+which is why the command's `[x]` waking the extension doesn't file the work
+twice, and why the same task completed on another day still gets an entry.
+
 Children handling differs by command: on migrate/push/pull/take,
 completed/migrated child subtrees stay in the source
 (`selectTransferableChildLines` in `src/utils/tasks.ts`); extract log and

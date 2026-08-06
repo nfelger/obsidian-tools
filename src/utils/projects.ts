@@ -518,6 +518,8 @@ function foldIntoCollector(
 export interface ProjectTaskContext {
 	/** Project note basename */
 	projectName: string;
+	/** Full vault path of the project note */
+	path: string;
 	/** Link to render when a prefix is needed, verbatim from the source */
 	linkText: string;
 	/** Task text without the prefix */
@@ -546,6 +548,7 @@ export function detectProjectContext(
 		if (resolved && isProjectLink(resolved, settings)) {
 			return {
 				projectName: resolved.basename,
+				path: resolved.path,
 				linkText: prefix.linkText,
 				strippedText: prefix.rest,
 				hasOwnPrefix: true
@@ -556,6 +559,7 @@ export function detectProjectContext(
 	if (ancestor && ancestor.line !== taskLine) {
 		return {
 			projectName: ancestor.link.basename,
+			path: ancestor.link.path,
 			linkText: ancestor.link.matchText,
 			strippedText: taskText,
 			hasOwnPrefix: false
