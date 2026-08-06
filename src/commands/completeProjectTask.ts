@@ -4,7 +4,7 @@ import { extractTaskText } from '../utils/tasks';
 import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from '../utils/listItems';
 import { getActiveMarkdownFile, getListItems, findSelectedTaskLines, resolveProjectLinkAndFile } from '../utils/commandSetup';
 import { isProjectNote, stripResolvedProjectPrefix } from '../utils/projects';
-import { buildCompletionEntry, notifyCompletion, writeProjectCompletions, type CompletionsByProject } from '../utils/projectCompletion';
+import { buildCompletionEntry, notifyCompletion, writeProjectCompletions, type CompletionEntry, type CompletionsByProject } from '../utils/projectCompletion';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
@@ -48,6 +48,7 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 			taskLine: number;
 			completedLine: string;
 			children: { startLine: number; endLine: number } | null;
+			entry: CompletionEntry;
 		}> = [];
 
 		for (const taskLine of taskLines) {
@@ -76,7 +77,8 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 			sourceCompletions.push({
 				taskLine,
 				completedLine,
-				children: children ? { startLine: children.startLine, endLine: children.endLine } : null
+				children: children ? { startLine: children.startLine, endLine: children.endLine } : null,
+				entry
 			});
 		}
 
@@ -87,9 +89,14 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 
 		// Phase 3: Complete the source tasks in place and move their children
 		// out. Deleting children shifts later line numbers, so edits run
-		// bottom-to-top.
+		// bottom-to-top. A completion already on the project's log filed
+		// nothing, so its children stay put — deleting them would drop notes
+		// the project note never received.
+		const alreadyLogged = new Set(
+			results.filter(r => r.outcome === 'already-logged').map(r => r.entry)
+		);
 		for (const completion of [...sourceCompletions].reverse()) {
-			if (completion.children) {
+			if (completion.children && !alreadyLogged.has(completion.entry)) {
 				editor.replaceRange(
 					'',
 					{ line: completion.children.startLine, ch: 0 },
@@ -99,11 +106,7 @@ export async function completeProjectTask(plugin: BulletFlowPlugin): Promise<voi
 			editor.setLine(completion.taskLine, completion.completedLine);
 		}
 
-		notifyCompletion(
-			sourceCompletions.length,
-			[...entriesByProject.values()].map(p => p.file.basename),
-			results
-		);
+		notifyCompletion([...entriesByProject.values()].map(p => p.file.basename), results);
 	} catch (e: any) {
 		new Notice(`Complete project task error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
 		console.error('completeProjectTask error:', e);

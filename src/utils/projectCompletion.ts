@@ -65,19 +65,22 @@ export function buildCompletionEntry(
 	};
 }
 
-/** What became of a completed task's copy in the project's Todo section. */
-export type CompletionCopyOutcome =
-	/** The copy was found live and removed — the log entry is now the record */
+/** What happened to one completion when it reached its project note. */
+export type CompletionOutcome =
+	/** Logged; the Todo copy was found live and removed — the log is the record */
 	| 'removed'
-	/** The project note never listed this task */
+	/** Logged; the project note never listed this task */
 	| 'no-copy'
-	/** The copy was already `[x]`; it was left untouched */
-	| 'already-completed';
+	/** Logged; the copy was already `[x]` in Todo and was left untouched */
+	| 'already-completed'
+	/** Not logged: this completion is already in the project's log */
+	| 'already-logged';
 
 export interface CompletionResult {
-	taskText: string;
+	/** The entry this result belongs to, so callers can correlate by identity */
+	entry: CompletionEntry;
 	projectName: string;
-	outcome: CompletionCopyOutcome;
+	outcome: CompletionOutcome;
 }
 
 /**
@@ -101,14 +104,14 @@ export function completionSubHeading(logHeading: string, sourceBasename: string)
  * task completed on another day still gets its own entry.
  */
 export function isCompletionLogged(
-	projectContent: string,
+	projectContent: string | string[],
 	taskText: string,
 	logHeading: string,
 	subHeading: string
 ): boolean {
 	if (!taskText) return false;
 
-	const lines = projectContent.split('\n');
+	const lines = Array.isArray(projectContent) ? projectContent : projectContent.split('\n');
 	const section = findSectionRange(lines, logHeading);
 	if (!section) return false;
 
@@ -135,7 +138,7 @@ export function isCompletionLogged(
 function describeMismatches(results: CompletionResult[]): string[] {
 	return results
 		.filter(r => r.outcome === 'already-completed')
-		.map(r => `"${r.taskText}" is already completed in [[${r.projectName}]]`);
+		.map(r => `"${r.entry.taskText}" is already completed in [[${r.projectName}]]`);
 }
 
 /**
@@ -161,6 +164,8 @@ export async function writeProjectCompletions(
 	const logHeading = plugin.settings.logExtractionTargetHeading;
 	const results: CompletionResult[] = [];
 
+	const subHeading = completionSubHeading(logHeading, sourceBasename);
+
 	for (const [, { file: projectFile, entries }] of entriesByProject) {
 		await plugin.app.vault.process(projectFile, (data: string) => {
 			const lines = data.split('\n');
@@ -168,6 +173,14 @@ export async function writeProjectCompletions(
 			const logLines: string[] = [];
 
 			for (const entry of entries) {
+				// Already in this note's log section: the completion is on the
+				// record, so a repeat run adds nothing — not the entry, and not
+				// the Todo removal either.
+				if (isCompletionLogged(lines, entry.taskText, logHeading, subHeading)) {
+					results.push({ entry, projectName, outcome: 'already-logged' });
+					continue;
+				}
+
 				logLines.push(...entry.entryLines);
 
 				const match = findTaskMatch(lines, entry.taskText, {
@@ -175,14 +188,14 @@ export async function writeProjectCompletions(
 					includeCompleted: true
 				});
 				if (!match) {
-					results.push({ taskText: entry.taskText, projectName, outcome: 'no-copy' });
+					results.push({ entry, projectName, outcome: 'no-copy' });
 					continue;
 				}
 				if (match.state === TaskState.Completed) {
-					results.push({ taskText: entry.taskText, projectName, outcome: 'already-completed' });
+					results.push({ entry, projectName, outcome: 'already-completed' });
 					continue;
 				}
-				results.push({ taskText: entry.taskText, projectName, outcome: 'removed' });
+				results.push({ entry, projectName, outcome: 'removed' });
 				// Remove the finished task and its subtree from Todo — the
 				// log entry below is the record. Leftover children under the
 				// copy (terminal subtrees left behind on take) move into the
@@ -194,8 +207,11 @@ export async function writeProjectCompletions(
 				lines.splice(match.lineNumber, blockEnd - match.lineNumber);
 			}
 
+			// Nothing new to file — leave the note exactly as it was
+			if (logLines.length === 0) return lines.join('\n');
+
 			// Append the log entry, grouped under one sub-heading per source note
-			return insertUnderSubheading(lines, logLines, logHeading, completionSubHeading(logHeading, sourceBasename));
+			return insertUnderSubheading(lines, logLines, logHeading, subHeading);
 		});
 	}
 
@@ -208,12 +224,21 @@ export async function writeProjectCompletions(
  * and the automatic path go through here, so they say the same thing about
  * the same outcome.
  */
-export function notifyCompletion(count: number, projectNames: string[], results: CompletionResult[]): void {
+export function notifyCompletion(projectNames: string[], results: CompletionResult[]): void {
 	const mismatches = describeMismatches(results);
 	const rendered = projectNames.map(name => `[[${name}]]`);
-	const base = count === 1
-		? `Complete project task: Task completed and logged to ${rendered[0]}.`
-		: `Complete project task: ${count} tasks completed and logged to ${rendered.join(', ')}.`;
+	const logged = results.filter(r => r.outcome !== 'already-logged').length;
+
+	let base: string;
+	if (logged === 0) {
+		base = results.length === 1
+			? `Complete project task: Already logged in ${rendered[0]}.`
+			: `Complete project task: All ${results.length} completions already logged in ${rendered.join(', ')}.`;
+	} else {
+		base = logged === 1
+			? `Complete project task: Task completed and logged to ${rendered[0]}.`
+			: `Complete project task: ${logged} tasks completed and logged to ${rendered.join(', ')}.`;
+	}
 
 	if (mismatches.length > 0) {
 		new Notice(`${base} Mismatches: ${mismatches.join('; ')}`, NOTICE_TIMEOUT_ERROR);
@@ -280,23 +305,14 @@ export async function completeProjectTaskAtLine(
 		// the project resolves through is stripped the same way
 		const { entry } = buildCompletionEntry(lines[taskLine], childLines, ctx.strippedText);
 
-		const logHeading = plugin.settings.logExtractionTargetHeading;
-		const projectContent = await plugin.app.vault.read(projectFile);
-		if (isCompletionLogged(
-			projectContent,
-			entry.taskText,
-			logHeading,
-			completionSubHeading(logHeading, file.basename)
-		)) {
-			return 'skipped';
-		}
-
 		const results = await writeProjectCompletions(
 			plugin,
 			file.basename,
 			new Map([[ctx.path, { file: projectFile, entries: [entry] }]])
 		);
-		notifyCompletion(1, [ctx.projectName], results);
+		if (results.every(r => r.outcome === 'already-logged')) return 'skipped';
+
+		notifyCompletion([ctx.projectName], results);
 		return 'completed';
 	} catch (e: any) {
 		new Notice(`Complete project task error: ${e.message}`, NOTICE_TIMEOUT_ERROR);

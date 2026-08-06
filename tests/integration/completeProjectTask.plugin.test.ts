@@ -331,6 +331,39 @@ describe('completeProjectTask', () => {
 			);
 		});
 
+		it('does not log a completion the project already has', async () => {
+			const result = await testCompleteProjectTaskPlugin({
+				source: `
+- [ ] [[Migration Initiative]] Inbox Zero: Asana
+	- notes typed after reopening
+`,
+				sourceFileName: '2026-07-02 Thu',
+				sourcePath: '+Diary/2026/07/2026-07-02 Thu.md',
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+
+## Log
+
+### [[2026-07-02 Thu]]
+
+- [x] Inbox Zero: Asana
+`
+				},
+				cursorLine: 0
+			});
+
+			// Re-opening and re-running adds nothing to the project note
+			const project = result.project('Migration Initiative')!;
+			expect(project.match(/- \[x\] Inbox Zero: Asana/g)).toHaveLength(1);
+			expect(project.match(/### \[\[2026-07-02 Thu\]\]/g)).toHaveLength(1);
+
+			// Nothing was filed, so the notes stay in the daily note
+			expect(result.source).toContain('- [x] [[Migration Initiative]] Inbox Zero: Asana');
+			expect(result.source).toContain('notes typed after reopening');
+			expect(result.notice).toBe('Complete project task: Already logged in [[Migration Initiative]].');
+		});
+
 		it('does not double-mark an already completed project copy', async () => {
 			const result = await testCompleteProjectTaskPlugin({
 				source: `

@@ -88,12 +88,19 @@ automatic cross-file write should not guess.
 
 The record that a completion was filed is the log entry itself, so that is what
 a repeat run checks (`isCompletionLogged`): a completed task with the same text
-inside the source note's sub-section of the project log. This makes running the
-command inside a daily note idempotent — the `[x]` it leaves behind wakes the
-extension, which finds its own entry already there and writes nothing — and
-covers untick/re-tick and any other repeat path, without making "was it listed
-in the project?" stand in for "was it already filed?". The check is scoped to
-the sub-heading, so the same task completed on another day gets its own entry.
+inside the source note's sub-section of the project log. That covers every
+repeat path — the command's `[x]` waking the extension, untick and re-tick,
+re-running the command on a reopened task — without making "was it listed in
+the project?" stand in for "was it already filed?". The check is scoped to the
+sub-heading, so the same task completed on another day gets its own entry.
+
+The check lives **inside `writeProjectCompletions`**, per entry, within the
+`vault.process` callback: it is the one place both callers pass through, the
+note's content is already in hand (no second read, no read-then-write gap), and
+multi-select gets it per task rather than per run. An entry already on the
+record is skipped whole — no log line, and no Todo removal either. Its caller
+must then leave the source task's children alone: nothing was filed, so
+deleting them would drop notes the project note never received.
 
 ## Phase order and the async gap
 

@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same way the task's text has always been matched. Affects **Complete
   project task**, the automatic completion on ticking, and **Drop task to
   project**.
+- Re-running **Complete project task** on a task whose completion is already in
+  the project's log no longer appends a duplicate entry — the same check that
+  already protected automatic completion now covers every way of triggering it,
+  including a reopened task completed again. Nothing is filed in that case, so
+  the task's notes stay in the daily note.
 - **Complete project task** no longer warns "has no matching task in
   [[Project]]" when completing work the project note never listed. Logging a
   completion doesn't depend on the project listing the task, so that is the
