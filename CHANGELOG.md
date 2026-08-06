@@ -5,6 +5,24 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.2] - 2026-08-06
+
+### Maintenance
+
+- Added linting to the development setup, configured with the size and
+  complexity limits that catch the mistakes AI-assisted changes tend to make.
+  Findings carry a suggested fix rather than only naming the rule, and the
+  limits that existing code already exceeds are reported as advisory warnings
+  so they can be tightened as the code improves instead of blocking work.
+- The auto-move trigger detection — the logic deciding whether a keystroke
+  actually completed or started a task — is now covered by tests. It was the
+  most complex untested code in the plugin, and it guards every automatic move
+  and project completion.
+- Raised the test coverage floor to sit just below actual coverage, so a drop
+  fails the test run instead of going unnoticed.
+- Removed unused imports and a dead local, and dropped an unnecessary export.
+  No behavior change.
+
 ## [0.16.1] - 2026-08-06
 
 ### Fixed

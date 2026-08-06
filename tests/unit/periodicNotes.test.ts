@@ -3,8 +3,6 @@ import {
 	parseNoteType,
 	isLastDayOfWeek,
 	isDecember,
-	getISOWeekNumber,
-	getMondayOfISOWeek,
 	formatDailyPath,
 	getNextNotePath,
 	dateIsInPeriod,

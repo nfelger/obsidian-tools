@@ -22,7 +22,6 @@ export function findRootAncestorLine(
 	taskLine: number,
 	sectionStart: number
 ): number {
-	const taskIndent = countIndent(lines[taskLine]);
 	let root = taskLine;
 
 	for (let i = taskLine - 1; i > sectionStart; i--) {

@@ -3,7 +3,11 @@ node_modules/
 
 # Test coverage
 coverage/
+coverage-istanbul/
 .nyc_output/
+
+# Fallow analysis cache and baselines
+.fallow/
 
 # Build outputs
 dist/

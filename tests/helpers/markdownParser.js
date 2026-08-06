@@ -9,7 +9,7 @@ export function parseMarkdownToListItems(markdown) {
 
   lines.forEach((line, lineNum) => {
     // Detect list items: optional whitespace + bullet (-, *, +) + optional checkbox
-    const match = line.match(/^(\s*)([-*+])\s+(\[[^\[\]]\])?\s*/);
+    const match = line.match(/^(\s*)([-*+])\s+(\[[^[\]]\])?\s*/);
     if (!match) return;
 
     const indentStr = match[1];

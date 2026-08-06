@@ -1,4 +1,4 @@
-import { Notice, TFile } from 'obsidian';
+import { Notice } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
 import { getPeriodicConfig } from '../utils/periodicNoteCreator';

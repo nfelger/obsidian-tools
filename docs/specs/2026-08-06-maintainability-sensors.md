@@ -129,12 +129,21 @@ imports, unused locals (`taskIndent`, `blankIdx`), a redundant regex escape in
 |---|---|
 | `CollectorLineShape` unused type export (`projects.ts:194`) | **[verified]** — used only inside its own file; drop the `export` |
 | `@wdio/types` unlisted dependency | **[verified]** — type-imported in `wdio.conf.ts`, absent from `package.json` |
-| `obsidian-daily-notes-interface` devDep used in production | **[verified]** — not in esbuild `external`, so it is bundled |
+| `obsidian-daily-notes-interface` devDep used in production | **[false positive]** — bundled, but see below |
 | `BulletFlowSettingTab.display` unused class member | **[false positive]** — Obsidian `PluginSettingTab` lifecycle override |
 | 4 × `@wdio/*` / `wdio-obsidian-service` unused | **[false positive]** — invoked by the wdio CLI, never imported |
 | `@codemirror/state`, `@codemirror/view` devDeps in production | **[false positive]** — in esbuild `external`, correctly devDeps |
 
-Six false positives out of ten is the honest adoption cost. All six are one-time config (§6).
+Seven false positives out of ten is the honest adoption cost. All are one-time config (§6).
+
+**[revised] `obsidian-daily-notes-interface` was first marked verified — wrong.** It *is*
+bundled rather than externalised, so Fallow reads it as production code, and that much is
+correct. But the rule's advice ("move to `dependencies`") assumes a Node app where
+`dependencies` are installed at runtime. An Obsidian plugin ships a single bundled
+`main.js`; nobody ever installs its dependency tree, so every dependency is build-time by
+construction and `devDependencies` is the correct home. This is precisely the class of
+finding Böckeler warns about — a legitimate pattern surfacing as a defect — and it argues
+for suppressing the rule with a reason rather than restructuring the manifest to satisfy it.
 
 ### 3.1 The finding that reorders everything
 
@@ -158,6 +167,15 @@ healthy and hides a complex, untested decision branch. The split is understandab
 `src/events/autoMoveCompleted.ts` (the CM6 wiring that decides *when* to move) has none —
 but the untested part still contains a cyclomatic-10 arrow function. Neither coverage alone
 nor complexity alone surfaces this. Only the product does.
+
+**Re-measured after rebasing onto v0.16.1, and the finding survived a partial fix.** Main
+independently added an integration test for the auto-move extension, taking `src/events`
+from 0% to 74.55%. The *specific* function stayed untested, and its CRAP score went up
+rather than down — `detectAutoMoveCandidate` measured **CRAP 132.0 at 0% covered**, still
+the highest in the codebase, because the surrounding file had grown. A directory-level
+coverage number improving while the riskiest function inside it stays untouched is the
+sharpest possible illustration of why the product of complexity and coverage is the signal,
+not either input. It is now tested (§11).
 
 **Blocker [verified]:** Fallow cannot parse vitest's default v8 coverage output —
 `invalid value: integer -1, expected u32`. Switching the provider to `istanbul`
@@ -498,16 +516,38 @@ and the review needs to be told so — otherwise, as she notes, they "create eve
 reordered the entire risk picture and exposed a critical untested function that nothing else
 surfaced. It is also nearly free — the coverage data already exists.
 
-| # | Change | Effort | Closes |
-|---|---|---|---|
-| P2 | Oxlint + the four AI-failure-mode rules + fix the 14 findings | ~1h | G2 |
-| P6a | Istanbul provider, `health.coverage`, ratchet floor to ~88% | ~1h | — |
-| P1 | Agent hooks: Oxlint on `PostToolUse`, `fallow audit` + tests on `Stop` | ~1h | **G1** |
-| P5 | LLM-shaped messages, starting with `complexity`; advisory ledger | ~1h | — |
-| P3 | Pinned Fallow + `.fallowrc.json` + baselines + CI step | ~2h | G3 |
-| P4 | Boundary zones, after deciding the `utils/` question | ~2h | G4 |
-| P6b | Stryker on `tasks.ts` / `projects.ts` / `autoMove.ts` + query script | ~3h | — |
-| P7 | `modularity-review` skill, per release | ~2h | — |
+| # | Change | Effort | Closes | Status |
+|---|---|---|---|---|
+| P2 | Oxlint + the four AI-failure-mode rules + fix the findings | ~1h | G2 | **done** (v0.16.2) |
+| P6a | Istanbul coverage for CRAP, ratchet the floor | ~1h | — | **done** (v0.16.2) |
+| P5a | LLM-shaped lint messages via `lint-guided.mjs` | ~1h | — | **done** (v0.16.2) |
+| P1 | Agent hooks: Oxlint on `PostToolUse`, `fallow audit` + tests on `Stop` | ~1h | **G1** | open |
+| P5b | LLM-shaped messages for the existing git hooks; advisory ledger | ~1h | — | open |
+| P3 | Pinned Fallow + `.fallowrc.json` + baselines + CI step | ~2h | G3 | open |
+| P4 | Boundary zones, after deciding the `utils/` question | ~2h | G4 | open |
+| P6b | Stryker on `tasks.ts` / `projects.ts` / `autoMove.ts` + query script | ~3h | — | open |
+| P7 | `modularity-review` skill, per release | ~2h | — | open |
+
+**As-built notes for the completed rows.** The complexity and size rules are configured as
+*warnings*, not errors: `src/` has substantial existing debt (seven functions over
+complexity 15, eight over 80 lines) and making those errors would have failed the build on
+day one — the trap §6 warns about. Oxlint exits 0 on warnings, so `npm run lint` gates on
+correctness errors while the thresholds stay visible as the ratchet.
+
+Oxlint's `suspicious` category was evaluated and **rejected**: it produced 49 `no-new`
+findings on `new Notice(...)`, which is the standard Obsidian idiom, and
+`no-underscore-dangle` directly contradicts the `_`-prefix convention used for deliberately
+unused bindings. That is §1.7's feedback overload in concrete form — dropping the category
+took the signal from 89 findings to 40, all of them meaningful.
+
+`lint-guided.mjs` implements §1.2 by mapping rule codes to project-specific remedies over
+Oxlint's JSON output. The `complexity` rule is the reason it exists: it ships with no `help`
+text at all, and it is the rule Böckeler watched her agent evade.
+
+Coverage keeps **v8 as the gate** (the existing thresholds are calibrated to it) and adds a
+separate `test:crap` script emitting istanbul JSON purely for Fallow. The two providers
+instrument differently — 92.06% under v8 versus 86.4% under istanbul — so sharing one
+threshold set between them would have produced false failures.
 
 Rewrite the existing hook messages for LLM consumption alongside P5 — "Error: planning
 comments found in staged .ts files." becomes materially more useful with the remedy
@@ -520,15 +560,35 @@ is confirmation, not a different checklist.
 
 ### First payload of real fixes
 
-Independent of any tooling decision:
+Delivered in v0.16.2:
 
-1. Remove the unused `TFile` import from `migrateTask.ts`, `pullTaskUp.ts`,
-   `pushTaskDown.ts`, `takeProjectTask.ts`, plus the other Oxlint findings.
-2. Drop `export` from `CollectorLineShape` (`src/utils/projects.ts:194`).
-3. Add `@wdio/types` to `devDependencies`.
-4. Move `obsidian-daily-notes-interface` to `dependencies` (bundled, not external).
-5. **Test `src/events/autoMoveCompleted.ts`** — 0% covered, CRAP 110, the highest
-   actual risk in the codebase (§3.1).
+1. ✅ Removed the unused `TFile` import from `migrateTask.ts`, `pullTaskUp.ts`,
+   `pushTaskDown.ts`, `takeProjectTask.ts`, plus the dead `taskIndent` local and two
+   redundant regex escapes.
+2. ✅ Dropped `export` from `CollectorLineShape` (`src/utils/projects.ts`).
+3. ✅ Added `@wdio/types` to `devDependencies` — it was type-imported by
+   `tests/e2e/wdio.conf.ts` and resolving only transitively.
+4. ❌ **Not done:** moving `obsidian-daily-notes-interface` to `dependencies`. Reversed on
+   inspection — see §3. Suppress the rule instead, when P3 lands.
+5. ✅ **Tested `detectAutoMoveCandidate`** — the CRAP 132 / 0% covered function from §3.1.
+   Rather than stand up a CM6 view, its signature now takes the three `@codemirror/state`
+   values it actually reads (`ChangeSet`, new `Text`, old `Text`), so the transition rules
+   are exercised from a plain `EditorState` transaction. This follows the precedent the file
+   already set with `AutoMoveDoc` ("keeps the run testable without a CM6 view"). `src/events`
+   coverage went 74.55% → 85.03%, and the function is no longer the top CRAP risk.
+
+   The new tests were **hand-mutation-tested** before being accepted — dropping the
+   already-in-that-state guard, reporting started tasks as completed, and removing the
+   early-return short circuit each killed one or more tests. This is §9's technique applied
+   manually, and it is why the suite is trusted rather than merely green.
+
+Two follow-ups worth issues, both unblocked by the above:
+
+6. The shared transfer engine: 4.8% duplication across `migrateTask`/`pullTaskUp`/
+   `pushTaskDown`, also open in the 2026-06-10 review.
+7. `findTopLevelTasksInRange` (cognitive 32) in `src/utils/tasks.ts`. Now the joint-top
+   complexity finding alongside `createPeriodicNoteFromTemplate` (CRAP 106.4, 40% tested),
+   which the coverage-weighted run promotes above it on risk.
 6. File an issue for the shared transfer engine, citing 4.8% duplication across
    `migrateTask`/`pullTaskUp`/`pushTaskDown` and the 2026-06-10 review's open item.
 7. File an issue for `findTopLevelTasksInRange` (cognitive 32) in `src/utils/tasks.ts`.

@@ -18,6 +18,7 @@
 
 import { EditorView, ViewUpdate } from '@codemirror/view';
 import { Annotation, Extension } from '@codemirror/state';
+import type { ChangeSet, Text } from '@codemirror/state';
 import { editorInfoField, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { PeriodicNoteService } from '../utils/periodicNotes';
@@ -48,7 +49,7 @@ export interface AutoMoveDoc {
 }
 
 /** What an update turned up: a move is due, and which line was ticked. */
-interface AutoMoveCandidate {
+export interface AutoMoveCandidate {
 	/** Text of the line whose checkbox just became `[x]`, null if only started */
 	completedLine: string | null;
 }
@@ -63,7 +64,11 @@ export function createAutoMoveExtension(plugin: BulletFlowPlugin): Extension {
 		if (!update.docChanged) return;
 		if (update.transactions.some(tr => tr.annotation(autoMoveAnnotation))) return;
 
-		const candidate = detectAutoMoveCandidate(update);
+		const candidate = detectAutoMoveCandidate(
+			update.changes,
+			update.state.doc,
+			update.startState.doc
+		);
 		if (!candidate) return;
 
 		const view = update.view;
@@ -87,13 +92,19 @@ export function createAutoMoveExtension(plugin: BulletFlowPlugin): Extension {
  * The text is, because a task ticked in the Log section can't be located any
  * other way: completed tasks pile up there, so nothing about the document
  * says which one the user just ticked.
+ *
+ * Takes the three pieces of a `ViewUpdate` it actually reads rather than the
+ * update itself, so the transition rules can be exercised from a plain
+ * `EditorState` transaction without standing up a CM6 view.
  */
-function detectAutoMoveCandidate(update: ViewUpdate): AutoMoveCandidate | null {
-	const newDoc = update.state.doc;
-	const oldDoc = update.startState.doc;
+export function detectAutoMoveCandidate(
+	changes: ChangeSet,
+	newDoc: Text,
+	oldDoc: Text
+): AutoMoveCandidate | null {
 	const found = { any: false, completedLine: null as string | null };
 
-	update.changes.iterChanges((_fromA, _toA, fromB, toB) => {
+	changes.iterChanges((_fromA, _toA, fromB, toB) => {
 		if (found.completedLine !== null) return;
 		const startLine = newDoc.lineAt(fromB).number;
 		const endLine = newDoc.lineAt(Math.min(toB, newDoc.length)).number;
@@ -103,7 +114,7 @@ function detectAutoMoveCandidate(update: ViewUpdate): AutoMoveCandidate | null {
 			const newMarker = TaskMarker.fromLine(newLine.text);
 			if (!newMarker || (newMarker.state !== TaskState.Completed && newMarker.state !== TaskState.Started)) continue;
 
-			const oldPos = update.changes.mapPos(newLine.from, -1);
+			const oldPos = changes.mapPos(newLine.from, -1);
 			if (oldPos >= 0 && oldPos <= oldDoc.length) {
 				const oldLine = oldDoc.lineAt(oldPos);
 				const oldMarker = TaskMarker.fromLine(oldLine.text);

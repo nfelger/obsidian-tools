@@ -1,4 +1,4 @@
-import { Notice, TFile } from 'obsidian';
+import { Notice } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { markTaskAsScheduled, prepareTaskContentForTarget } from '../utils/tasks';
 import type { ProjectTaskInsertItem } from '../types';

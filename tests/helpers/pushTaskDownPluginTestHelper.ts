@@ -101,12 +101,11 @@ export async function testPushTaskDownPlugin({
 
 	// Calculate target path (lower level note)
 	let calculatedTargetPath: string | null = null;
-	let calculatedTargetError: string | null = null;
 	if (noteInfo) {
 		try {
 			calculatedTargetPath = getLowerNotePath(noteInfo, today, periodicConfig);
-		} catch (e: any) {
-			calculatedTargetError = e.message;
+		} catch (_e: any) {
+			// No lower note for this hop — the assertions below expect a null target.
 		}
 	}
 	const actualTargetFileName = calculatedTargetPath ? calculatedTargetPath.split('/').pop() : null;

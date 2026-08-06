@@ -22,11 +22,13 @@ export default defineConfig({
         'src/**/*.spec.ts',
         'node_modules/**'
       ],
+      // Ratcheted to sit just under actual coverage, so a regression fails the
+      // run instead of being absorbed by slack. Raise these when coverage rises.
       thresholds: {
-        lines: 75,
-        functions: 75,
-        branches: 75,
-        statements: 75
+        lines: 88,
+        functions: 93,
+        branches: 85,
+        statements: 88
       }
     }
   }

@@ -51,7 +51,7 @@ export async function testHandleNewNote({
   mockVault.delete = vi.fn((file) => {
     state.deletedFile = file.path;
   });
-  mockVault.create = vi.fn((path, content) => {
+  mockVault.create = vi.fn((path, _content) => {
     state.createdPath = path;
     return createMockFile({ path });
   });
