@@ -3,114 +3,127 @@
 Date: 2026-08-06
 Scope: proposal for structural code-quality support in Bullet Flow, framed by Birgitta
 Böckeler's [maintainability sensors](https://martinfowler.com/articles/sensors-for-coding-agents.html)
-model and evaluated concretely against [Fallow](https://github.com/fallow-rs/fallow) 3.14.0.
+(27 May 2026) and evaluated concretely against [Fallow](https://github.com/fallow-rs/fallow)
+3.14.0, Oxlint, and Stryker.
 
-> **Status: proposal.** Nothing in §4–§10 is implemented. Every command in this document
-> was run against this repository at the commit above; the baseline in §3 is measured, not
-> estimated. Findings are marked **[verified]** where the underlying code was read to
-> confirm the tool was right, and **[false positive]** where it was not.
+> **Status: proposal.** Nothing below is implemented. Every command quoted was run against
+> this repository at the commit above; §3 is measured, not estimated. Findings are marked
+> **[verified]** where the code was read to confirm the tool was right, **[false positive]**
+> where it was not.
 >
-> This document deliberately contains numbers, which `CLAUDE.md` bans for documentation.
-> A sensor baseline *is* a measurement snapshot — the numbers are the point, and they are
-> scoped to §3 and dated. They are not maintained; re-measure rather than trust them.
+> **Revision note:** this document was first drafted from secondary summaries of the
+> article, then revised against the full text. Three recommendations reversed outright and
+> one was empirically refuted; they are marked **[revised]** with the reasoning kept
+> visible, because the reversals are more instructive than the conclusions.
+>
+> This document contains numbers, which `CLAUDE.md` bans for documentation. A sensor
+> baseline *is* a measurement snapshot — the numbers are the point, and they are dated and
+> scoped to §3. They are not maintained; re-measure rather than trust them.
 
 ---
 
-## 1. The model, briefly
+## 1. The model
 
-Böckeler splits an agent harness into two control vectors:
+Böckeler splits an agent harness into **guides** (feed-forward: instructions that shape
+output before the agent acts) and **sensors** (feedback: checks that observe after it acts,
+so it can self-correct). Sensors are **computational** (deterministic, fast — type
+checkers, linters, tests, structural rules) or **inferential** (LLM-as-judge — slower,
+non-deterministic, semantic).
 
-- **Guides (feed-forward)** — instructions that shape output *before* the agent acts:
-  `CLAUDE.md`, `docs/key-insights.md`, the `code-reviewer` agent.
-- **Sensors (feedback)** — checks that observe *after* the agent acts, so it can
-  self-correct. Sub-split into **computational** (deterministic, fast — tests, type
-  checkers, linters, structural analysis) and **inferential** (LLM-as-judge — slower,
-  non-deterministic).
+She runs sensors at four points: *during the coding session* (fast, continuous), *in CI*
+(same checks, clean infrastructure, post-integration), *repeatedly on a slow cadence*
+(drift that accumulates rather than errors in the moment), and *in production*.
 
-Three claims from the article matter most here:
+Her load-bearing claims, in the order they matter here:
 
-1. **A sensor's purpose is agent self-correction, not human reporting.** If the signal
-   only reaches a human after the agent has stopped, the human *is* the feedback loop.
-2. **Format sensor output for LLM consumption.** The message must carry the fix, not just
-   the flag — "exceeds complexity threshold; extract into smaller single-responsibility
-   functions" beats "complexity 32 > 15".
-3. **Watch the exceptions the agent creates.** Böckeler's sharpest empirical finding is
-   that agents suppress warnings and *raise thresholds* rather than refactor — and that
-   the diff of suppressions is the highest-signal place to start a code review.
+1. **A sensor exists so the agent can self-correct.** "Ideally, we want to give the agent
+   extra context for that self-correction — a good kind of prompt injection."
+2. **The message must carry the guidance.** She built a custom ESLint formatter to
+   override default messages with project-specific instructions.
+3. **The AI failure modes that static analysis catches best** are max function arguments,
+   file length, function length, and cyclomatic complexity — and **none of these are in
+   default presets.** You must configure them.
+4. **Suppressions and threshold increases are the mechanism, not the enemy.** Agents make
+   a "clean house" baseline feasible for the first time. Thresholds may be *ratcheted*: an
+   increase preserves the constraint and re-fires if things worsen, avoiding "a binary
+   suppress-or-comply choice." The diff of exceptions is where code review should start.
+5. **Computational sensors impressed her at file/function level; cross-file coupling data
+   did not.** Raw coupling metrics were "quite lackluster" as agent input and flagged
+   deliberate patterns as defects. Dependency *rules* worked well; coupling *metrics*
+   belong in human review triage.
+6. **Coverage tells you a line executed, not that its impact was verified.** Mutation
+   testing is what closes that gap, and it becomes crucial once tests are AI-written.
+7. **Beware feedback overload** — "sending it into a spiral of over-engineered
+   refactorings" — and rule conflicts, e.g. `max-lines` pushing complexity out of
+   functions and into property-passing chains.
 
 ## 2. What this repo already has
 
-This is not a greenfield harness. Bullet Flow already practises sensor engineering
-without the vocabulary:
+This is not a greenfield harness. Bullet Flow already practises sensor engineering without
+the vocabulary:
 
 | Existing | Model role |
 |---|---|
 | `CLAUDE.md`, `tests/CLAUDE.md`, `docs/key-insights.md`, `WORKFLOW.md` | Guides |
-| `.claude/agents/code-reviewer.md` | Inferential sensor |
-| Vitest suite | Computational sensor |
+| `.claude/agents/code-reviewer.md` | Inferential sensor (on demand) |
+| Vitest suite, coverage thresholds at 75% | Computational sensor |
 | `tsc -noEmit` in `npm run build` | Computational sensor |
 | `.githooks/pre-commit` — planning-comment ban, CHANGELOG-with-version | Custom computational sensors |
 | `.githooks/check-claude-md-structure` | **A sensor that validates a guide** |
 | `.githooks/pre-push` — version bump required | Custom computational sensor |
 
-`check-claude-md-structure` deserves special mention: it verifies the structure diagram
-in `CLAUDE.md` against the real directory layout. That is the model in its most advanced
-form — a guide kept honest by a sensor, so it cannot rot into a lie the agent then trusts.
-The proposals below are a completion of this existing instinct, not a new philosophy.
+`check-claude-md-structure` deserves attention: it verifies the structure diagram in
+`CLAUDE.md` against the real directory layout — a guide kept honest by a sensor, so it
+cannot rot into a lie the agent then trusts. Böckeler's closing open question is *"once we
+feel confident in a set of sensors, what guides can we delete?"* This repo has
+independently arrived at a different answer: keep the guide, and sense it. Worth knowing
+that is a deliberate position, because §7 offers the alternative.
 
 **The four gaps:**
 
-- **G1 — No sensor fires during the agent's turn.** Every check above runs at
-  commit, push, or CI. An agent edits files, ends its turn, and a human discovers the
-  problem. This is the gap that matters most, and it is the cheapest to close.
-- **G2 — No linter of any kind.** There is no ESLint, Oxlint, or Biome config in the
-  repo. The article's baseline sensor layer is entirely absent. `tsc` covers types, not
-  maintainability, and only over `src/**` (`tsconfig.json` `include`) — tests are never
-  type-checked.
-- **G3 — No cross-file or structural sensor.** Böckeler notes linting targets
-  file- and function-level risk, while the expensive maintainability problems cross
-  module boundaries. Nothing here measures duplication, dead code, or layering.
-- **G4 — Rich architectural invariants exist only as prose.** `CLAUDE.md` and
-  `docs/key-insights.md` document the layering rule, the adapter pattern, "all shared
-  types in `types.ts`", `TaskMarker` as the only way to touch markers, and the
-  collect → write-target → mutate-source phase order. None is machine-checked. Every
-  one is a guide the agent may silently violate.
+- **G1 — No sensor fires during the agent's turn.** Everything runs at commit, push, or
+  CI. An agent edits, ends its turn, and a human finds the problem. Böckeler's entire
+  first category — "sensors that run continuously alongside the agent" — is absent.
+- **G2 — No linter of any kind.** No ESLint, Oxlint, or Biome config exists. Per §1.3
+  this is also where the highest-yield AI-specific rules live, and they need explicit
+  configuration.
+- **G3 — No structural sensor.** Nothing measures duplication, dead code, or layering.
+- **G4 — Architectural invariants exist only as prose.** The layering rule, the adapter
+  pattern, "all shared types in `types.ts`", `TaskMarker`-only marker access, and the
+  collect → write-target → mutate-source phase order are all guides. None is checked.
+
+There is also **no inferential sensor on a cadence** — no scheduled modularity or design
+review. §9 argues that is the gap with the highest ceiling, because it was the single most
+productive experiment in the article.
 
 ## 3. Measured baseline
 
-Environment: `npm ci` clean, `fallow@3.14.0`, `oxlint@latest`, full git history.
-Test suite green (677 tests / 23 files / 4.5s). `npm run build` exits 0.
+Clean `npm ci`, full git history, `fallow@3.14.0`, `oxlint@latest`. Suite green: 677 tests
+/ 23 files / 4.5s. `npm run build` exits 0. Coverage 90.66% statements.
 
-**Fallow, whole repo:** maintainability index 91.1 (good), 0 dead files, 77 files.
-Dead code 10 issues; duplication 1,310 lines (16.2%) across 11 files; complexity 18
-functions above threshold.
+**Fallow, whole repo:** maintainability 91.1 (good), 0 dead files. Dead code 10 issues;
+duplication 1,310 lines (16.2%) across 11 files; 18 functions above complexity threshold.
 
-**Scoped to `src/` only** (`--production`, excludes tests):
+**Scoped to `src/`** (`--production`): duplication **251 lines (4.8%) across exactly three
+files** — `migrateTask.ts`, `pullTaskUp.ts`, `pushTaskDown.ts`. **[verified]**
 
-- Duplication **251 lines (4.8%) across 3 files** — all in
-  `migrateTask.ts`, `pullTaskUp.ts`, `pushTaskDown.ts`. **[verified]**
-- Worst complexity: `findTopLevelTasksInRange` in `src/utils/tasks.ts` — cognitive 32,
-  cyclomatic 21, in a 637-line file. Also flagged: `dropTaskToProject.ts` and
-  `migrateTask.ts` (both cognitive 29).
+That result is the strongest argument in this document. The 2026-06-10 review already lists
+**"the shared transfer engine"** as open debt. Fallow rediscovered it from scratch, ranked
+it, and named the three files in 0.12s with no knowledge of the review. Independently,
+Oxlint found an unused `TFile` import in *four* command files — the same copy-paste drift
+from a different angle. Böckeler's matching observation: *"AI agents usually don't go ahead
+and start refactoring without an explicit nudge when they repeat a piece of code for the
+third or fourth time, they are quite happy to copy and paste."*
 
-The duplication result is the strongest single argument for adopting a structural sensor.
-The 2026-06-10 repo review already lists **"the shared transfer engine"** as open debt.
-Fallow rediscovered that exact item from scratch, ranked it, and named the three files —
-in 0.12 seconds, with no knowledge of the review. A sensor would have flagged it the day
-it appeared instead of two months later.
+The 16.2% whole-repo figure is dominated by `tests/helpers/*PluginTestHelper.ts` (one clone
+group is 153 lines across two helpers). Real, but it is the per-command helper-factory
+pattern `tests/CLAUDE.md` prescribes. Baseline it; do not fight it.
 
-The 16.2% whole-repo figure is dominated by `tests/helpers/*PluginTestHelper.ts`
-(one clone group is 153 lines across two helpers). That is real, but it is a deliberate
-per-command helper-factory pattern per `tests/CLAUDE.md`; treat it as a baseline to
-quarantine, not a fire to fight (§6).
+**Oxlint, zero config:** 14 warnings, all real and all trivial — the four unused `TFile`
+imports, unused locals (`taskIndent`, `blankIdx`), a redundant regex escape in
+`src/utils/listItems.ts`.
 
-**Oxlint, zero config:** 14 warnings, all real and all trivial. Notably an unused `TFile`
-import in **four** command files (`migrateTask`, `pullTaskUp`, `pushTaskDown`,
-`takeProjectTask`) — evidence of copy-paste drift between exactly the files Fallow
-flagged for duplication. Also `taskIndent`/`blankIdx`-style unused locals and a
-redundant regex escape in `src/utils/listItems.ts`.
-
-**Findings triaged:**
+**Dead-code triage:**
 
 | Finding | Verdict |
 |---|---|
@@ -118,148 +131,204 @@ redundant regex escape in `src/utils/listItems.ts`.
 | `@wdio/types` unlisted dependency | **[verified]** — type-imported in `wdio.conf.ts`, absent from `package.json` |
 | `obsidian-daily-notes-interface` devDep used in production | **[verified]** — not in esbuild `external`, so it is bundled |
 | `BulletFlowSettingTab.display` unused class member | **[false positive]** — Obsidian `PluginSettingTab` lifecycle override |
-| `@wdio/local-runner`, `@wdio/mocha-framework`, `@wdio/spec-reporter`, `wdio-obsidian-service` unused | **[false positive]** — invoked by the wdio runner, never imported |
-| `@codemirror/state`, `@codemirror/view` devDeps in production | **[false positive]** — listed in esbuild `external`, correctly devDeps |
+| 4 × `@wdio/*` / `wdio-obsidian-service` unused | **[false positive]** — invoked by the wdio CLI, never imported |
+| `@codemirror/state`, `@codemirror/view` devDeps in production | **[false positive]** — in esbuild `external`, correctly devDeps |
 
-Six false positives out of ten dead-code findings is the honest adoption cost. All six are
-one-time config, given in §6.
+Six false positives out of ten is the honest adoption cost. All six are one-time config (§6).
+
+### 3.1 The finding that reorders everything
+
+Fallow's default CRAP scores are estimates. Feeding it real coverage changes the answer
+completely:
+
+| | Estimated | With real coverage |
+|---|---|---|
+| Top target | `src/utils/tasks.ts`, CRAP 462 | `src/events/autoMoveCompleted.ts:47`, **CRAP 110.0, 0% tested** |
+| 2nd | `dropTaskToProject.ts`, CRAP 462 | `createPeriodicNoteFromTemplate`, CRAP 106.4, 40% tested |
+| 3rd | `migrateTask.ts`, CRAP 462 | `performAutoMove`, CRAP 56.0, 0% tested |
+
+The estimated run flattened everything to 462 and said "start with `tasks.ts`". The real
+run says the risk is concentrated in `src/events/autoMoveCompleted.ts` — cyclomatic 10,
+cognitive 13, and **entirely untested**. Coverage by directory: `src/utils` 97.66%,
+`src/commands` 97.19%, **`src/events` 0%**.
+
+This is Böckeler's §1.6 point in miniature, on this codebase. 90.66% overall coverage looks
+healthy and hides a complex, untested decision branch. The split is understandable —
+`src/utils/autoMove.ts` (the computation) has a 531-line test file, while
+`src/events/autoMoveCompleted.ts` (the CM6 wiring that decides *when* to move) has none —
+but the untested part still contains a cyclomatic-10 arrow function. Neither coverage alone
+nor complexity alone surfaces this. Only the product does.
+
+**Blocker [verified]:** Fallow cannot parse vitest's default v8 coverage output —
+`invalid value: integer -1, expected u32`. Switching the provider to `istanbul`
+(`npm i -D @vitest/coverage-istanbul`, `--coverage.provider=istanbul`) fixes it and
+produced the table above (223/223 functions matched). Anyone trying `--coverage` without
+this will conclude the integration is broken.
+
+**Config decision, not a defect:** in `--production` mode Fallow reports `periodicNotes.ts`
+as "67% dead" (8 unused exports), plus similar for `autoMove.ts` and `finishProject.ts`.
+These are exports used *only by tests* — `getISOWeekNumber` and friends are tested directly
+per `docs/key-insights.md`. Either accept exported-for-testing and suppress, or test
+through the public surface. Decide once; do not read it as dead code.
 
 ## 4. P1 — Put a sensor inside the agent's turn
 
-**The highest-leverage change in this document.** `.claude/settings.json` is currently
-`{}`. Closing G1 means an agent cannot end a turn having regressed quality.
+**Closes G1, the highest-leverage gap.** `.claude/settings.json` is currently `{}`.
+
+Böckeler ran sensors *continuously*, via a config-driven sidecar CLI in watch mode, which
+gave the agent "a token-efficient and guidance-enriched summary" on demand — including
+snapshot-based trend information ("Worse than / Same as snapshot") and a global guidance
+line ("Follow scouting rule: ..."). Two architectures are available here:
+
+- **Hooks (recommended to start).** Cheap, no new process, blocks at a decision point.
+- **Sidecar-equivalent.** Fallow ships an MCP server (`npx fallow-mcp`) plus a `regression`
+  baseline config — i.e. an agent-queryable sensor surface with snapshot trends, which is
+  most of what her sidecar did. Worth adopting once hooks prove the signal is useful.
 
 The design decision that matters is **which sensor fires when**. Running everything on
-every edit is actively harmful: mid-refactor, an agent legitimately has transient dead
-code and duplication, and a sensor that screams about it will push the agent to
-"fix" work it was about to finish. Split by blast radius:
+every edit is actively harmful — §1.7's over-engineering spiral. Mid-refactor an agent
+legitimately has transient duplication and dead code, and a sensor shouting about it will
+push the agent to "fix" work it was about to finish. Split by blast radius:
 
 - **`PostToolUse` on `Edit|Write` → Oxlint on the edited file only.** File-local,
-  unambiguous, sub-100ms. Unused imports and dead locals are never legitimately
-  transient.
-- **`Stop` → `fallow audit` + `npm test`.** The "am I actually done?" gate, where
-  whole-changeset judgements belong. Total cost is ~5s against a 4.5s suite and a
-  0.3s Fallow run — affordable on every turn.
+  sub-100ms, and unused imports are never legitimately transient.
+- **`Stop` → `fallow audit` + `npm test`.** Whole-changeset judgements belong at the "am I
+  done?" gate. ~5s total against a 4.5s suite and a 0.3s Fallow run.
 
-This is backpressure: the agent is blocked from claiming completion until the
-changed-file gate passes.
+That is backpressure: the agent cannot claim completion while a changed-file gate is red.
 
-Fallow will scaffold the `Stop` half itself:
+Fallow scaffolds the `Stop` half (verified via `--dry-run`: updates `.claude/settings.json`
+with one handler, creates `.claude/hooks/fallow-gate.sh`):
 
 ```bash
 npx fallow hooks install --target agent --agent claude
 ```
 
-Verified via `--dry-run`: it updates `.claude/settings.json` (1 handler) and creates
-`.claude/hooks/fallow-gate.sh`. Do **not** pass `--gitignore-claude` — the hook and
-settings should be tracked, since the point is that the whole team's agents inherit them.
+Do **not** pass `--gitignore-claude`. The hook and settings should be tracked — the point is
+that every contributor's agent inherits them.
 
-Per §1's second claim, the hook's failure text should be written for an LLM. Not
-"fallow audit failed (exit 1)" but a message naming the finding, the file, and the
-expected remedy, plus an explicit instruction that raising a threshold or adding a
-suppression is not an acceptable resolution — see §8.
+Per §1.1–1.2, the hook's failure text is a prompt, not a log line. Name the finding, the
+file, and the expected remedy. §5 covers how.
 
-## 5. P2 — Add the missing linter layer (Oxlint)
+## 5. P2 — Add the linter layer, with the AI-specific rules turned on
 
-Closes G2. Recommend **Oxlint** over ESLint specifically because of §4: a sensor that
-runs on every `Edit` must cost milliseconds, and ESLint's startup does not fit that
-budget. Oxlint needs no config to be useful today (14 real findings), ships as a single
-binary, and is built on Oxc — the same parser Fallow uses, so the two agree about syntax.
+Closes G2. **Oxlint** over ESLint, because a `PostToolUse` sensor must cost milliseconds
+and ESLint's startup does not fit that budget. Oxlint is one binary, built on Oxc — the
+same parser Fallow uses, so the two agree about syntax.
 
-```bash
-npm i -D oxlint
-```
+**[revised] My first draft called Oxlint "useful with zero config" and stopped there.**
+That misses §1.3 entirely. The zero-config run finds hygiene issues; the rules that
+actually target AI failure modes are off by default and must be named. All four of
+Böckeler's are verified working in Oxlint on this repo (an earlier probe of mine was too
+small to trigger them and wrongly suggested they were unimplemented):
 
 ```jsonc
-// package.json scripts
-"lint": "oxlint src tests",
-"lint:fix": "oxlint --fix src tests"
+// .oxlintrc.json
+{
+  "rules": {
+    "max-params":             ["error", { "max": 4 }],
+    "max-lines-per-function": ["error", { "max": 60 }],
+    "max-lines":             ["warn",  { "max": 400 }],
+    "complexity":            ["error", { "max": 15 }],
+    "max-depth":             ["error", { "max": 4 }],
+    "max-statements":        ["warn",  { "max": 30 }]
+  }
+}
 ```
 
-The usual reason to prefer `typescript-eslint` is its type-aware maintainability rules —
-but complexity, duplication, and dead code are exactly what Fallow covers here, and
-covers across file boundaries. Adding ESLint too would mean two overlapping sensors
-disagreeing about the same finding. Start with Oxlint; add `typescript-eslint` later only
-for a specific rule Fallow cannot express.
+Start these at or slightly above today's worst case, then ratchet down (§8) — `tasks.ts` is
+637 lines and `commandSetup.ts` is 372, so `max-lines: 400` is a real constraint that does
+not immediately fail.
 
-Two cheap adjacent wins while in the area:
+**Custom messages without switching linters.** Her mechanism is a custom ESLint formatter;
+Oxlint has no formatter plugin API. But `--format json` emits a `code` field
+(`eslint(max-lines)`) and a `help` field, so a ~30-line wrapper that maps rule code →
+project guidance and rewrites `help` gets the same result at Oxlint's speed. Her own note
+applies: AI absorbs the cost of writing this almost entirely.
 
-- **Type-check tests.** `tsconfig.json` includes only `src/**/*.ts`. Add a
-  `tsconfig.test.json` extending it with `tests/**` so the largest body of code in the
-  repo gets a type sensor at all.
-- **`tsconfig.json` uses `baseUrl` and `moduleResolution: node`**, both deprecated and
-  removed in TypeScript 7. Harmless today (`typescript` is pinned `^5.3.0`), but it is a
-  known future break worth an issue.
+Two details worth knowing. Oxlint has a **`--format agent`** output mode already, so some
+of this is anticipated. And Oxlint's `complexity` rule ships with **no `help` text at all**
+— empirically the exact gap Böckeler identified, where the missing self-correction guidance
+was *why* her agent kept raising the cyclomatic threshold instead of refactoring. That rule
+is the first one to write guidance for.
+
+Two adjacent wins: `tsconfig.json` includes only `src/**/*.ts`, so the largest body of code
+in the repo is never type-checked — add a `tsconfig.test.json` covering `tests/**`. And
+`baseUrl` + `moduleResolution: node` are removed in TypeScript 7; harmless while
+`typescript` is pinned `^5.3.0`, but worth an issue.
 
 ## 6. P3 — Adopt Fallow gated on *new* findings only
 
-Closes G3. The adoption problem is §3's 16.2% duplication: a tool that fails on day one
-gets disabled on day two. `fallow audit` is built for exactly this — it defaults to
-`gate: "new-only"`, computing a base snapshot and failing only on findings the changeset
-*introduced*, reporting inherited ones with `introduced: false` attribution.
-
-Verified on this branch: `fallow audit` correctly scoped to the merge-base with
-`origin/main` and exited 0.
-
-Proposed `.fallowrc.json`, with all six §3 false positives suppressed:
+Closes G3. `fallow audit` defaults to `gate: "new-only"`: it computes a base snapshot and
+fails only on findings the changeset *introduced*, attributing inherited ones with
+`introduced: false`. That is what makes §3's 16.2% survivable — a tool that fails on day
+one is disabled on day two. Verified on this branch: correctly scoped to the merge-base
+with `origin/main`, exit 0.
 
 ```jsonc
+// .fallowrc.json
 {
   "$schema": "./node_modules/fallow/schema.json",
   "entry": ["src/main.ts"],
 
   // Invoked by the wdio CLI, never imported — see tests/e2e/wdio.conf.ts
   "ignoreDependencies": [
-    "@wdio/local-runner",
-    "@wdio/mocha-framework",
-    "@wdio/spec-reporter",
-    "wdio-obsidian-service"
+    "@wdio/local-runner", "@wdio/mocha-framework",
+    "@wdio/spec-reporter", "wdio-obsidian-service"
   ],
 
   // Obsidian lifecycle overrides: called by the framework, not by us
   "usedClassMembers": ["display", "onload", "onunload", "onOpen", "onClose"],
 
-  "health": {
-    // Agents suppress rather than refactor; keep exceptions visible in config
-    "suggestInlineSuppression": false
-  },
+  "health": { "coverage": "coverage/coverage-final.json" },
 
   "audit": {
     "gate": "new-only",
     "deadCodeBaseline": ".fallow/dead-code-baseline.json",
-    "healthBaseline": ".fallow/health-baseline.json",
-    "dupesBaseline": ".fallow/dupes-baseline.json"
+    "healthBaseline":   ".fallow/health-baseline.json",
+    "dupesBaseline":    ".fallow/dupes-baseline.json"
   }
 }
 ```
 
-`suggestInlineSuppression: false` is the one non-obvious line. It defaults to `true`,
-which makes Fallow emit `suppress-line` action hints in its JSON output — that is, it
-*suggests to the agent that it suppress the finding*. Given Böckeler's finding that
-agents already prefer suppression to refactoring, leaving that on hands them a
-pre-authorised escape hatch. Turn it off.
+**[revised] My first draft set `health.suggestInlineSuppression: false`,** reasoning that
+Fallow suggesting `// fallow-ignore-next-line` hands the agent a pre-authorised escape
+hatch. The article argues the opposite and is right: suppression is *how* a clean baseline
+becomes achievable, and it "keeps the suppressions manageable, visible and reviewable."
+Leave it on. The control is not denying the escape hatch — it is requiring a reason and
+reviewing the diff (§8). Fallow already supports the reason syntax:
+`// fallow-ignore-next-line unused-export -- kept for plugin consumers`.
 
-Baselines are saved on a clean ref, once:
+Baselines are saved once, on a clean ref:
 
 ```bash
 npx fallow dead-code --save-baseline && npx fallow health --save-baseline \
   && npx fallow dupes --save-baseline
 ```
 
-`@codemirror/*` and `obsidian-daily-notes-interface` are left unsuppressed on purpose:
-the first two are advisory `warn` severity, and the third is a **[verified]** real
-finding worth fixing rather than hiding.
+Pin the version (`npm i -D fallow`) rather than `npx …@latest`: a sensor must be
+deterministic across time, not just across runs, or a tool release turns CI red on an
+unchanged codebase.
 
-Pin the version (`npm i -D fallow`) rather than relying on `npx …@latest`, so a
-release of the tool cannot turn CI red on an unchanged codebase — a sensor must be
-deterministic across time, not just across runs.
+**Split Fallow's output by consumer.** This follows directly from §1.5, and my first draft
+conflated the two:
 
-## 7. P4 — Turn the architecture prose into boundary rules
+- **To the agent, live:** `fallow audit` (changed files, pass/fail) and boundary
+  violations. Deterministic, actionable, low noise.
+- **To humans, at review time:** hotspots, churn, fan-in, refactoring targets, `fallow
+  viz`. Her verdict on raw coupling data as agent input was "lackluster" — it flagged a
+  deliberate DI factory and a shared schema module as defects. Its real use is *risk
+  triage*: knowing a changed file has 10+ callers tells a reviewer where to look. This
+  repo has a natural candidate — `src/types.ts` has fan-in 29.
 
-Closes G4, at least partially. `CLAUDE.md` states: *"Expose Obsidian types only at the
-boundary. Domain interfaces must not reference `TFile` or other Obsidian types."*
+## 7. P4 — Turn the architecture prose into dependency rules
 
-Measured against reality, that rule is mostly held but already drifting:
+Closes G4. Böckeler's clearest structural win was `dependency-cruiser` rules enforcing
+layers, which she found "quite a useful replacement for describing code structure in a
+markdown guide." Her agent violated the rules a few times and then self-corrected.
+
+`CLAUDE.md` states: *"Expose Obsidian types only at the boundary. Domain interfaces must
+not reference `TFile` or other Obsidian types."* Measured:
 
 | File | Obsidian import | Compliant? |
 |---|---|---|
@@ -269,141 +338,217 @@ Measured against reality, that rule is mostly held but already drifting:
 | `src/utils/periodicNotes.ts` | `import { moment }` — runtime value | ⚠️ documented as pure path/week math |
 | `src/utils/commandSetup.ts` | `MarkdownView, Notice, TFile, Vault, Editor` — runtime | ⚠️ infrastructure living in `utils/` |
 
-Neither ⚠️ is a bug — `moment` is a date utility, and `commandSetup` is honestly named.
-But the prose says "domain logic has no Obsidian types" while `utils/` contains two files
-that do, and nothing prevents the third. Fallow's `boundaries` supports `allowTypeOnly`
-targets, which expresses this rule precisely:
+Neither ⚠️ is a bug — `moment` is a date utility and `commandSetup` is honestly named. But
+the prose says domain logic has no Obsidian types while `utils/` holds two files that do,
+and nothing stops a third. Fallow's `boundaries` expresses this exactly, via `allowTypeOnly`:
 
 ```jsonc
 "boundaries": {
   "zones": [
     { "name": "entry",    "patterns": ["src/main.ts", "src/settings.ts"] },
     { "name": "adapters", "patterns": ["src/utils/periodicNoteCreator.ts",
-                                        "src/utils/commandSetup.ts"] },
+                                       "src/utils/commandSetup.ts"] },
     { "name": "commands", "patterns": ["src/commands/**", "src/events/**"] },
     { "name": "domain",   "patterns": ["src/utils/**", "src/types.ts"] }
   ],
   "rules": [
     { "from": "commands", "allow": ["domain", "adapters"] },
     { "from": "domain",   "allow": ["domain"] }
-  ]
+  ],
+  "coverage": { "requireAllFiles": true }
 }
 ```
 
-Rather than adopt this wholesale, the honest first step is a decision: either
-`periodicNotes.ts` and `commandSetup.ts` move to an explicit adapter zone (making the
-prose true), or the prose relaxes to describe what is actually built. **A sensor forces
-that decision instead of letting the gap widen.** That is the real value here — not the
-config, but the fact that ambiguity becomes a build failure.
+`requireAllFiles: true` is worth its own mention: she had to add a rule "that requires every
+new file to be somewhere in the predefined folder structure" after the agent started
+creating folders outside it. This is that rule, and it is also a **second sensor over the
+same invariant `check-claude-md-structure` guards** — which raises the §2 question. If
+boundary rules enforce the structure, the `CLAUDE.md` diagram becomes documentation rather
+than a contract, and the hook could go. That is her "what guides can we delete?" question
+with a concrete answer available.
 
-Note the invariants a boundary rule still cannot express: the collect → write-target →
-mutate-source phase order, and "never manipulate task markers as raw strings". Those stay
-guides, enforced by the `code-reviewer` agent — a reasonable division, and worth stating
-in `CLAUDE.md` so it is clear which rules are enforced and which are trusted.
+The honest first step is not adopting the config — it is deciding whether
+`periodicNotes.ts` and `commandSetup.ts` move to an explicit adapter zone (making the prose
+true) or the prose relaxes to describe what is built. **A sensor forces that decision
+instead of letting the gap widen.** That, not the config, is the value.
 
-## 8. P5 — An exception ledger (the sharpest cheap win)
+Note the limits: dependency rules reach only what is expressible via imports, file names,
+and folders. The phase-order invariant (collect → write-target → mutate-source) and
+"never manipulate task markers as raw strings" stay guides, enforced by review. Say so in
+`CLAUDE.md`, so it is clear which rules are mechanical and which are trusted.
 
-This implements §1's third claim, and it is the proposal with the best
-value-to-effort ratio in the document.
+## 8. P5 — An exception ledger, as a review surface
 
-If P1–P4 land, the agent gains four new ways to make a red signal green *without
-improving anything*: an `// fallow-ignore` comment, an `// oxlint-disable` comment, a
-raised number in `health`, or a new entry in `ignoreDependencies`. Böckeler observed
-agents reaching for precisely these.
+**[revised] My first draft proposed a pre-commit hook that *blocked* on any added
+suppression or threshold edit.** That is wrong, and the article says why. Threshold
+ratcheting is a feature she deliberately built: the agent "may slightly increase the
+thresholds if it thinks that a refactoring is unnecessary or impossible," which "doesn't
+suppress the threshold forever, just increases it, so that the rule fires again if it gets
+even worse in the future. Constraints are preserved without forcing a binary
+suppress-or-comply choice." Blocking recreates exactly the binary she designed away — and
+a blocked agent's cheapest escape is `--no-verify`.
 
-The repo already has the perfect machinery — `.githooks/pre-commit` greps staged files
-for banned patterns. Extend it:
+Two corrections follow, in priority order.
+
+**First, guidance beats gating.** Her agent over-raised the cyclomatic threshold, and she
+traced the cause precisely: *"I later discovered that I didn't have a self-correction
+guidance in place for this one, so there was no explicit instruction saying that a
+threshold increase should be the absolute exception."* Every threshold rule needs a message
+saying a raise is a last resort. Oxlint's `complexity` rule shipping with no `help` text
+(§5) makes this the single highest-value message to write.
+
+**Second, make exceptions visible rather than impossible.** Report them; do not reject them:
 
 ```sh
-# Hook 4: Surface newly added quality suppressions for explicit review.
-SUPPRESSIONS=$(git diff --cached -U0 -- 'src/**' 'tests/**' \
-  | grep -E '^\+' | grep -E 'fallow-ignore|oxlint-disable|eslint-disable|@expected-unused')
+# Hook 4: List newly added quality exceptions. Advisory — never blocks.
+EXCEPTIONS=$(git diff --cached -U0 -- 'src/**' 'tests/**' .oxlintrc.json .fallowrc.json \
+  | grep -E '^\+' \
+  | grep -E 'fallow-ignore|oxlint-disable|eslint-disable|@expected-unused|max-|complexity')
 
-THRESHOLDS=$(git diff --cached -U0 -- .fallowrc.json \
-  | grep -E '^\+' | grep -E 'maxCognitive|maxCyclomatic|maxCrap|maxUnitSize|ignoreDependencies')
-
-if [ -n "$SUPPRESSIONS" ] || [ -n "$THRESHOLDS" ]; then
-  echo "Quality suppression added. This is allowed, but never the default fix."
-  echo "Confirm the finding cannot be resolved by refactoring, and that the"
-  echo "suppression carries a '--' reason explaining why. To proceed: --no-verify."
+if [ -n "$EXCEPTIONS" ]; then
+  echo "Quality exceptions added in this commit — review these first:"
+  echo "$EXCEPTIONS"
   echo ""
-  echo "$SUPPRESSIONS$THRESHOLDS"
-  exit 1
+  echo "Each suppression needs a '-- reason'. A threshold raise should be a last"
+  echo "resort: prefer extracting a function. Raising is allowed when refactoring"
+  echo "would genuinely hurt the design; the ratchet keeps the rule firing later."
 fi
 ```
 
-Two deliberate design choices. First, it **blocks rather than warns**, because a
-warning printed to a hook's stdout is a warning an agent will not act on. Second, the
-message is written for an LLM per §1: it states the fix (refactor, or document a reason),
-not merely the violation.
+The one thing worth enforcing is the *reason*, not the exception — a suppression without
+`--` explaining it is the only case that should fail.
 
-Prefer Fallow's `health.thresholdOverrides` to inline suppressions where a genuine
-exception exists — it keeps the exception a visible numeric ceiling in config rather
-than a comment buried in a file nobody re-reads.
+Prefer Fallow's `health.thresholdOverrides` to inline suppressions where an exception is
+genuine: it keeps the exception a visible numeric ceiling in config, which is the ratchet
+in its most reviewable form.
 
-## 9. P6 — Coverage-weighted complexity
+## 9. P6 — Test effectiveness: coverage is not the sensor, mutation is
 
-`npm run test:coverage` exists but gates nothing, and §3's CRAP scores are Fallow's own
-estimates: *"CRAP scores are estimated from export references; run `fallow health
---coverage <coverage-final.json>` for exact scores."*
+**[revised] My first draft claimed coverage "gates nothing".** Wrong: `vitest.config.js`
+already sets 75% thresholds on lines, functions, branches, and statements, and already
+emits `coverage-final.json`. The real finding is that actual coverage is 90.66% against a
+75% floor — a 15-point gap where regressions can hide silently. Ratchet the floor to ~88%.
 
-These two facts fix each other. CRAP weights complexity by test coverage, which is a
-far better maintainability signal than either alone — a complex, well-tested function is
-fine; a complex, untested one is where bugs live.
+But per §1.6, that is the lesser half. Böckeler's example is a file with 100% statement
+coverage, 75% branch coverage, **no unit tests at all**, and 13 surviving mutants — high
+coverage supplied by one large acceptance test that executed the lines without verifying
+their impact.
 
-```bash
-npx fallow audit --coverage coverage/coverage-final.json
-```
+**Bullet Flow has that exact shape.** Its integration tests are large workflow tests
+(`migrateTask.plugin.test.ts` is 737 lines, `pushTaskDown.plugin.test.ts` 667) that drive
+whole commands end to end. They will execute a great deal of `src/utils` — which reports
+97.66% — without necessarily asserting each branch's effect. §3.1 already shows coverage
+concealing a cyclomatic-10 untested function behind a healthy-looking 90.66%.
 
-Requires `coverage-final.json` in the vitest coverage reporters, then set
-`health.coverage` in `.fallowrc.json` so CI and local runs agree. Add a coverage floor to
-`vitest.config.js` at the level the suite already achieves — a ratchet, not a target.
+The repo is an unusually good mutation-testing candidate:
 
-## 10. Sequencing
+- The domain is pure, deterministic text transformation — mutants either change output or
+  they do not, with no flakiness or timing.
+- `tests/CLAUDE.md` already mandates input → output verification over mock assertions,
+  which is precisely the test style mutation testing rewards.
+- The suite runs in 4.5s, so the usual "too resource intensive" objection is much weaker
+  here than in her NextJS app.
 
-Ordered by leverage per unit of effort. P1 and P2 are worth doing this week; the rest can
-follow.
+Stryker 9.6.1 with `@stryker-mutator/vitest-runner` is current and available. Start scoped
+to the highest-value target rather than the whole repo — `src/utils/tasks.ts`,
+`src/utils/projects.ts`, and `src/utils/autoMove.ts` hold the logic that every command
+depends on.
+
+Two practical notes from her experience. Run it **incrementally and on demand**, not
+continuously — this is a "repeatedly" sensor, not a session sensor. And Stryker writes a
+very large JSON report; she wrote a small query script (`summary`, `files --changed`,
+`hotspots --file`) so an agent could interrogate results without clogging its context.
+Reproduce that, or the report is unusable as agent feedback.
+
+## 10. P7 — An inferential sensor on a cadence
+
+**The gap with the highest ceiling, and absent from my first draft.** Böckeler's most
+productive experiment by a clear margin was not any computational sensor — it was an
+LLM-led modularity review using Vlad Khononov's "Modularity Skills," which "proved to be
+very fruitful." Her conclusion: *"codebase design and modularity seems like a concern where
+computational sensors alone cannot help us much, AI is needed to add semantic
+interpretation, and consider trade-offs."*
+
+Her review found things no computational sensor did: near-identical route implementations,
+a third page reimplementing an existing hook instead of reusing it, parameters threaded
+through 40+ files instead of wrapped in an object, and authentication logic misplaced in a
+wiring factory. Her verdict on the codebase she had built agent-first without such reviews:
+*"the agent was definitely compounding inadvertent technical debt."*
+
+Every one of those categories is plausible here. "Semantic duplication" — a fourth transfer
+command reimplementing collector decomposition rather than reusing it — is the specific risk
+this repo runs, and it is invisible to Fallow's exact-clone detection.
+
+This repo has `.claude/agents/code-reviewer.md`, but it reviews a change against a plan. A
+design review of the *whole* codebase on a cadence is a different sensor. Proposal: add a
+`modularity-review` skill run per release rather than per change, prompted to ground itself
+in `fallow health --format json` output (her framing: grounding in deterministic data raised
+her confidence and cost fewer tokens than letting the agent scan the codebase).
+
+Two cautions she verified. **Run it more than once** — a second run with no memory of the
+first surfaced an issue the first missed. And **expect legitimate patterns to be flagged**:
+her DI factory and shared schema module were both called god modules. Here the equivalents
+are `src/types.ts` (fan-in 29, deliberately the single home for shared types) and
+`TaskMarker` as the mandated funnel for all marker access. Both are architecture, not debt,
+and the review needs to be told so — otherwise, as she notes, they "create even more noise."
+
+## 11. Sequencing
+
+**[revised] P6 moves from second-to-last to second.** §3.1 is why: real coverage data
+reordered the entire risk picture and exposed a critical untested function that nothing else
+surfaced. It is also nearly free — the coverage data already exists.
 
 | # | Change | Effort | Closes |
 |---|---|---|---|
-| P2 | Oxlint + `lint` script, fix the 14 findings | ~1h | G2 |
+| P2 | Oxlint + the four AI-failure-mode rules + fix the 14 findings | ~1h | G2 |
+| P6a | Istanbul provider, `health.coverage`, ratchet floor to ~88% | ~1h | — |
 | P1 | Agent hooks: Oxlint on `PostToolUse`, `fallow audit` + tests on `Stop` | ~1h | **G1** |
-| P5 | Exception ledger in `pre-commit` | ~30m | — |
-| P3 | Pinned Fallow + `.fallowrc.json` + baselines + CI job | ~2h | G3 |
-| P6 | Coverage-weighted CRAP + coverage floor | ~1h | — |
+| P5 | LLM-shaped messages, starting with `complexity`; advisory ledger | ~1h | — |
+| P3 | Pinned Fallow + `.fallowrc.json` + baselines + CI step | ~2h | G3 |
 | P4 | Boundary zones, after deciding the `utils/` question | ~2h | G4 |
+| P6b | Stryker on `tasks.ts` / `projects.ts` / `autoMove.ts` + query script | ~3h | — |
+| P7 | `modularity-review` skill, per release | ~2h | — |
 
-**Rewrite the existing hook messages for LLM consumption** alongside P5 — the current
-"Error: planning comments found in staged .ts files." becomes materially more useful with
-the remedy attached. It is a ten-minute change and it is the article's most distinctive
-recommendation.
+Rewrite the existing hook messages for LLM consumption alongside P5 — "Error: planning
+comments found in staged .ts files." becomes materially more useful with the remedy
+attached. Ten minutes, and it is the article's most distinctive recommendation.
 
-**CI** (`.github/workflows/ci.yml`) gains `npm run lint` and `npx fallow audit` as steps.
-Keep `audit` (changed-files, new-only) in PR CI rather than a full `fallow` run, so the
-inherited baseline never blocks a PR that did not cause it.
+**CI** gains `npm run lint` and `npx fallow audit`. Keep `audit` (changed-files, new-only)
+in PR CI rather than a full `fallow` run, so the inherited baseline never blocks a PR that
+did not cause it. Per Böckeler, CI re-runs the *same* sensors on clean infrastructure — it
+is confirmation, not a different checklist.
 
 ### First payload of real fixes
 
-Available now, independent of any tooling decision:
+Independent of any tooling decision:
 
 1. Remove the unused `TFile` import from `migrateTask.ts`, `pullTaskUp.ts`,
    `pushTaskDown.ts`, `takeProjectTask.ts`, plus the other Oxlint findings.
 2. Drop `export` from `CollectorLineShape` (`src/utils/projects.ts:194`).
 3. Add `@wdio/types` to `devDependencies`.
-4. Move `obsidian-daily-notes-interface` to `dependencies` (it is bundled, not external).
-5. File an issue for the shared transfer engine, citing the 4.8% duplication across
+4. Move `obsidian-daily-notes-interface` to `dependencies` (bundled, not external).
+5. **Test `src/events/autoMoveCompleted.ts`** — 0% covered, CRAP 110, the highest
+   actual risk in the codebase (§3.1).
+6. File an issue for the shared transfer engine, citing 4.8% duplication across
    `migrateTask`/`pullTaskUp`/`pushTaskDown` and the 2026-06-10 review's open item.
-6. File an issue for `findTopLevelTasksInRange` (cognitive 32) in `src/utils/tasks.ts`.
+7. File an issue for `findTopLevelTasksInRange` (cognitive 32) in `src/utils/tasks.ts`.
 
-## 11. What not to do
+## 12. What not to do
 
-- **Do not gate on the 16.2% whole-repo duplication.** It is concentrated in the
-  test-helper factories that `tests/CLAUDE.md` prescribes. Baseline it.
-- **Do not add ESLint alongside Oxlint** without a specific rule that needs it. Two
-  linters disagreeing about one finding trains agents to ignore both.
-- **Do not enable `--type-aware` in the agent loop.** It is slower and needs a
-  sidecar; reserve it for deliberate refactors (`fallow dead-code --type-aware
-  --symbol-impact`), where exact symbol identity actually pays for itself.
-- **Do not let sensors erode the core design principle.** `CLAUDE.md` is explicit that
-  the markdown file *is* the state. No sensor here should ever motivate a metadata,
-  query, or caching layer to make itself easier to compute.
+- **Do not gate on the 16.2% whole-repo duplication.** It is the test-helper factory
+  pattern `tests/CLAUDE.md` prescribes. Baseline it.
+- **Do not run every sensor on every edit.** Böckeler's warning about "a spiral of
+  over-engineered refactorings" is the reason for §4's split by blast radius.
+- **Watch for rule conflicts.** Her only observed instance was `max-lines` pushing
+  complexity out of functions and into property chains. The live risk here is that both
+  Fallow and `max-lines` will push to split `tasks.ts` (637 lines) and `indent.ts`; if the
+  result is more parameters threaded through more call sites, the sensor has made the
+  codebase worse. `max-params` is the counterweight — keep both on.
+- **Do not add ESLint alongside Oxlint** without a specific rule that needs it. Two linters
+  disagreeing about one finding trains agents to ignore both.
+- **Do not enable `--type-aware` in the agent loop.** Slower, needs a sidecar; reserve it
+  for deliberate refactors (`fallow dead-code --type-aware --symbol-impact`).
+- **Do not treat Fallow's coupling data as agent feedback.** §1.5: it is review triage.
+- **Do not let sensors erode the core design principle.** `CLAUDE.md` is explicit that the
+  markdown file *is* the state. No sensor here should ever motivate a metadata, query, or
+  caching layer to make itself easier to compute.
