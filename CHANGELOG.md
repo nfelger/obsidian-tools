@@ -5,6 +5,18 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Completing a project task no longer leaves the `[[Project]]` link in the entry
+  written to the project note. A link with a section anchor
+  (`[[Project#Todo]]`), a folder path, different capitalisation, or one that
+  resolves through a note alias is now recognised as the task's project prefix,
+  the same way the task's text has always been matched. Affects **Complete
+  project task**, the automatic completion on ticking, and **Drop task to
+  project**.
+
 ## [0.16.0] - 2026-08-06
 
 ### Fixed
