@@ -4,8 +4,7 @@ import {
 	createMockApp,
 	createMockFile,
 	createMockMetadataCache,
-	createMockVault,
-	createMockWorkspace
+	createMockVault
 } from '../mocks/obsidian.js';
 import { periodicConfigWithFolder, asInterfaceSettings } from './periodicConfig';
 import type { BulletFlowSettings } from '../../src/types';
@@ -103,9 +102,10 @@ export async function testAutoMove({
 		return newContent;
 	});
 
+	// No workspace: runAutoMove works off the file and document it is handed,
+	// not the active view
 	const mockApp = createMockApp({
-		workspace: createMockWorkspace({ file: mockSourceFile }),
-		metadataCache: createMockMetadataCache({ fileCache: {}, linkDests }),
+		metadataCache: createMockMetadataCache({ linkDests }),
 		vault: mockVault
 	});
 

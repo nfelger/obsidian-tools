@@ -499,11 +499,7 @@ describe('findAutoMoveBlock', () => {
 			'- [ ] Other task'
 		].join('\n');
 
-		expect(findAutoMoveBlock(doc, 1, '## Todo')).toEqual({
-			rootLine: 1,
-			startLine: 1,
-			endLine: 3
-		});
+		expect(findAutoMoveBlock(doc, 1, '## Todo')).toEqual({ rootLine: 1, endLine: 3 });
 	});
 
 	it('reports the root ancestor when the trigger is nested', () => {
@@ -513,11 +509,7 @@ describe('findAutoMoveBlock', () => {
 			'  - [x] Completed child'
 		].join('\n');
 
-		expect(findAutoMoveBlock(doc, 2, '## Todo')).toEqual({
-			rootLine: 1,
-			startLine: 1,
-			endLine: 3
-		});
+		expect(findAutoMoveBlock(doc, 2, '## Todo')).toEqual({ rootLine: 1, endLine: 3 });
 	});
 
 	it('returns null for a line that is not a live trigger in Todo', () => {

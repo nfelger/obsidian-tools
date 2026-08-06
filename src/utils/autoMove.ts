@@ -130,34 +130,32 @@ export function findLogInsertionLine(
 }
 
 /**
- * The block a trigger line files to Log: the trigger's root ancestor within
- * the Todo section, plus that root's children.
+ * The block a trigger line belongs to: the trigger's root ancestor within its
+ * section, plus that root's children.
  */
 export interface AutoMoveBlock {
 	/** Root ancestor of the trigger line — the first line of the block */
 	rootLine: number;
-	/** Inclusive start of the block (same as rootLine) */
-	startLine: number;
 	/** Exclusive end of the block */
 	endLine: number;
 }
 
 /**
- * Locate the block a completed or started task files to Log, or null when the
- * line isn't a live trigger inside the Todo section.
+ * Locate the block a completed or started task belongs to, or null when the
+ * line isn't a live trigger inside the given section.
  *
- * Callers that need to know *what* moves before deciding how (e.g. project
- * auto-completion, which claims the trigger's children) use this; computeAutoMove
- * builds on it.
+ * Callers that need to know *what* the block is before deciding what to do with
+ * it (e.g. project auto-completion, which claims the trigger's children) use
+ * this; computeAutoMove builds on it.
  *
  * @param docText - Full document text
  * @param triggerLine - Line number of the just-completed or just-started task
- * @param todoHeading - The Todo section heading (e.g., "## Todo")
+ * @param sectionHeading - The section the trigger sits in (e.g., "## Todo")
  */
 export function findAutoMoveBlock(
 	docText: string,
 	triggerLine: number,
-	todoHeading: string
+	sectionHeading: string
 ): AutoMoveBlock | null {
 	const lines = docText.split('\n');
 
@@ -166,15 +164,15 @@ export function findAutoMoveBlock(
 	const marker = TaskMarker.fromLine(lines[triggerLine]);
 	if (!marker || (marker.state !== TaskState.Completed && marker.state !== TaskState.Started)) return null;
 
-	// Find Todo section and verify the line is in it
-	const todoRange = findSectionRange(lines, todoHeading);
-	if (!todoRange) return null;
-	if (triggerLine <= todoRange.start || triggerLine >= todoRange.end) return null;
+	// Verify the line is inside the section
+	const range = findSectionRange(lines, sectionHeading);
+	if (!range) return null;
+	if (triggerLine <= range.start || triggerLine >= range.end) return null;
 
 	// Find root ancestor and collect the block
-	const rootLine = findRootAncestorLine(lines, triggerLine, todoRange.start);
-	const block = collectBlock(lines, rootLine, todoRange.end);
-	return { rootLine, startLine: block.startLine, endLine: block.endLine };
+	const rootLine = findRootAncestorLine(lines, triggerLine, range.start);
+	const block = collectBlock(lines, rootLine, range.end);
+	return { rootLine, endLine: block.endLine };
 }
 
 /**
@@ -202,15 +200,15 @@ export function computeAutoMove(
 	if (!block) return null;
 
 	const blockText = options.moveLineOnly
-		? lines[block.startLine]
-		: lines.slice(block.startLine, block.endLine).join('\n');
+		? lines[block.rootLine]
+		: lines.slice(block.rootLine, block.endLine).join('\n');
 
 	// Find Log section (may not exist yet)
 	const logRange = findSectionRange(lines, logHeading);
 
 	// Calculate character offsets for delete
 	const docLength = docText.length;
-	const deleteFrom = lineToOffset(lines, block.startLine, docLength);
+	const deleteFrom = lineToOffset(lines, block.rootLine, docLength);
 	const deleteTo = lineToOffset(lines, block.endLine, docLength);
 
 	if (logRange) {

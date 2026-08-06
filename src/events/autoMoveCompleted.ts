@@ -3,8 +3,10 @@
  *
  * Design: detectAutoMoveCandidate checks if any change might have completed/started a task.
  * If so, schedules runAutoMove via setTimeout(0) to run after CM6 finishes its transaction.
- * runAutoMove re-scans the document fresh — it does NOT use the line captured at detection
- * time, avoiding the stale-reference bug where intervening edits shift line numbers.
+ * runAutoMove re-scans the document fresh — it never uses a line *number* captured at
+ * detection time, avoiding the stale-reference bug where intervening edits shift them.
+ * The ticked line's text does travel, since the Log pass has no other way to tell which
+ * of the section's accumulated completed tasks the user just ticked.
  *
  * A ticked task carrying a [[Project]] prefix is completed in its project note
  * on the way, running the same logic as the Complete project task command

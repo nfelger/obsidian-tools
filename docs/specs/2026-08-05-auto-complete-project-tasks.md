@@ -22,8 +22,9 @@ of `completeProjectTask` runs before the task is filed:
 1. **In the project note** — the Todo-section copy is removed and a log entry
    (task line `[x]`, project prefix stripped, plus the task's children) is
    appended under `### [[<daily note>]]`, exactly as the command writes it.
-2. **In the daily note** — only the task *line* moves to `## Log`; its children
-   went to the project log, matching the command's move-not-copy rule.
+2. **In the daily note** — the task's children are gone; they live in the
+   project log now, matching the command's move-not-copy rule. What happens to
+   the line itself depends on which section it was ticked in (below).
 
 A notice reports the completion (and any mismatch), so the user sees that the
 children moved rather than vanished.
@@ -97,17 +98,18 @@ the sub-heading, so the same task completed on another day gets its own entry.
 ## Phase order and the async gap
 
 The repo's collect → write target → mutate source order holds: the project
-write is awaited, and a failure aborts the whole run, leaving the daily note
-untouched (the task stays ticked in Todo, and the command remains available
-once the user reopens it).
+write is awaited, and a failure aborts the run, leaving the daily note
+untouched — the task stays ticked where it is, with its notes.
 
 Awaiting a vault write inside an editor extension opens two gaps the previous
 synchronous version didn't have:
 
-- **The document may change during the write.** The run re-reads the document
-  afterwards and re-locates the trigger line, requiring the line text to still
-  match; otherwise it files nothing rather than dropping the children of some
-  other task.
+- **The document may change during the write.** Each pass re-reads the document
+  afterwards and re-locates the trigger by text; the Log pass also confirms the
+  children it filed are still the lines it is about to delete. When either
+  check fails the pass leaves the daily note alone — the project note then
+  holds a copy of notes still present in the day, which is recoverable, unlike
+  deleting notes that were never filed.
 - **Two runs may overlap.** Runs are serialized per editor view (a promise
   chain in `createAutoMoveExtension`), so two quick completions can't both see
   the same unfiled task and write it to the project note twice.

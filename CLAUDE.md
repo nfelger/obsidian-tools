@@ -100,9 +100,9 @@ use wikilinks as the paper trail
 | Setting | Used by | Target note type | Default |
 |---|---|---|---|
 | `periodicNoteTaskTargetHeading` | migrateTask, pushTaskDown, pullTaskUp, takeProjectTask, autoMove (source) | Periodic notes | `## Todo` |
-| `logExtractionTargetHeading` | extractLog | Project/Area notes | `## Log` |
-| `projectNoteTaskTargetHeading` | dropTaskToProject | Project notes | `## Todo` |
-| `dailyNoteLogHeading` | autoMove (destination) | Daily notes | `## Log` |
+| `logExtractionTargetHeading` | extractLog, completeProjectTask, autoMove (project log) | Project/Area notes | `## Log` |
+| `projectNoteTaskTargetHeading` | dropTaskToProject, completeProjectTask, autoMove (Todo copy) | Project notes | `## Todo` |
+| `dailyNoteLogHeading` | autoMove (destination, and source for a task ticked there) | Daily notes | `## Log` |
 
 For periodic note edge cases (ISO weeks, wikilink parsing, list hierarchy): @docs/key-insights.md
 
