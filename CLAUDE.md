@@ -106,12 +106,14 @@ use wikilinks as the paper trail
 
 For periodic note edge cases (ISO weeks, wikilink parsing, list hierarchy): @docs/key-insights.md
 
-## Testing
+## Testing and Linting
 
 ```bash
 npm test              # Run all tests
 npm run test:watch    # Watch mode (TDD)
-npm run test:coverage # Coverage report
+npm run test:coverage # Coverage report (fails below the floor in vitest.config.js)
+npm run lint          # Errors block; complexity/size limits are advisory warnings
+npm run lint:guided   # Same findings, each with how to fix it
 ```
 
 Write tests first. See @tests/CLAUDE.md for patterns and mock API reference.
@@ -130,6 +132,14 @@ must not reference `TFile` or other Obsidian types — use the adapter pattern.
 **All shared types live in `src/types.ts`.** Import with `import type { TypeName } from '../types'`.
 Exception: the task state machine types (`TaskState`, `TaskMatch`) live with their logic in
 `src/utils/taskMarker.ts` and are re-exported through `src/utils/tasks.ts`.
+
+**Quality limits only tighten.** The lint warning thresholds (`.oxlintrc.json`) and the
+coverage floor (`vitest.config.js`) record where the code is today: raise them as it
+improves, never relax them to make a run pass. If a finding genuinely can't be refactored,
+suppress that one line with a `-- reason` rather than loosening the limit for everything.
+Advisory warnings are a backlog, not a to-do list — don't clear them alongside unrelated
+work. Rationale and the remaining roadmap:
+[docs/specs/2026-08-06-maintainability-sensors.md](docs/specs/2026-08-06-maintainability-sensors.md).
 
 ## Documentation: CHANGELOG
 
