@@ -1,7 +1,15 @@
 {
   "$schema": "./node_modules/fallow/schema.json",
 
-  "entry": ["src/main.ts"],
+  // The plugin, plus the root development tools. The tools are run directly
+  // (`node mutation-report.mjs`, or from a hook), so nothing imports them —
+  // without declaring them they read as dead files.
+  "entry": [
+    "src/main.ts",
+    "lint-guided.mjs",
+    "mutation-report.mjs",
+    ".claude/hooks/*.mjs"
+  ],
 
   "ignorePatterns": ["main.js", "coverage/**", "coverage-istanbul/**"],
 
@@ -57,7 +65,12 @@
   "health": {
     // Written by `npm run test:crap`. Without it CRAP scores are estimated
     // from export references, which flattens the risk ranking badly.
-    "coverage": "coverage-istanbul/coverage-final.json"
+    "coverage": "coverage-istanbul/coverage-final.json",
+
+    // Development tooling, not shipped plugin code, and deliberately untested —
+    // so a CRAP score built from zero coverage says nothing useful about it.
+    // The complexity limits in .oxlintrc.json still apply to these files.
+    "ignore": ["*.mjs", ".claude/hooks/*.mjs"]
   },
 
   "audit": {

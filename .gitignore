@@ -31,3 +31,7 @@ Thumbs.db
 
 # E2E test Obsidian binary cache
 .obsidian-cache/
+
+# Mutation testing output
+reports/
+.stryker-tmp/

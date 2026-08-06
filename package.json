@@ -9,9 +9,9 @@
     "dev": "node esbuild.config.mjs",
     "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
     "version": "node version-bump.mjs && git add manifest.json versions.json",
-    "lint": "oxlint src tests scripts",
+    "lint": "oxlint src tests scripts *.mjs .claude/hooks",
     "lint:guided": "node lint-guided.mjs",
-    "lint:fix": "oxlint --fix src tests scripts",
+    "lint:fix": "oxlint --fix src tests scripts *.mjs .claude/hooks",
     "audit:code": "fallow audit",
     "health": "fallow health --hotspots",
     "health:full": "fallow",
@@ -20,7 +20,9 @@
     "test:coverage": "vitest run --coverage",
     "test:crap": "vitest run --coverage --coverage.provider=istanbul --coverage.reporter=json --coverage.reportsDirectory=coverage-istanbul --coverage.thresholds.lines=0 --coverage.thresholds.functions=0 --coverage.thresholds.branches=0 --coverage.thresholds.statements=0",
     "test:ui": "vitest --ui",
-    "test:e2e": "wdio run tests/e2e/wdio.conf.ts"
+    "test:e2e": "wdio run tests/e2e/wdio.conf.ts",
+    "test:mutation": "stryker run --incremental",
+    "test:mutation:full": "stryker run --force"
   },
   "keywords": [
     "obsidian",
@@ -34,6 +36,8 @@
   "devDependencies": {
     "@codemirror/state": "6.5.0",
     "@codemirror/view": "6.38.6",
+    "@stryker-mutator/core": "^8.7.1",
+    "@stryker-mutator/vitest-runner": "^8.7.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.0.0",
     "@vitest/coverage-istanbul": "^1.6.1",

@@ -155,6 +155,35 @@ const testsFailed = tests.status !== 0;
 // duplication and complexity today, and nagging about inherited debt would be
 // the "warnings are a backlog" rule violated by the tooling itself.
 
+const SECTIONS = { dead_code: 'dead code', complexity: 'complexity', duplication: 'duplication' };
+
+/** One finding as a bullet: what it is, where, its numbers, and how to fix it. */
+function describeFinding(section, finding) {
+	const name = finding.name ?? finding.export_name ?? '(unnamed)';
+	const where = finding.path ? `${finding.path}:${finding.line ?? '?'}` : 'unknown location';
+
+	const metrics = [
+		['cyclomatic', finding.cyclomatic],
+		['cognitive', finding.cognitive],
+		['CRAP', finding.crap],
+	]
+		.filter(([, v]) => v != null)
+		.map(([k, v]) => `${k} ${v}`);
+	if (finding.line_count != null) metrics.push(`${finding.line_count} lines`);
+
+	// suppress-line is dropped deliberately: it is always offered, and leading
+	// with it invites silencing the finding instead of reading it.
+	const actions = (finding.actions ?? [])
+		.map((a) => a.type)
+		.filter((t) => t && t !== 'suppress-line');
+
+	return (
+		`- [${SECTIONS[section]}] ${name} at ${where}` +
+		(metrics.length ? ` (${metrics.join(', ')})` : '') +
+		(actions.length ? `\n  Suggested: ${actions.join(', ')}` : '')
+	);
+}
+
 /** Introduced findings, as "what: where — numbers", plus fallow's own actions. */
 function introducedFindings() {
 	const audit = spawnSync('npx', ['fallow', 'audit', '--format', 'json', '--quiet'], {
@@ -176,30 +205,12 @@ function introducedFindings() {
 	// a validation or network error must not masquerade as a code problem.
 	if (report.verdict !== 'fail') return [];
 
-	const label = { dead_code: 'dead code', complexity: 'complexity', duplication: 'duplication' };
 	const found = [];
-	for (const section of ['dead_code', 'complexity', 'duplication']) {
+	for (const section of Object.keys(SECTIONS)) {
 		for (const group of Object.values(report[section] ?? {})) {
 			if (!Array.isArray(group)) continue;
-			for (const f of group) {
-				if (f?.introduced !== true) continue;
-				const name = f.name ?? f.export_name ?? '(unnamed)';
-				const where = f.path ? `${f.path}:${f.line ?? '?'}` : 'unknown location';
-				const metrics = [
-					f.cyclomatic != null ? `cyclomatic ${f.cyclomatic}` : null,
-					f.cognitive != null ? `cognitive ${f.cognitive}` : null,
-					f.crap != null ? `CRAP ${f.crap}` : null,
-					f.line_count != null ? `${f.line_count} lines` : null,
-				].filter(Boolean);
-				const actions = (f.actions ?? [])
-					.map((a) => a.type)
-					.filter((t) => t && t !== 'suppress-line');
-
-				found.push(
-					`- [${label[section]}] ${name} at ${where}` +
-						(metrics.length ? ` (${metrics.join(', ')})` : '') +
-						(actions.length ? `\n  Suggested: ${actions.join(', ')}` : '')
-				);
+			for (const finding of group) {
+				if (finding?.introduced === true) found.push(describeFinding(section, finding));
 			}
 		}
 	}

@@ -11,6 +11,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Stryker copies the project into a sandbox to mutate it. Without this,
+    // a plain `npm test` during a mutation run collects those copies too and
+    // reports several times the real number of tests.
+    exclude: ['**/node_modules/**', '**/dist/**', '.stryker-tmp/**', 'reports/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

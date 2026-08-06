@@ -6,9 +6,10 @@ Böckeler's [maintainability sensors](https://martinfowler.com/articles/sensors-
 (27 May 2026) and evaluated concretely against [Fallow](https://github.com/fallow-rs/fallow)
 3.14.0, Oxlint, and Stryker.
 
-> **Status: partly implemented.** The linting layer (§5), coverage-weighted complexity (§9),
-> LLM-shaped lint messages (§8), the agent hooks (§4.1) and Fallow adoption (§6.1) are built;
-> boundary rules, mutation testing and the cadenced review are not. §11 carries the current
+> **Status: implemented.** Every item in §11 is built: the linting layer (§5), the agent
+> hooks (§4.1), Fallow adoption (§6.1), the layering made true and pinned (§7.1),
+> LLM-shaped messages and the exception ledger (§8.1), coverage-weighted complexity plus
+> mutation testing (§9.1), and the cadenced modularity review (§10.1). §11 carries the
 > state per item — trust that table over any prose here. Every command quoted was run
 > against this repository; §3 is measured, not estimated. Findings are marked
 > **[verified]** where the code was read to confirm the tool was right, **[false positive]**
@@ -477,6 +478,45 @@ and folders. The phase-order invariant (collect → write-target → mutate-sour
 "never manipulate task markers as raw strings" stay guides, enforced by review. Say so in
 `CLAUDE.md`, so it is clear which rules are mechanical and which are trusted.
 
+### 7.1 As built
+
+**The decision was to make the prose true.** `src/adapters/` now holds the Obsidian API and
+nothing else — `commandSetup.ts`, `periodicNoteCreator.ts` and `projectCompletion.ts`.
+
+`periodicNotes.ts` stayed in the domain, because it *is* domain: week math and path
+formatting. Its only Obsidian import was the re-exported `moment`, and the obvious fix —
+import from the `moment` package — is wrong here: `moment` is not in the esbuild externals,
+so that would bundle a second copy and lose the app's shared locale configuration. It now
+imports from `src/vendor.ts`, a one-line re-export. That is library access, not an API
+boundary crossing, and keeping it out of `src/adapters/` says so.
+
+**Writing the rule found a violation the measurement missed.** `projectCompletion.ts` was
+added to `main` *after* §3 was measured, and it imports `Notice` and reaches
+`plugin.app.vault`. The sensor caught it on its first run — a small, concrete instance of the
+argument for having one, and a reminder that a documented invariant decays between audits.
+
+**Pinned two ways, because one is not enough:**
+
+- `no-restricted-imports` scoped to `src/utils/**` bans value imports from `obsidian` while
+  `allowTypeImports` keeps `import type` legal. That is the precise shape of the rule: domain
+  code may *name* Obsidian types, never *call* the API. The message names the alternatives.
+- Fallow `boundaries` enforce direction between `entry`/`ui`/`commands`/`adapters`/`domain`,
+  and `coverage.requireAllFiles` means a new file under `src/` must declare its layer —
+  Böckeler had to add exactly this rule after her agent started inventing folders.
+
+**A near-miss worth recording:** the first version of the oxlint override carried a
+`"comment"` key documenting the rule. Oxlint rejects unknown keys, so the *entire* config
+failed to parse and every rule silently stopped applying. `npm run lint` does exit 1 on a
+broken config, so it fails loudly rather than passing vacuously — but the rule had appeared
+to work in a scratch directory only because relative `files` globs resolve against the
+config's own directory, not the cwd. Both are easy ways to ship a sensor that measures
+nothing.
+
+Verified by regression in each direction: a runtime `obsidian` import under `src/utils/` is
+flagged and a type-only import is not; a domain file importing an adapter is a boundary
+violation; a new imported file outside the zones is a coverage violation. One caveat — an
+*unreferenced* new file is not flagged by coverage, since it never enters the module graph.
+
 ## 8. P5 — An exception ledger, as a review surface
 
 **[revised] My first draft proposed a pre-commit hook that *blocked* on any added
@@ -522,6 +562,21 @@ Prefer Fallow's `health.thresholdOverrides` to inline suppressions where an exce
 genuine: it keeps the exception a visible numeric ceiling in config, which is the ratchet
 in its most reviewable form.
 
+### 8.1 As built
+
+The ledger is Hook 4 in `.githooks/pre-commit`, and it **exits 0 always** — it reports and
+gets out of the way. It watches added lines for suppression comments and for edits to the
+threshold and coverage-floor config.
+
+All four hook messages were rewritten to name a remedy. The old text stated violations
+only: *"Error: planning comments found in staged .ts files."* leaves the reader to infer the
+fix, and per §1.4 the cheapest inference is usually the wrong one. Each now says what to do
+— open an issue rather than annotate, use `### Maintenance` for development-only changelog
+entries, use `cut-release` for a version bump.
+
+Verified: a planning comment blocks with its remedy, a suppression and a threshold edit are
+both *reported at exit 0*, and a clean commit is silent.
+
 ## 9. P6 — Test effectiveness: coverage is not the sensor, mutation is
 
 **[revised] My first draft claimed coverage "gates nothing".** Wrong: `vitest.config.js`
@@ -560,6 +615,41 @@ very large JSON report; she wrote a small query script (`summary`, `files --chan
 `hotspots --file`) so an agent could interrogate results without clogging its context.
 Reproduce that, or the report is unusable as agent feedback.
 
+### 9.1 As built
+
+**[revised] Stryker 8.7.1, not 9.6.1.** The 9.x vitest runner requires vitest ≥2 and this
+repo is on 1.6. Upgrading vitest to satisfy a mutation-testing dependency is the wrong
+trade — a major test-runner bump risks the suite that everything else here depends on, to
+add an on-demand sensor. `@stryker-mutator/vitest-runner@8.7.1` accepts vitest ≥0.31, so the
+8.x line gets the capability with no churn.
+
+Configured in `stryker.config.json` over the nine pure domain modules, with
+`coverageAnalysis: perTest` so only the tests covering a mutant re-run. `npm run
+test:mutation` uses `--incremental` (results cached, only changed mutants re-run);
+`test:mutation:full` forces a rebuild. **No `break` threshold and not in CI** — a full run
+is minutes, and per §1 this is a "repeatedly" sensor. CI gates lint, tests, coverage and
+`fallow audit`; adding this would make every PR slow to punish inherited gaps.
+
+**`mutation-report.mjs` is not optional.** One 120-line module produced a 487KB report,
+because each file entry embeds its entire source. Handing that to an agent would be
+ruinous, so the tool exposes `summary`, `files [--top N] [--changed]`, and `hotspots --file
+<path>`, and `CLAUDE.md` says never to read the raw JSON. Findings are grouped **by line**
+rather than per mutant, since one weak assertion usually explains several survivors, and each
+file carries the action its numbers imply — uncovered mutants mean *add tests*, survivors
+with coverage mean *strengthen assertions*. That distinction is the whole value over
+coverage.
+
+**Verified on `src/utils/indent.ts`: 79.6%, 113 killed, 28 survived.** The survivors are
+real assertion gaps, not noise — `if (ch === ' ' || ch === '\t')` mutated to `if (true)`
+survives, so no test distinguishes whitespace from any other character on that path, and
+`while (k < l.length && …)` survives becoming `while (true && …)`. This is a module with
+98% line coverage. Exactly Böckeler's point: coverage said the lines ran.
+
+**A caution proved on our own tooling.** Refactoring `introducedFindings` in the `Stop` hook
+to clear a complexity warning turned `SECTIONS` from an array into an object and left a
+`for…of` over it — lint was satisfied, the hook crashed on the next run. A green linter is
+not evidence that code works, and the sensor that caught it was executing the thing.
+
 ## 10. P7 — An inferential sensor on a cadence
 
 **The gap with the highest ceiling, and absent from my first draft.** Böckeler's most
@@ -592,6 +682,33 @@ are `src/types.ts` (fan-in 29, deliberately the single home for shared types) an
 `TaskMarker` as the mandated funnel for all marker access. Both are architecture, not debt,
 and the review needs to be told so — otherwise, as she notes, they "create even more noise."
 
+### 10.1 As built
+
+`.claude/skills/modularity-review/SKILL.md`. It gathers Fallow's hotspots, coverage-weighted
+complexity, clone groups and the mutation summary *first*, then reads the code those point
+at — grounding, per her finding that it raises confidence and costs fewer tokens than
+scanning.
+
+Three things are written into the skill rather than left to the model:
+
+- **The five failure shapes to look for**, each drawn from what her review actually found:
+  semantic duplication, repeated parameter chains, misplaced responsibilities, inconsistent
+  approaches to one job, and guides that have drifted. Each is instantiated for this
+  codebase — the transfer commands as the likely site of a fifth collector-decomposition
+  variant, and `src/adapters/` as a magnet for domain logic precisely because it is the one
+  zone allowed to call Obsidian.
+- **The legitimate patterns, named up front**, so the review does not "discover" them:
+  `src/types.ts` (highest fan-in by design), `TaskMarker` (the mandated funnel),
+  `tasks.ts` (shared vocabulary — its size is fair to question, its centrality is not), and
+  the test-helper factories. If one of these is the top finding, the review has misfired.
+- **What it must not recommend:** anything requiring the plugin to interpret meaning (the
+  markdown file *is* the state), relaxing a limit, or splitting a file merely for length —
+  since a split that threads more parameters through more call sites has made things worse.
+
+It also instructs a second pass without the first's context, which she found reliably
+surfaces something new, and it stops at a written plan rather than refactoring: acting
+mid-review loses the overview that made it worth doing.
+
 ## 11. Sequencing
 
 **[revised] P6 moves from second-to-last to second.** §3.1 is why: real coverage data
@@ -604,11 +721,11 @@ surfaced. It is also nearly free — the coverage data already exists.
 | P6a | Istanbul coverage for CRAP, ratchet the floor | ~1h | — | **done** (v0.16.2) |
 | P5a | LLM-shaped lint messages via `lint-guided.mjs` | ~1h | — | **done** (v0.16.2) |
 | P1 | Agent hooks: Oxlint on `PostToolUse`, lint + tests on `Stop` | ~1h | **G1** | **done** (v0.16.2) |
-| P5b | LLM-shaped messages for the existing git hooks; advisory ledger | ~1h | — | open |
+| P5b | LLM-shaped messages for the existing git hooks; advisory ledger | ~1h | — | **done** (v0.16.2) |
 | P3 | Pinned Fallow + `.fallowrc.json` + CI step + `Stop` integration | ~2h | G3 | **done** (v0.16.2) |
-| P4 | Boundary zones, after deciding the `utils/` question | ~2h | G4 | open |
-| P6b | Stryker on `tasks.ts` / `projects.ts` / `autoMove.ts` + query script | ~3h | — | open |
-| P7 | `modularity-review` skill, per release | ~2h | — | open |
+| P4 | Move the adapters out of `utils/`, then pin it two ways | ~2h | **G4** | **done** (v0.16.2) |
+| P6b | Stryker over the domain modules + report query tool | ~3h | — | **done** (v0.16.2) |
+| P7 | `modularity-review` skill, per release | ~2h | — | **done** (v0.16.2) |
 
 **As-built notes for the completed rows.** The complexity and size rules are configured as
 *warnings*, not errors: `src/` has substantial existing debt (seven functions over

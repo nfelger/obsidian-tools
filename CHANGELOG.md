@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Maintenance
 
+- The Obsidian API is now confined to `src/adapters/`, so the task, project and
+  date logic is plain code with no editor dependency — easier to reason about
+  and to test. Two checks keep it that way rather than relying on convention.
+- Added mutation testing for the core logic, which reports where the tests run
+  code without actually checking what it does. Coverage cannot see that.
+- Added a whole-codebase design review, run before a release, that looks for
+  duplicated ideas and misplaced logic — the kind of drift no automated check
+  detects.
 - Added codebase analysis (dead code, duplication, complexity) that reports only
   what a change newly introduces, leaving the existing backlog to be worked
   down deliberately. It runs in CI and alongside AI coding sessions.

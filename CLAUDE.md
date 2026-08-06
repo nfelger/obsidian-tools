@@ -117,7 +117,12 @@ npm run test:coverage # Coverage report (fails below the floor in vitest.config.
 npm run lint          # Errors block; complexity/size limits are advisory warnings
 npm run lint:guided   # Same findings, each with how to fix it
 npm run audit:code    # Dead code, duplication, complexity — only what this change adds
+npm run test:mutation # Slow, on demand: do the assertions actually catch changes?
 ```
+
+Mutation testing answers what coverage cannot — coverage says a line ran, not that its
+effect was asserted. Query the report with `node mutation-report.mjs summary|files|hotspots`;
+never read `reports/mutation/mutation.json` directly, it embeds every mutated source file.
 
 Write tests first. See @tests/CLAUDE.md for patterns and mock API reference.
 
