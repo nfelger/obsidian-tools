@@ -5,6 +5,25 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-08-07
+
+### Added
+
+- **Toggle collector task grouping** — switch a project's tasks between the two
+  shapes Bullet Flow already writes: gathered under one `- [ ] Push [[Project]]`
+  bullet, or listed individually with the project link on each. Put the cursor
+  anywhere in a collector to spread its tasks back out, or on a project task to
+  gather it up — select several lines to gather several. Tasks you did not
+  select stay where you left them. Aliases, sub-tasks and notes travel along,
+  and completed tasks stay with their group. Available from the command menu
+  as `g`.
+
+### Fixed
+
+- A task added to a collector no longer jumps past the blank line below the
+  group — it lands directly under the collector's last task, where the list
+  stays intact.
+
 ## [0.16.2] - 2026-08-06
 
 ### Maintenance

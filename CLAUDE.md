@@ -23,7 +23,8 @@ obsidian-tools/
 │   │   ├── takeProjectTask.ts
 │   │   ├── dropTaskToProject.ts
 │   │   ├── completeProjectTask.ts
-│   │   └── finishProject.ts
+│   │   ├── finishProject.ts
+│   │   └── toggleCollectorTask.ts
 │   ├── events/
 │   │   └── autoMoveCompleted.ts  # CM6 extension for auto-move (+ auto project completion)
 │   ├── ui/
@@ -40,6 +41,7 @@ obsidian-tools/
 │       ├── listItems.ts          # List item operations
 │       ├── indent.ts             # Indentation utilities
 │       ├── projects.ts           # Project note detection
+│       ├── collectorToggle.ts    # Grouped ↔ prefixed shape toggle
 │       ├── autoMove.ts           # Auto-move computation logic
 │       └── notices.ts            # Shared transfer-command notice text
 ├── tests/

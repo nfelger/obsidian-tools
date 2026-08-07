@@ -7,6 +7,7 @@ import { takeProjectTask } from './commands/takeProjectTask';
 import { dropTaskToProject } from './commands/dropTaskToProject';
 import { completeProjectTask } from './commands/completeProjectTask';
 import { finishProject } from './commands/finishProject';
+import { toggleCollectorTask } from './commands/toggleCollectorTask';
 import { HotkeyModal } from './ui/HotkeyModal';
 import { BulletFlowSettingTab } from './settings';
 import type { BulletFlowSettings } from './types';
@@ -89,6 +90,13 @@ export default class BulletFlowPlugin extends Plugin {
 			id: 'finish-project',
 			name: 'Finish project',
 			callback: () => finishProject(this)
+		});
+
+		// Toggle Collector Task command
+		this.addCommand({
+			id: 'toggle-collector-task',
+			name: 'Toggle collector task grouping',
+			callback: () => toggleCollectorTask(this)
 		});
 
 		// Hotkey Modal command (leader key)

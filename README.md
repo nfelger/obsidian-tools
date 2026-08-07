@@ -100,6 +100,50 @@ After migrating from Sunday (2026-01-25):
 - Source (daily): `- [>] Write documentation` (incomplete children removed)
 - Target (weekly 2026-01-W05): Full task tree under `## Todo`
 
+### Toggle Collector Task Grouping
+
+**Command:** `Bullet Flow: Toggle collector task grouping`
+
+A project's tasks live in one of two shapes: gathered under a *collector*
+(`- [ ] Push [[Project]]`, tasks nested beneath it) or listed individually with
+the project link on each. Commands that bring tasks into a note pick the shape
+from the note's type — collectors in weekly, monthly and yearly notes, separate
+tasks in daily notes. This command switches between them by hand.
+
+**Behavior:**
+- Cursor on a task carrying a project link → that task folds under a collector,
+  prefix stripped. **Select more lines to fold more tasks** — only what you
+  select moves, so a task for the same project left loose elsewhere stays loose.
+  An existing collector is reused rather than a second one created.
+- Cursor anywhere inside a collector's block → its tasks move up to the top
+  level, each carrying the collector's link (alias included). Notes that aren't
+  tasks stay behind under the collector, which stays with them. Ungrouping
+  always takes the whole collector; half a group is neither shape.
+- Sub-tasks and notes travel with their task, and completed or migrated tasks
+  stay with the group rather than being left behind.
+- Tasks never move across a heading, so a `### Later` sub-section keeps its own.
+
+**Example:**
+```
+- [ ] [[Migration Initiative]] Ask Samir for cost estimates
+- [ ] Book the retro
+- [ ] [[Migration Initiative|MI]] Draft the rollback plan
+```
+
+Selecting both project tasks:
+```
+- [ ] Push [[Migration Initiative|MI]]
+	- [ ] Ask Samir for cost estimates
+	- [ ] Draft the rollback plan
+- [ ] Book the retro
+```
+
+Running it again from inside the group restores the first shape.
+
+**Multi-select:** When text is selected, groups the top-level project tasks
+within the selection — reaching a task through any of its children. With no
+selection, only the task at the cursor is grouped.
+
 ## Workflow Overview
 
 The system is built on these principles: frictionless capture, continuous reflection, resilience under stress, and findability without maintenance. Everything starts in the daily note as a rapid log; reflection passes transform messy logs into durable knowledge through extraction and migration.

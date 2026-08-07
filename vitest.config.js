@@ -28,10 +28,13 @@ export default defineConfig({
       ],
       // Ratcheted to sit just under actual coverage, so a regression fails the
       // run instead of being absorbed by slack. Raise these when coverage rises.
+      // Re-baselined for vitest 4, which counts every file matching `include` —
+      // main.ts and settings.ts (plugin wiring, exercised only in e2e) now sit
+      // at 0% in the denominator, which is why functions dropped from the old 93.
       thresholds: {
-        lines: 88,
-        functions: 93,
-        branches: 85,
+        lines: 90,
+        functions: 81,
+        branches: 86,
         statements: 88
       }
     }
