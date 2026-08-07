@@ -20,19 +20,19 @@
  * lasts — Templater waits 300ms before acting on a new file — so a note the
  * user later creates at the same path is still handled normally.
  */
-const PLACED_WINDOW_MS = 5000;
+const CLAIM_WINDOW_MS = 5000;
 
 const claimedPaths = new Map();
 
-function claimPath(path, windowMs) {
-    claimedPaths.set(path, { at: Date.now(), windowMs });
+function claimPath(path) {
+    claimedPaths.set(path, Date.now());
 }
 
 function isOwnPath(path) {
     const now = Date.now();
 
-    for (const [claimedPath, claim] of claimedPaths) {
-        if (now - claim.at > claim.windowMs) {
+    for (const [claimedPath, claimedAt] of claimedPaths) {
+        if (now - claimedAt > CLAIM_WINDOW_MS) {
             claimedPaths.delete(claimedPath);
         }
     }
@@ -87,7 +87,7 @@ async function handleNewNote(tp) {
         ? `${noteTitle}.md`
         : `${chosenFolder}/${noteTitle}.md`;
 
-    claimPath(newPath, PLACED_WINDOW_MS);
+    claimPath(newPath);
     const newFile = await app.vault.create(newPath, '');
 
     // 7. Delete the original
