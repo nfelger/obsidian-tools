@@ -100,6 +100,39 @@ After migrating from Sunday (2026-01-25):
 - Source (daily): `- [>] Write documentation` (incomplete children removed)
 - Target (weekly 2026-01-W05): Full task tree under `## Todo`
 
+### Take Project Task
+
+**Command:** `Bullet Flow: Take project task to periodic note`
+
+Pulls a task out of a project note and puts it on a time horizon: today, this
+week, this month or this year.
+
+**Behavior:**
+- Place cursor on an incomplete task in a project note, or select multiple lines
+- A picker asks which period the task is for, showing the note each one would
+  write to — press `d`, `w`, `m` or `y`, or click. Dismiss it (Escape) and
+  nothing is written.
+- Copies the task(s) to that note under `## Todo` (configurable), carrying a
+  `[[Project]]` link so the task keeps its context
+- Marks the source task(s) as scheduled (`- [<]`) and moves their children along
+- An existing copy of the task in the target note is reopened and merged into
+  rather than duplicated
+- Weekly, monthly and yearly notes gather the project's tasks under a collector
+  (`- [ ] Push [[Project]]`); daily notes list them individually, because a day's
+  tasks are worked out of order
+
+**Example:** taking two tasks from `Migration Initiative` to this week's note:
+```
+- [ ] Push [[Migration Initiative]]
+	- [ ] Define rollback strategy
+	- [ ] Get sign-off from security team
+```
+
+Taking one of them to today instead:
+```
+- [ ] [[Migration Initiative]] Define rollback strategy
+```
+
 ### Toggle Collector Task Grouping
 
 **Command:** `Bullet Flow: Toggle collector task grouping`

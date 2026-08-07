@@ -67,7 +67,7 @@ export default class BulletFlowPlugin extends Plugin {
 		// Take Project Task command
 		this.addCommand({
 			id: 'take-project-task',
-			name: 'Take project task to daily note',
+			name: 'Take project task to periodic note',
 			callback: () => takeProjectTask(this)
 		});
 

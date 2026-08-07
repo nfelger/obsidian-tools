@@ -100,7 +100,8 @@ Target-side insertion for project tasks (push/pull/migrate/take) goes through
 section. It always deduplicates first (alias-aware); collector grouping applies only when
 the **target note's type** allows it — weekly/monthly/yearly targets group, daily targets
 never do (daily tasks are worked out of order, so grouping would hide their individual
-priorities). The command never decides this; the hop's target does.
+priorities). The command never decides this; the hop's target does — including
+`takeProjectTask`, where the user picks the target period and the shape follows from it.
 
 Rules that must survive any change here:
 

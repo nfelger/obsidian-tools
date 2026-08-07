@@ -5,6 +5,8 @@
  * for maintainability and potential future configuration.
  */
 
+import type { PeriodicGranularity } from './types';
+
 // === Notice Timeouts ===
 
 /**
@@ -32,3 +34,28 @@ export const HOTKEY_BINDINGS = [
 ] as const;
 
 export type CommandId = typeof HOTKEY_BINDINGS[number]['commandId'];
+
+// === Period Picker ===
+
+/**
+ * The periods a task can be sent to, in the order the picker offers them:
+ * the key that selects one, its label, and how a notice names the note.
+ */
+export const PERIOD_CHOICES = [
+	{ key: 'd', label: 'Day', granularity: 'daily', noteLabel: 'daily note' },
+	{ key: 'w', label: 'Week', granularity: 'weekly', noteLabel: 'weekly note' },
+	{ key: 'm', label: 'Month', granularity: 'monthly', noteLabel: 'monthly note' },
+	{ key: 'y', label: 'Year', granularity: 'yearly', noteLabel: 'yearly note' },
+] as const satisfies ReadonlyArray<{
+	key: string;
+	label: string;
+	granularity: PeriodicGranularity;
+	noteLabel: string;
+}>;
+
+/**
+ * How a notice names the periodic note of a granularity, e.g. 'weekly note'.
+ */
+export function periodNoteLabel(granularity: PeriodicGranularity): string {
+	return PERIOD_CHOICES.find(choice => choice.granularity === granularity)!.noteLabel;
+}

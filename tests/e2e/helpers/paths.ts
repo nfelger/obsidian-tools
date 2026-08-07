@@ -13,7 +13,9 @@ export function tomorrowDailyPath(): string {
 }
 
 export function thisWeeklyPath(): string {
-    return `+Diary/${moment().format('gggg/MM/gggg-MM-[W]WW')}.md`;
+    // Named after the week's Thursday, as the plugin names it — that decides
+    // the month for a week spanning two of them
+    return `+Diary/${moment().isoWeekday(4).format('gggg/MM/gggg-MM-[W]WW')}.md`;
 }
 
 export const PROJECT_NOTE_PATH = '1 Projekte/My Project.md';

@@ -58,8 +58,13 @@ export interface ParsedWikilink {
 
 // === Periodic Notes ===
 
+/**
+ * The four periodic note granularities, from shortest period to longest.
+ */
+export type PeriodicGranularity = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
 export interface NoteInfo {
-	type: 'daily' | 'weekly' | 'monthly' | 'yearly';
+	type: PeriodicGranularity;
 	year: number;
 	month?: number;
 	day?: number;

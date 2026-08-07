@@ -4,6 +4,7 @@ import {
 	isLastDayOfWeek,
 	isDecember,
 	formatDailyPath,
+	formatPeriodPath,
 	getNextNotePath,
 	dateIsInPeriod,
 	getLowerNotePath,
@@ -159,6 +160,41 @@ describe('formatDailyPath', () => {
 		const date = new Date(2026, 0, 22);
 		const path = formatDailyPath(date, periodicConfigWithFolder('Journal'));
 		expect(path).toBe('Journal/2026/01/2026-01-22 Thu');
+	});
+});
+
+describe('formatPeriodPath', () => {
+	it('formats the daily note containing the date', () => {
+		const date = new Date(2026, 0, 22); // Thu Jan 22, 2026
+		expect(formatPeriodPath(date, 'daily')).toBe('+Diary/2026/01/2026-01-22 Thu');
+	});
+
+	it('formats the weekly note containing the date', () => {
+		const date = new Date(2026, 0, 22); // Thu Jan 22, 2026 — ISO week 4
+		expect(formatPeriodPath(date, 'weekly')).toBe('+Diary/2026/01/2026-01-W04');
+	});
+
+	it('names a week spanning two months after its Thursday', () => {
+		// Sun Feb 1, 2026 closes the ISO week Jan 26 - Feb 1, whose Thursday
+		// is Jan 29 — so the note belongs to January, not February
+		const date = new Date(2026, 1, 1);
+		expect(formatPeriodPath(date, 'weekly')).toBe('+Diary/2026/01/2026-01-W05');
+	});
+
+	it('formats the monthly note containing the date', () => {
+		const date = new Date(2026, 0, 22);
+		expect(formatPeriodPath(date, 'monthly')).toBe('+Diary/2026/2026-01 Jan');
+	});
+
+	it('formats the yearly note containing the date', () => {
+		const date = new Date(2026, 0, 22);
+		expect(formatPeriodPath(date, 'yearly')).toBe('+Diary/2026/2026');
+	});
+
+	it('honours a custom diary folder', () => {
+		const date = new Date(2026, 0, 22);
+		const config = periodicConfigWithFolder('Journal');
+		expect(formatPeriodPath(date, 'weekly', config)).toBe('Journal/2026/01/2026-01-W04');
 	});
 });
 
@@ -659,5 +695,17 @@ describe('locale-week formats (ww)', () => {
 		const noteInfo = parseNoteType('2026-06-07 Sun', localeConfig)!;
 		// Sunday starts a locale week → next is just Monday's daily note
 		expect(getNextNotePath(noteInfo, localeConfig)).toBe('+Diary/2026/06/2026-06-08 Mon');
+	});
+
+	it('names the weekly note of a date after the week it starts in', () => {
+		// Wed Jun 3 sits in locale W23, which started Sun May 31 — the note is
+		// named for May, the month of the week's first day
+		expect(formatPeriodPath(new Date(2026, 5, 3), 'weekly', localeConfig))
+			.toBe('+Diary/2026/05/2026-05-W23');
+	});
+
+	it('pulls a daily note up into the locale week that contains it', () => {
+		const noteInfo = parseNoteType('2026-06-03 Wed', localeConfig)!;
+		expect(getHigherNotePath(noteInfo, localeConfig)).toBe('+Diary/2026/05/2026-05-W23');
 	});
 });

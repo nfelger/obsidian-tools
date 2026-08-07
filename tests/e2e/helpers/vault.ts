@@ -147,3 +147,34 @@ export async function runCommand(commandId: string): Promise<void> {
     // Pause for any remaining post-command state propagation (renameFile link updates etc.)
     await browser.pause(500);
 }
+
+/**
+ * Fire a command without waiting for it to finish. For commands that ask a
+ * question first, the callback only settles once the modal is answered — so
+ * the caller starts the command, then answers it.
+ */
+export async function startCommand(commandId: string): Promise<void> {
+    const fullId = `bullet-flow:${commandId}`;
+    await (browser as any).executeObsidian(({ app }: any, id: string) => {
+        if (!app.commands.executeCommandById(id)) throw new Error(`Command not found: ${id}`);
+    }, fullId);
+}
+
+/**
+ * Answer Bullet Flow's period picker by clicking the row for a period,
+ * then wait for the command it was blocking to finish its file writes.
+ */
+export async function pickPeriod(period: 'daily' | 'weekly' | 'monthly' | 'yearly'): Promise<void> {
+    const selector = `.bullet-flow-period-picker .period-row[data-period="${period}"]`;
+
+    await browser.waitUntil(
+        () => browser.execute((sel: string) => !!document.querySelector(sel), selector),
+        { timeout: 10000, interval: 100, timeoutMsg: `Timed out waiting for the period picker: ${period}` }
+    );
+
+    await browser.execute((sel: string) => {
+        (document.querySelector(sel) as HTMLElement).click();
+    }, selector);
+
+    await browser.pause(1000);
+}

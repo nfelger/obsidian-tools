@@ -8,17 +8,33 @@ import {
 	createMockVault,
 	createMockWorkspace
 } from '../mocks/obsidian.js';
-import type { ListItem, BulletFlowSettings } from '../../src/types';
+import type { ListItem, BulletFlowSettings, PeriodicGranularity } from '../../src/types';
 import { DEFAULT_SETTINGS } from '../../src/types';
 import type BulletFlowPlugin from '../../src/main';
-import { formatDailyPath } from '../../src/utils/periodicNotes';
+import { formatPeriodPath } from '../../src/utils/periodicNotes';
 import { periodicConfigWithFolder, asInterfaceSettings } from './periodicConfig';
+
+// The period picker is Obsidian UI — stand in for the user's answer, and
+// record the hints they were shown.
+const picker = vi.hoisted(() => ({
+	answer: 'daily' as PeriodicGranularity | null,
+	hints: null as Record<string, string> | null
+}));
+
+vi.mock('../../src/adapters/periodPicker', () => ({
+	promptForPeriod: vi.fn(async (_app: unknown, hints: Record<string, string>) => {
+		picker.hints = hints;
+		return picker.answer;
+	})
+}));
 
 interface TestTakeProjectTaskOptions {
 	source: string;
 	sourceFileName: string;
 	sourcePath?: string;
-	dailyNoteContent?: string | null;
+	targetNoteContent?: string | null;
+	/** What the user picks in the period modal; null = dismissed it */
+	period?: PeriodicGranularity | null;
 	today: Date;
 	cursorLine?: number;
 	selectionStartLine?: number | null;
@@ -30,8 +46,10 @@ interface TestTakeProjectTaskOptions {
 
 interface TestTakeProjectTaskResult {
 	source: string;
-	daily: string | null;
-	dailyPath: string | null;
+	target: string | null;
+	targetPath: string;
+	/** Target note names the picker offered, keyed by granularity */
+	pickerHints: Record<string, string> | null;
 	error: string | null;
 	notice: string | null;
 	notices: string[];
@@ -41,7 +59,8 @@ export async function testTakeProjectTaskPlugin({
 	source,
 	sourceFileName,
 	sourcePath: sourcePathOverride,
-	dailyNoteContent = '',
+	targetNoteContent = '',
+	period = 'daily',
 	today,
 	cursorLine = 0,
 	selectionStartLine = null,
@@ -54,8 +73,8 @@ export async function testTakeProjectTaskPlugin({
 	const listItems = parseMarkdownToListItems(normalizedSource) as ListItem[];
 
 	let sourceContent = normalizedSource;
-	let dailyContentState = dailyNoteContent !== null ? normalizeMarkdown(dailyNoteContent) : null;
-	const dailyExists = dailyNoteContent !== null;
+	let targetContentState = targetNoteContent !== null ? normalizeMarkdown(targetNoteContent) : null;
+	const targetExists = targetNoteContent !== null;
 
 	const settings: BulletFlowSettings = {
 		...DEFAULT_SETTINGS,
@@ -63,9 +82,12 @@ export async function testTakeProjectTaskPlugin({
 		projectKeywords
 	};
 
-	// Calculate daily note path
+	picker.answer = period;
+	picker.hints = null;
+
+	// Calculate the path of the note the picked period resolves to
 	const periodicConfig = periodicConfigWithFolder('+Diary');
-	const dailyPath = formatDailyPath(today, periodicConfig) + '.md';
+	const targetPath = formatPeriodPath(today, period ?? 'daily', periodicConfig) + '.md';
 	const sourcePath = sourcePathOverride || `${projectsFolder}/${sourceFileName}.md`;
 
 	// Create editor
@@ -96,10 +118,10 @@ export async function testTakeProjectTaskPlugin({
 		[sourcePath]: { listItems }
 	};
 
-	if (dailyExists) {
-		const dailyLines = normalizeMarkdown(dailyContentState!).split('\n');
+	if (targetExists) {
+		const targetLines = normalizeMarkdown(targetContentState!).split('\n');
 		const headings: any[] = [];
-		dailyLines.forEach((line, idx) => {
+		targetLines.forEach((line, idx) => {
 			const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
 			if (headingMatch) {
 				headings.push({
@@ -109,7 +131,7 @@ export async function testTakeProjectTaskPlugin({
 				});
 			}
 		});
-		fileCache[dailyPath] = { headings };
+		fileCache[targetPath] = { headings };
 	}
 
 	// Setup files
@@ -120,37 +142,37 @@ export async function testTakeProjectTaskPlugin({
 	});
 	allFiles.push(mockSourceFile);
 
-	let mockDailyFile: any = null;
-	if (dailyExists) {
-		mockDailyFile = createMockFile({
-			path: dailyPath,
-			basename: dailyPath.split('/').pop()!.replace('.md', '')
+	let mockTargetFile: any = null;
+	if (targetExists) {
+		mockTargetFile = createMockFile({
+			path: targetPath,
+			basename: targetPath.split('/').pop()!.replace('.md', '')
 		});
-		allFiles.push(mockDailyFile);
+		allFiles.push(mockTargetFile);
 	}
 
 	const mockVault = createMockVault({ files: allFiles });
 
 	mockVault.getAbstractFileByPath = vi.fn((path: string) => {
-		if (path === dailyPath && (dailyExists || mockDailyFile)) return mockDailyFile;
+		if (path === targetPath && (targetExists || mockTargetFile)) return mockTargetFile;
 		if (path === sourcePath) return mockSourceFile;
 		return null;
 	});
 
 	mockVault.createFolder = vi.fn(async () => {});
 	mockVault.create = vi.fn(async (path: string, content: string) => {
-		if (path !== dailyPath) throw new Error(`unexpected create: ${path}`);
-		mockDailyFile = createMockFile({ path, basename: path.split('/').pop()!.replace('.md', '') });
-		dailyContentState = content;
-		return mockDailyFile;
+		if (path !== targetPath) throw new Error(`unexpected create: ${path}`);
+		mockTargetFile = createMockFile({ path, basename: path.split('/').pop()!.replace('.md', '') });
+		targetContentState = content;
+		return mockTargetFile;
 	});
 
 	mockVault.process = vi.fn(async (file: any, processFn: (data: string) => string) => {
 		if (failTargetWrite) throw new Error('Simulated write failure');
-		if (file === mockDailyFile || file?.path === dailyPath) {
-			const currentContent = dailyContentState || '';
+		if (file === mockTargetFile || file?.path === targetPath) {
+			const currentContent = targetContentState || '';
 			const newContent = await processFn(currentContent);
-			dailyContentState = newContent;
+			targetContentState = newContent;
 			return newContent;
 		}
 		return '';
@@ -198,8 +220,9 @@ export async function testTakeProjectTaskPlugin({
 
 	return {
 		source: normalizeMarkdown(sourceContent),
-		daily: dailyContentState ? normalizeMarkdown(dailyContentState) : null,
-		dailyPath,
+		target: targetContentState ? normalizeMarkdown(targetContentState) : null,
+		targetPath,
+		pickerHints: picker.hints,
 		error: errors[0] || null,
 		notice: notices[0] || null,
 		notices

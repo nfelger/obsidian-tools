@@ -32,6 +32,7 @@ obsidian-tools/
 │   ├── adapters/                 # Obsidian API lives here, and only here
 │   │   ├── commandSetup.ts       # Active view, editor, vault, notices
 │   │   ├── periodicNoteCreator.ts # Daily Notes / Periodic Notes plugin boundary
+│   │   ├── periodPicker.ts       # Modal asking which period a task goes to
 │   │   └── projectCompletion.ts  # Project-note side of completing a task
 │   └── utils/                    # Domain services & pure functions
 │       ├── taskMarker.ts         # TaskState enum + TaskMarker class

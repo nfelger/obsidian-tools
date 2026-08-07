@@ -73,3 +73,62 @@ li[data-task="o"] > p > input:checked {
 	width: auto;
 	min-width: 250px;
 }
+
+/* ============================================
+ * Period Picker (day / week / month / year)
+ * ============================================ */
+
+.bullet-flow-period-picker {
+	padding: var(--size-4-2);
+}
+
+.bullet-flow-period-picker .period-title {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	padding: 0 var(--size-4-1) var(--size-4-1);
+}
+
+.bullet-flow-period-picker .period-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+}
+
+.bullet-flow-period-picker .period-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	cursor: pointer;
+	padding: var(--size-2-1) var(--size-4-1);
+	border-radius: var(--radius-s);
+}
+
+.bullet-flow-period-picker .period-row:active {
+	background-color: var(--background-modifier-hover);
+}
+
+.bullet-flow-period-picker .period-key {
+	font-family: var(--font-monospace);
+	background-color: var(--background-modifier-hover);
+	padding: var(--size-2-1) var(--size-4-2);
+	border-radius: var(--radius-s);
+	min-width: 1.5em;
+	text-align: center;
+	font-weight: 600;
+}
+
+.bullet-flow-period-picker .period-label {
+	color: var(--text-normal);
+}
+
+.bullet-flow-period-picker .period-hint {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	margin-left: auto;
+}
+
+/* Match the command menu: compact on desktop, roomier on mobile */
+.modal:has(.bullet-flow-period-picker) {
+	width: auto;
+	min-width: 250px;
+}

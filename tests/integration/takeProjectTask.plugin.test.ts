@@ -13,7 +13,7 @@ describe('takeProjectTask', () => {
 - [ ] Get sign-off from security team
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: `
+				targetNoteContent: `
 ## Log
 - Some existing content
 `,
@@ -25,7 +25,7 @@ describe('takeProjectTask', () => {
 			expect(result.source).toContain('- [<] Define rollback strategy');
 
 			// Daily: task added under ## Log with project link prepended
-			expect(result.daily).toContain('[[Migration Initiative]] Define rollback strategy');
+			expect(result.target).toContain('[[Migration Initiative]] Define rollback strategy');
 		});
 
 		it('prepends [[Project]] to the taken task', async () => {
@@ -34,12 +34,12 @@ describe('takeProjectTask', () => {
 - [ ] Write monitoring runbook
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: '',
+				targetNoteContent: '',
 				today,
 				cursorLine: 0
 			});
 
-			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Write monitoring runbook');
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Write monitoring runbook');
 		});
 
 		it('takes task with children', async () => {
@@ -50,7 +50,7 @@ describe('takeProjectTask', () => {
   - Check with ops team
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: '',
+				targetNoteContent: '',
 				today,
 				cursorLine: 0
 			});
@@ -60,9 +60,162 @@ describe('takeProjectTask', () => {
 			expect(result.source).not.toContain('failure modes');
 
 			// Daily: task and children present
-			expect(result.daily).toContain('[[Migration Initiative]] Define rollback strategy');
-			expect(result.daily).toContain('failure modes');
-			expect(result.daily).toContain('ops team');
+			expect(result.target).toContain('[[Migration Initiative]] Define rollback strategy');
+			expect(result.target).toContain('failure modes');
+			expect(result.target).toContain('ops team');
+		});
+	});
+
+	describe('choosing the target period', () => {
+		it('takes the task to the weekly note when the user picks the week', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Define rollback strategy
+`,
+				sourceFileName: 'Migration Initiative',
+				targetNoteContent: `
+## Todo
+`,
+				period: 'weekly',
+				today,
+				cursorLine: 0
+			});
+
+			expect(result.targetPath).toBe('+Diary/2026/01/2026-01-W05.md');
+			expect(result.source).toContain('- [<] Define rollback strategy');
+			expect(result.target).toContain('[[Migration Initiative]] Define rollback strategy');
+		});
+
+		it('takes the task to the monthly note when the user picks the month', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Define rollback strategy
+`,
+				sourceFileName: 'Migration Initiative',
+				targetNoteContent: '',
+				period: 'monthly',
+				today,
+				cursorLine: 0
+			});
+
+			expect(result.targetPath).toBe('+Diary/2026/2026-01 Jan.md');
+			expect(result.target).toContain('[[Migration Initiative]] Define rollback strategy');
+		});
+
+		it('takes the task to the yearly note when the user picks the year', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Define rollback strategy
+`,
+				sourceFileName: 'Migration Initiative',
+				targetNoteContent: '',
+				period: 'yearly',
+				today,
+				cursorLine: 0
+			});
+
+			expect(result.targetPath).toBe('+Diary/2026/2026.md');
+			expect(result.target).toContain('[[Migration Initiative]] Define rollback strategy');
+		});
+
+		it('offers the note each period would write to', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Define rollback strategy
+`,
+				sourceFileName: 'Migration Initiative',
+				targetNoteContent: '',
+				today,
+				cursorLine: 0
+			});
+
+			expect(result.pickerHints).toEqual({
+				daily: '2026-01-30 Fri',
+				weekly: '2026-01-W05',
+				monthly: '2026-01 Jan',
+				yearly: '2026'
+			});
+		});
+
+		it('names the chosen period in the notice', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Define rollback strategy
+`,
+				sourceFileName: 'Migration Initiative',
+				targetNoteContent: '',
+				period: 'monthly',
+				today,
+				cursorLine: 0
+			});
+
+			expect(result.notice).toBe('Take project task: Task taken to monthly note.');
+		});
+
+		it('leaves both notes untouched when the picker is dismissed', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Define rollback strategy
+  - Child note
+`,
+				sourceFileName: 'Migration Initiative',
+				targetNoteContent: `
+## Todo
+`,
+				period: null,
+				today,
+				cursorLine: 0
+			});
+
+			expect(result.source).toContain('- [ ] Define rollback strategy');
+			expect(result.source).toContain('- Child note');
+			expect(result.target).not.toContain('Migration Initiative');
+			expect(result.notices).toEqual([]);
+		});
+	});
+
+	describe('grouping follows the target note', () => {
+		it('groups under an existing collector in a weekly note', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Define rollback strategy
+`,
+				sourceFileName: 'Migration Initiative',
+				targetNoteContent: `
+## Todo
+- [ ] Push [[Migration Initiative]]
+	- [ ] Some other task
+`,
+				period: 'weekly',
+				today,
+				cursorLine: 0
+			});
+
+			const lines = result.target!.split('\n');
+			expect(lines).toContain('\t- [ ] Define rollback strategy');
+			expect(result.target).not.toContain('[[Migration Initiative]] Define rollback strategy');
+		});
+
+		it('gathers several tasks under a new collector in a monthly note', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] First task
+- [ ] Second task
+`,
+				sourceFileName: 'Migration Initiative',
+				targetNoteContent: `
+## Todo
+`,
+				period: 'monthly',
+				today,
+				selectionStartLine: 0,
+				selectionEndLine: 1
+			});
+
+			const lines = result.target!.split('\n');
+			expect(result.target).toContain('- [ ] Push [[Migration Initiative]]');
+			expect(lines).toContain('\t- [ ] First task');
+			expect(lines).toContain('\t- [ ] Second task');
 		});
 	});
 
@@ -73,7 +226,7 @@ describe('takeProjectTask', () => {
 - [ ] Define rollback strategy
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: `
+				targetNoteContent: `
 - [ ] Push [[Migration Initiative]]
 	- [ ] Some other task
 - [ ] Unrelated
@@ -83,12 +236,12 @@ describe('takeProjectTask', () => {
 			});
 
 			// Task arrives as a top-level prefixed task, not nested under the collector
-			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Define rollback strategy');
-			const lines = result.daily!.split('\n');
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Define rollback strategy');
+			const lines = result.target!.split('\n');
 			expect(lines).not.toContain('\t- [ ] Define rollback strategy');
 			// The collector and its existing child are untouched
-			expect(result.daily).toContain('- [ ] Push [[Migration Initiative]]');
-			expect(result.daily).toContain('\t- [ ] Some other task');
+			expect(result.target).toContain('- [ ] Push [[Migration Initiative]]');
+			expect(result.target).toContain('\t- [ ] Some other task');
 		});
 
 		it('does not insert under a "Finish [[Project]]" collector either', async () => {
@@ -97,16 +250,16 @@ describe('takeProjectTask', () => {
 - [ ] Final review
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: `
+				targetNoteContent: `
 - [ ] Finish [[Migration Initiative]]
 `,
 				today,
 				cursorLine: 0
 			});
 
-			expect(result.daily).toContain('- [ ] Finish [[Migration Initiative]]');
-			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Final review');
-			const lines = result.daily!.split('\n');
+			expect(result.target).toContain('- [ ] Finish [[Migration Initiative]]');
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Final review');
+			const lines = result.target!.split('\n');
 			expect(lines).not.toContain('\t- [ ] Final review');
 		});
 
@@ -116,7 +269,7 @@ describe('takeProjectTask', () => {
 - [ ] Some task
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: `
+				targetNoteContent: `
 ## Log
 - [ ] Pushing [[Migration Initiative]]
 `,
@@ -124,8 +277,8 @@ describe('takeProjectTask', () => {
 				cursorLine: 0
 			});
 
-			expect(result.daily).toContain('## Log');
-			expect(result.daily).toContain('[[Migration Initiative]] Some task');
+			expect(result.target).toContain('## Log');
+			expect(result.target).toContain('[[Migration Initiative]] Some task');
 		});
 	});
 
@@ -138,7 +291,7 @@ describe('takeProjectTask', () => {
 - [ ] Third task
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: '',
+				targetNoteContent: '',
 				today,
 				selectionStartLine: 0,
 				selectionEndLine: 2
@@ -150,10 +303,10 @@ describe('takeProjectTask', () => {
 			expect(result.source).toContain('- [<] Third task');
 
 			// Daily: no collector, each task individually prefixed
-			expect(result.daily).not.toContain('Push [[Migration Initiative]]');
-			expect(result.daily).toContain('- [ ] [[Migration Initiative]] First task');
-			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Second task');
-			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Third task');
+			expect(result.target).not.toContain('Push [[Migration Initiative]]');
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] First task');
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Second task');
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Third task');
 		});
 
 		it('preserves original order across multiple prefixed appends', async () => {
@@ -164,15 +317,15 @@ describe('takeProjectTask', () => {
 - [ ] Third task
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: '',
+				targetNoteContent: '',
 				today,
 				selectionStartLine: 0,
 				selectionEndLine: 2
 			});
 
-			const firstIdx = result.daily!.indexOf('First task');
-			const secondIdx = result.daily!.indexOf('Second task');
-			const thirdIdx = result.daily!.indexOf('Third task');
+			const firstIdx = result.target!.indexOf('First task');
+			const secondIdx = result.target!.indexOf('Second task');
+			const thirdIdx = result.target!.indexOf('Third task');
 
 			expect(firstIdx).toBeGreaterThan(-1);
 			expect(secondIdx).toBeGreaterThan(firstIdx);
@@ -185,13 +338,13 @@ describe('takeProjectTask', () => {
 - [ ] Lone task
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: '',
+				targetNoteContent: '',
 				today,
 				cursorLine: 0
 			});
 
-			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Lone task');
-			expect(result.daily).not.toContain('Push [[Migration Initiative]]');
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Lone task');
+			expect(result.target).not.toContain('Push [[Migration Initiative]]');
 		});
 
 		it('does not group under an existing collector even with multiple tasks selected', async () => {
@@ -202,7 +355,7 @@ describe('takeProjectTask', () => {
 - [ ] Third task
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: `
+				targetNoteContent: `
 - [ ] Push [[Migration Initiative]]
 - [ ] Some other task
 `,
@@ -211,11 +364,11 @@ describe('takeProjectTask', () => {
 				selectionEndLine: 2
 			});
 
-			const lines = result.daily!.split('\n');
+			const lines = result.target!.split('\n');
 			expect(lines).not.toContain('\t- [ ] First task');
-			expect(result.daily).toContain('- [ ] [[Migration Initiative]] First task');
-			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Second task');
-			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Third task');
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] First task');
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Second task');
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Third task');
 		});
 	});
 
@@ -227,7 +380,7 @@ describe('takeProjectTask', () => {
   - new note
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: `
+				targetNoteContent: `
 ## Todo
 - [<] [[Migration Initiative]] Draft plan
 `,
@@ -235,9 +388,9 @@ describe('takeProjectTask', () => {
 				cursorLine: 0
 			});
 
-			expect(result.daily!.match(/Draft plan/g)).toHaveLength(1);
-			expect(result.daily).toContain('- [ ] [[Migration Initiative]] Draft plan');
-			expect(result.daily).toContain('- new note');
+			expect(result.target!.match(/Draft plan/g)).toHaveLength(1);
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] Draft plan');
+			expect(result.target).toContain('- new note');
 		});
 
 		it('merges into a copy under a manually created collector', async () => {
@@ -247,7 +400,7 @@ describe('takeProjectTask', () => {
   - new note
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: `
+				targetNoteContent: `
 ## Todo
 - [ ] Push [[Migration Initiative]]
 	- [ ] Draft plan
@@ -256,8 +409,8 @@ describe('takeProjectTask', () => {
 				cursorLine: 0
 			});
 
-			expect(result.daily!.match(/Draft plan/g)).toHaveLength(1);
-			expect(result.daily).toContain('- new note');
+			expect(result.target!.match(/Draft plan/g)).toHaveLength(1);
+			expect(result.target).toContain('- new note');
 		});
 
 		it('matches an aliased daily copy', async () => {
@@ -266,7 +419,7 @@ describe('takeProjectTask', () => {
 - [ ] Draft plan
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: `
+				targetNoteContent: `
 ## Todo
 - [<] [[Migration Initiative|MI]] Draft plan
 `,
@@ -274,8 +427,8 @@ describe('takeProjectTask', () => {
 				cursorLine: 0
 			});
 
-			expect(result.daily!.match(/Draft plan/g)).toHaveLength(1);
-			expect(result.daily).toContain('- [ ] [[Migration Initiative|MI]] Draft plan');
+			expect(result.target!.match(/Draft plan/g)).toHaveLength(1);
+			expect(result.target).toContain('- [ ] [[Migration Initiative|MI]] Draft plan');
 		});
 	});
 
@@ -287,7 +440,7 @@ describe('takeProjectTask', () => {
 `,
 				sourceFileName: 'Not A Project',
 				sourcePath: '+Diary/2026/01/Not A Project.md',
-				dailyNoteContent: '',
+				targetNoteContent: '',
 				today,
 				cursorLine: 0
 			});
@@ -301,13 +454,13 @@ describe('takeProjectTask', () => {
 - [ ] Some task
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: null,
+				targetNoteContent: null,
 				today,
 				cursorLine: 0
 			});
 
 			expect(result.source).toContain('- [<] Some task');
-			expect(result.daily).toContain('[[Migration Initiative]] Some task');
+			expect(result.target).toContain('[[Migration Initiative]] Some task');
 		});
 
 		it('errors when cursor is not on an incomplete task', async () => {
@@ -316,7 +469,7 @@ describe('takeProjectTask', () => {
 - [x] Completed task
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: '',
+				targetNoteContent: '',
 				today,
 				cursorLine: 0
 			});
@@ -332,7 +485,7 @@ describe('takeProjectTask', () => {
 - [/] In progress task
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: '',
+				targetNoteContent: '',
 				today,
 				cursorLine: 0
 			});
@@ -341,7 +494,7 @@ describe('takeProjectTask', () => {
 			expect(result.source).toContain('- [<] In progress task');
 
 			// Daily: converted to open
-			expect(result.daily).toContain('- [ ] [[Migration Initiative]] In progress task');
+			expect(result.target).toContain('- [ ] [[Migration Initiative]] In progress task');
 		});
 	});
 
@@ -353,7 +506,7 @@ describe('takeProjectTask', () => {
   - Child note
 `,
 				sourceFileName: 'Migration Initiative',
-				dailyNoteContent: '',
+				targetNoteContent: '',
 				today: new Date(2026, 0, 30),
 				cursorLine: 0,
 				failTargetWrite: true

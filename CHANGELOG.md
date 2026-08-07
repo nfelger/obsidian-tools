@@ -5,6 +5,17 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Take project task** now asks where the task is going: day, week, month or
+  year. The picker shows the note behind each option, so you can see the target
+  before choosing, and dismissing it leaves both notes untouched. Tasks taken to
+  a weekly, monthly or yearly note gather under a `Push [[Project]]` collector,
+  as tasks arriving there from anywhere else already do; a task taken to today
+  still lands on its own line.
+
 ## [0.17.0] - 2026-08-07
 
 ### Added

@@ -6,7 +6,7 @@
  */
 
 import { moment } from '../vendor';
-import type { NoteInfo, PeriodicConfig } from '../types';
+import type { NoteInfo, PeriodicConfig, PeriodicGranularity } from '../types';
 import { DEFAULT_PERIODIC_CONFIG } from '../types';
 
 // === Pattern Utilities ===
@@ -84,10 +84,11 @@ export class PeriodicNoteService {
 	}
 
 	/**
-	 * Format a date as a daily note path.
+	 * Format the path of the periodic note of a given granularity that
+	 * contains the date.
 	 */
-	formatDailyPath(date: Date): string {
-		return formatDailyPath(date, this.config);
+	formatPeriodPath(date: Date, granularity: PeriodicGranularity): string {
+		return formatPeriodPath(date, granularity, this.config);
 	}
 }
 
@@ -298,6 +299,43 @@ function formatYearlyPath(
 }
 
 /**
+ * The day whose formatting names the weekly note of a date's week: Thursday
+ * for ISO weeks (it decides the week's month and year), the week's first day
+ * for locale weeks (see the weekly case of `getHigherNotePath`).
+ */
+function weeklyReferenceDay(date: Date, config: PeriodicConfig): ReturnType<typeof moment> {
+	return usesLocaleWeeks(config) ? moment(date).weekday(0) : moment(date).isoWeekday(4);
+}
+
+/**
+ * Format the path of the periodic note of a given granularity that contains
+ * the date — the note a task lands in when the user picks that period.
+ *
+ * @param date - The date the target period must contain
+ * @param granularity - Which period to target
+ * @param config - Periodic note folder/format configuration
+ */
+export function formatPeriodPath(
+	date: Date,
+	granularity: PeriodicGranularity,
+	config: PeriodicConfig = DEFAULT_PERIODIC_CONFIG
+): string {
+	switch (granularity) {
+		case 'daily':
+			return formatDailyPath(date, config);
+
+		case 'weekly':
+			return joinPath(config.weekly.folder, weeklyReferenceDay(date, config).format(config.weekly.format));
+
+		case 'monthly':
+			return formatMonthlyPath(date.getFullYear(), date.getMonth() + 1, config);
+
+		case 'yearly':
+			return formatYearlyPath(date.getFullYear(), config);
+	}
+}
+
+/**
  * Check if a date falls within a periodic note's range.
  *
  * @param date - The date to check
@@ -412,12 +450,7 @@ export function getHigherNotePath(
 			if (year === undefined || month === undefined || day === undefined) {
 				return null;
 			}
-			const date = new Date(year, month - 1, day);
-			const m = moment(date);
-			// Get Thursday of this week (determines ISO week year and month)
-			const thursday = m.clone().isoWeekday(4);
-			// Format using the weekly format directly - moment handles week 53 correctly
-			return joinPath(config.weekly.folder, thursday.format(config.weekly.format));
+			return formatPeriodPath(new Date(year, month - 1, day), 'weekly', config);
 		}
 
 		case 'weekly': {
