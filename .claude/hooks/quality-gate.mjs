@@ -7,13 +7,18 @@
  * so a human was the feedback loop. Blocking the stop puts the failure back in
  * front of the agent while it still has the context to fix it.
  *
- * Three properties matter, and each one is a bug if missing:
+ * Four properties matter, and each one is a bug if missing:
  *
- * 1. It skips when no source or test file has changed since the last green run.
- *    Stop fires at the end of *every* turn, including conversational ones, and a
- *    gate that re-runs the suite each time trains people to disable it.
- * 2. It blocks by returning `decision: block`, which hands `reason` to the agent.
- * 3. It blocks a given failure only once. An agent that cannot fix something must
+ * 1. It skips entirely when nothing under src/ or tests/ has changed since the
+ *    last green run. Stop fires at the end of *every* turn, including purely
+ *    conversational ones, and a gate that re-runs the suite each time trains
+ *    people to disable it.
+ * 2. It never repeats a test run someone else already did. Agents run `npm test`
+ *    themselves; npm's posttest hook records the tree the suite passed on, so the
+ *    gate trusts that result instead of paying for it twice. Lint and audit still
+ *    run — they cost milliseconds and nobody runs them out of habit.
+ * 3. It blocks by returning `decision: block`, which hands `reason` to the agent.
+ * 4. It blocks a given failure only once. An agent that cannot fix something must
  *    not be trapped in a loop, so a repeat of the same failure is allowed through
  *    with a warning to the human instead.
  *
@@ -24,12 +29,11 @@
 
 import { spawnSync } from 'child_process';
 import { createHash } from 'crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 
 const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
 const WATCHED = ['src', 'tests'];
-const SOURCE_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
 
 /** Exit without blocking and without saying anything. */
 function quiet() {
@@ -50,66 +54,96 @@ function readStdin() {
 }
 
 /**
- * Fingerprint the watched trees by path, size and mtime.
+ * Content hash of the working tree under src/ and tests/.
  *
- * Cheaper than hashing contents and does not depend on git, so it also notices
- * edits to files that were never staged.
+ * Git does the work: the diff against HEAD covers every tracked change, and the
+ * contents of untracked files cover new ones. Two simpler versions are wrong,
+ * and both were tried first:
+ *
+ *   - `git status --porcelain` alone. Editing a tracked file twice produces
+ *     identical porcelain output both times, so the second edit reads as
+ *     "nothing changed" and skips the gate.
+ *   - Hashing path, size and mtime. Then `npm ci`, a checkout, or any tool that
+ *     rewrites a file unchanged looks like an edit and pays for a full run.
+ *
+ * Returns null when git cannot answer, which callers treat as "assume changed".
  */
 function fingerprint() {
-	const parts = [];
+	const git = (args) =>
+		spawnSync('git', args, { cwd: projectDir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 
-	const walk = (dir) => {
-		let entries;
+	const diff = git(['diff', 'HEAD', '--', ...WATCHED]);
+	if (diff.error || diff.status !== 0) return null;
+
+	const untracked = git(['ls-files', '-o', '--exclude-standard', '--', ...WATCHED]);
+	if (untracked.error || untracked.status !== 0) return null;
+
+	const hash = createHash('sha1').update(diff.stdout);
+	for (const file of untracked.stdout.split('\n').filter(Boolean)) {
+		hash.update(file);
 		try {
-			entries = readdirSync(dir, { withFileTypes: true });
+			hash.update(readFileSync(path.join(projectDir, file)));
 		} catch {
-			return;
+			// Vanished between listing and reading; the path alone still marks it.
 		}
-		for (const entry of entries) {
-			if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
-			const full = path.join(dir, entry.name);
-			if (entry.isDirectory()) {
-				walk(full);
-			} else if (SOURCE_RE.test(entry.name)) {
-				const s = statSync(full);
-				parts.push(`${path.relative(projectDir, full)}:${s.size}:${s.mtimeMs}`);
-			}
-		}
-	};
-
-	for (const dir of WATCHED) walk(path.join(projectDir, dir));
-	parts.sort();
-	return createHash('sha1').update(parts.join('\n')).digest('hex');
+	}
+	return hash.digest('hex');
 }
 
 const stateDir = path.join(projectDir, '.claude', 'hooks', '.state');
+
+/**
+ * Where a passing test run is recorded, against the tree it passed on.
+ *
+ * Shared rather than per-session on purpose: the fingerprint describes the
+ * working tree, so whoever last ran the suite — this hook, an agent via
+ * `npm test`, or a person — answers the question for everyone.
+ */
+const greenFile = path.join(stateDir, 'tests-green.json');
+
+function readJson(file, fallback) {
+	try {
+		return JSON.parse(readFileSync(file, 'utf8'));
+	} catch {
+		return fallback;
+	}
+}
+
+function writeJson(file, value) {
+	try {
+		mkdirSync(stateDir, { recursive: true });
+		writeFileSync(file, JSON.stringify(value));
+	} catch {
+		// State we cannot write only costs a redundant run.
+	}
+}
+
+// `--stamp-tests-green`: record that the suite passed on the current tree. Wired
+// to npm's posttest hooks, which run only when the tests actually passed, so an
+// agent's own `npm test` spares the gate from repeating it.
+if (process.argv.includes('--stamp-tests-green')) {
+	const fp = fingerprint();
+	if (fp) writeJson(greenFile, { fingerprint: fp });
+	process.exit(0);
+}
+
 const input = readStdin();
 const sessionId = String(input.session_id ?? 'unknown').replace(/[^A-Za-z0-9_-]/g, '');
 const stateFile = path.join(stateDir, `${sessionId}.json`);
 
-function loadState() {
-	try {
-		return JSON.parse(readFileSync(stateFile, 'utf8'));
-	} catch {
-		return { lastPassed: null, blocked: [] };
-	}
-}
-
-function saveState(state) {
-	try {
-		mkdirSync(stateDir, { recursive: true });
-		writeFileSync(stateFile, JSON.stringify(state));
-	} catch {
-		// A state file we cannot write only costs a redundant run.
-	}
-}
+const loadState = () => readJson(stateFile, { lastPassed: null, blocked: [] });
+const saveState = (state) => writeJson(stateFile, state);
 
 // Nothing to gate if the project has no watched sources (or we are not in it).
 if (!WATCHED.some((d) => existsSync(path.join(projectDir, d)))) quiet();
 
 const current = fingerprint();
 const state = loadState();
-if (state.lastPassed === current) quiet();
+if (current !== null && state.lastPassed === current) quiet();
+
+// Skip only the expensive sensor when the suite already passed on this exact
+// tree. Lint and audit still run: they cost milliseconds.
+const testsAlreadyGreen = current !== null && readJson(greenFile, {}).fingerprint === current;
 
 // --- Sensor 1: lint errors ------------------------------------------------
 
@@ -139,13 +173,18 @@ if (!lint.error && typeof lint.stdout === 'string') {
 const resultsFile = path.join(stateDir, `${sessionId}-vitest.json`);
 mkdirSync(stateDir, { recursive: true });
 
-const tests = spawnSync(
-	'npx',
-	['vitest', 'run', '--reporter=json', `--outputFile=${resultsFile}`],
-	{ cwd: projectDir, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }
-);
+const tests = testsAlreadyGreen
+	? { status: 0, skipped: true }
+	: spawnSync('npx', ['vitest', 'run', '--reporter=json', `--outputFile=${resultsFile}`], {
+			cwd: projectDir,
+			encoding: 'utf8',
+			maxBuffer: 32 * 1024 * 1024,
+		});
 
 const testsFailed = tests.status !== 0;
+
+// Record the pass so a later turn on the same tree need not repeat it.
+if (!testsFailed && !tests.skipped) writeJson(greenFile, { fingerprint: current });
 
 // --- Sensor 3: findings this change introduced ------------------------------
 //

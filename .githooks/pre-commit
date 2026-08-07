@@ -20,10 +20,26 @@ if [ -n "$PLANNING_COMMENTS" ]; then
   exit 1
 fi
 
-# Hook 2: Require CHANGELOG.md when bumping version files.
+# Hook 2: Require CHANGELOG.md when the version actually changes.
+#
+# Staging package.json is not the same as bumping it — adding a script touches
+# the same file. Comparing the version value against HEAD keeps the check on the
+# thing it cares about, so routine edits do not demand an empty changelog entry.
 STAGED=$(git diff --cached --name-only)
-VERSION_BUMPED=$(echo "$STAGED" | grep -E '^(manifest|package|versions)\.json$')
 CHANGELOG_STAGED=$(echo "$STAGED" | grep '^CHANGELOG\.md$')
+
+version_line() {
+  git show "$1:$2" 2>/dev/null | grep -m1 '"version"'
+}
+
+VERSION_BUMPED=""
+for f in manifest.json package.json; do
+  echo "$STAGED" | grep -qx "$f" || continue
+  [ "$(version_line HEAD "$f")" = "$(version_line "" "$f")" ] || VERSION_BUMPED="$f"
+done
+
+# versions.json is a map of released versions, so any change to it is a release.
+echo "$STAGED" | grep -qx 'versions.json' && VERSION_BUMPED="versions.json"
 
 if [ -n "$VERSION_BUMPED" ] && [ -z "$CHANGELOG_STAGED" ]; then
   echo "Blocked: version file staged without CHANGELOG.md."

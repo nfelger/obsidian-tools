@@ -252,10 +252,12 @@ Three behaviours are load-bearing, and each would be a defect if missing:
    the over-engineering spiral of §1.7 — it would also contradict the "warnings are a
    backlog" rule in `CLAUDE.md`. Errors are categorically different: an unused import is
    never a deliberate intermediate state.
-2. **`Stop` skips when nothing changed.** It fingerprints `src/` and `tests/` by path, size
-   and mtime, and returns immediately when that matches the last green run. Measured: 11s
-   on a real run, 0.065s when unchanged. Without this, every conversational turn would pay
-   for a full suite, and the gate would be disabled within a week.
+2. **`Stop` skips work it does not need to redo.** Two separate mechanisms, both measured:
+   when nothing under `src/` or `tests/` has changed since the last green run it returns in
+   **0.07s**; when the suite has already passed on this exact tree it runs lint and audit
+   only, in **1.0s** instead of **14s**. Without the first, every conversational turn would
+   pay for a full suite and the gate would be switched off within a week; without the
+   second, it would duplicate a test run the agent had just done itself.
 3. **`Stop` blocks a given failure only once.** A repeat of the same failure signature is
    allowed through with a `systemMessage` to the human instead. An agent that genuinely
    cannot fix something must not be trapped in a loop.
@@ -414,6 +416,34 @@ actions (`refactor-function`, `increase-coverage` — notably *not* raising a th
 - CI ran `npm test`, which does **not** enforce the coverage floor — so the ratchet added in
   P6a was decorative there. CI now runs `npm run test:coverage`, plus `npm run test:crap`
   for the istanbul data Fallow's CRAP scores need.
+
+**[revised] The tree fingerprint is git's job, not ours.** The first version hashed path,
+size and mtime from a hand-rolled directory walk. Two things are wrong with that. It is
+mtime-sensitive, so `npm ci` or a checkout that rewrites a file unchanged looks like an edit
+and pays for a full run. And it is more code than the problem needs: `git diff HEAD` plus
+the contents of untracked files is a content hash of exactly the right scope.
+
+The obvious simplification is wrong, though, and worth recording so nobody "tidies" it back:
+**`git status --porcelain` alone is not sufficient.** Editing a tracked file twice produces
+byte-identical porcelain output both times, so the second edit reads as "nothing changed"
+and the gate skips — verified. Content, not status.
+
+**Reusing a test run the agent already did.** The gate deterministically ran the suite even
+when the agent had just run it, which is duplicated wall-clock for no new information. npm's
+`posttest` hook runs *only when the tests passed*, so it stamps the fingerprint of the tree
+they passed on; the gate then trusts that stamp and skips its own run. The stamp is shared
+rather than per-session, since the fingerprint describes the working tree — a person's
+`npm test` satisfies an agent's gate too.
+
+Both guardrails were checked rather than assumed: a stamp written before a further edit does
+**not** suppress the run (the fingerprint no longer matches, and a newly broken test is
+still caught), and a failing suite never writes a stamp at all, because npm skips `posttest`
+on failure.
+
+Note the token cost was never the issue here — on the happy path the hook exits 0 with no
+output, and at exit 0 a `Stop` hook's stdout goes only to the debug log, so nothing enters
+the model's context. What the redundant run cost was time, and the agent's own duplicated
+effort.
 
 **Known characteristic, not a bug:** on the `Stop` hook the base is the merge-base with the
 branch's upstream, so it asks "what have I introduced since my last push" — the right
@@ -576,6 +606,13 @@ entries, use `cut-release` for a version bump.
 
 Verified: a planning comment blocks with its remedy, a suppression and a threshold edit are
 both *reported at exit 0*, and a clean commit is silent.
+
+**A false positive found by being blocked by it.** Hook 2 required a CHANGELOG entry whenever
+`package.json` was staged — but adding a script touches the same file, so routine edits
+demanded an entry for a version that had not moved. It now compares the `version` value
+against `HEAD` and only fires on a real bump (`versions.json` still counts wholesale, since
+it is a map of releases). Left alone, a check that misfires on ordinary work teaches people
+to write empty changelog entries, which is worse than not having the check.
 
 ## 9. P6 — Test effectiveness: coverage is not the sensor, mutation is
 
