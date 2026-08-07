@@ -31,7 +31,7 @@
 
   "coverageAnalysis": "perTest",
 
-  "_thresholdsComment": "low is the measured baseline, not an aspiration — it only rises. break stays null: this is an on-demand sensor, and a full run takes minutes, so it does not gate CI.",
+  "_thresholds_comment": "low is the measured baseline, not an aspiration — it only rises. break stays null: this is an on-demand sensor, and a full run takes minutes, so it does not gate CI.",
   "thresholds": {
     "high": 90,
     "low": 79,
