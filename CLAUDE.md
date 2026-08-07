@@ -70,29 +70,18 @@ use wikilinks as the paper trail
 
 ## Key APIs and Architecture
 
-**Obsidian APIs used:**
-- `this.app.vault` — file operations
-- `this.app.workspace` — navigate, get active view/editor
-- `this.app.metadataCache` — list item metadata
-- `this.app.fileManager` — rename/move files (updates wikilinks)
-- `Notice` — user notifications
-
 **Domain patterns — use these, don't bypass:**
 - `TaskMarker` (`src/utils/taskMarker.ts`) — type-safe task state transitions; never manipulate
-  task markers as raw strings. See @docs/key-insights.md for extensibility guide.
+  task markers as raw strings. Its file header lists what to update when adding a state.
 - `PeriodicNoteService` (`src/utils/periodicNotes.ts`) — periodic note paths and week math;
   construct with `getPeriodicConfig()` (`src/adapters/periodicNoteCreator.ts`), which resolves
   folder/format per granularity from the Daily Notes / Periodic Notes plugins
 - `LinkResolver` interface (`src/types.ts`) — keeps Obsidian types out of domain logic;
   use `ObsidianLinkResolver` as the infrastructure adapter
 
-**Task state machine:**
+**Task state machine** (`[/]` Started transitions identically to `[ ]` Open):
 ```
 [ ] (Open)    ─┬─ migrateTask ──→ [>] (Migrated)  [terminal]
-               ├─ pushDown/pullUp → [<] (Scheduled) ─→ merge ─→ [ ] (Open)
-               └─ complete ──────→ [x] (Completed) [terminal]
-
-[/] (Started) ─┬─ migrateTask ──→ [>] (Migrated)  [terminal]
                ├─ pushDown/pullUp → [<] (Scheduled) ─→ merge ─→ [ ] (Open)
                └─ complete ──────→ [x] (Completed) [terminal]
 ```
@@ -182,8 +171,6 @@ Design specs live in `docs/specs/`, implementation plans in `docs/plans/`, both 
 
 ## Adding a New Command
 
-1. Create `src/commands/newCommand.ts` — follow the structure of any existing command
-2. Add types to `src/types.ts` if needed
-3. Write unit tests in `tests/unit/`
-4. Write integration tests in `tests/integration/`
-5. Register in `src/main.ts` via `this.addCommand(...)`
+Follow the structure of any existing file in `src/commands/`: shared types go in
+`src/types.ts`, unit and integration tests come first, and the command is registered in
+`src/main.ts` via `this.addCommand(...)`.
