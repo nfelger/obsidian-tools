@@ -6,7 +6,6 @@
  *   2. TaskMarker.fromLine() — add the character in the switch
  *   3. TaskMarker.isIncomplete() — decide if the new state is "incomplete"
  *   4. TaskMarker.isTerminal() — decide if the new state is terminal
- * See docs/key-insights.md for details.
  */
 
 // === Task State Machine ===
