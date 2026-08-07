@@ -9,8 +9,8 @@
  *
  * Four properties matter, and each one is a bug if missing:
  *
- * 1. It skips entirely when nothing under src/ or tests/ has changed since the
- *    last green run. Stop fires at the end of *every* turn, including purely
+ * 1. It skips entirely when nothing under src/, tests/ or scripts/ has changed
+ *    since the last green run. Stop fires at the end of *every* turn, including purely
  *    conversational ones, and a gate that re-runs the suite each time trains
  *    people to disable it.
  * 2. It never repeats a test run someone else already did. Agents run `npm test`
@@ -33,7 +33,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 
 const projectDir = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
-const WATCHED = ['src', 'tests'];
+// Must cover every directory the lint sensor below scans: a path the gate
+// lints but does not fingerprint can change without ever waking the gate.
+const WATCHED = ['src', 'tests', 'scripts'];
 
 /** Exit without blocking and without saying anything. */
 function quiet() {
@@ -54,7 +56,7 @@ function readStdin() {
 }
 
 /**
- * Content hash of the working tree under src/ and tests/.
+ * Content hash of the working tree under the watched directories.
  *
  * Git does the work: the diff against HEAD covers every tracked change, and the
  * contents of untracked files cover new ones. Two simpler versions are wrong,
