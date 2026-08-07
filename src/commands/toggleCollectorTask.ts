@@ -38,8 +38,8 @@ function applyToggle(editor: Editor, before: string, result: ToggleSuccess): voi
  *
  * With the cursor anywhere inside a collector's block, its task children rise
  * to top level, each prefixed with the collector's link. With the cursor on a
- * prefixed project task, that project's top-level tasks in the surrounding
- * section fold back under a collector.
+ * prefixed project task, that task folds back under a collector — select more
+ * lines to fold more tasks; tasks outside the selection stay where they are.
  *
  * Insertion decides the shape from the note's type — collectors in weekly and
  * above, prefixed tasks in daily notes. This is the manual override for the
@@ -56,7 +56,10 @@ export function toggleCollectorTask(plugin: BulletFlowPlugin): void {
 		const content = editor.getValue();
 		const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
 
-		const result = toggleProjectGrouping(content, editor.getCursor().line, {
+		const from = editor.getCursor('from');
+		const to = editor.getCursor('to');
+
+		const result = toggleProjectGrouping(content, { start: from.line, end: to.line }, {
 			sourcePath: file.path,
 			resolver,
 			settings: plugin.settings

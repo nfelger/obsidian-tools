@@ -111,12 +111,14 @@ from the note's type — collectors in weekly, monthly and yearly notes, separat
 tasks in daily notes. This command switches between them by hand.
 
 **Behavior:**
+- Cursor on a task carrying a project link → that task folds under a collector,
+  prefix stripped. **Select more lines to fold more tasks** — only what you
+  select moves, so a task for the same project left loose elsewhere stays loose.
+  An existing collector is reused rather than a second one created.
 - Cursor anywhere inside a collector's block → its tasks move up to the top
   level, each carrying the collector's link (alias included). Notes that aren't
-  tasks stay behind under the collector, which stays with them.
-- Cursor on a task carrying a project link → that project's top-level tasks in
-  the surrounding section fold under a collector, prefixes stripped. An existing
-  collector is reused rather than a second one created.
+  tasks stay behind under the collector, which stays with them. Ungrouping
+  always takes the whole collector; half a group is neither shape.
 - Sub-tasks and notes travel with their task, and completed or migrated tasks
   stay with the group rather than being left behind.
 - Tasks never move across a heading, so a `### Later` sub-section keeps its own.
@@ -128,7 +130,7 @@ tasks in daily notes. This command switches between them by hand.
 - [ ] [[Migration Initiative|MI]] Draft the rollback plan
 ```
 
-With the cursor on either project task:
+Selecting both project tasks:
 ```
 - [ ] Push [[Migration Initiative|MI]]
 	- [ ] Ask Samir for cost estimates
@@ -137,6 +139,10 @@ With the cursor on either project task:
 ```
 
 Running it again from inside the group restores the first shape.
+
+**Multi-select:** When text is selected, groups the top-level project tasks
+within the selection — reaching a task through any of its children. With no
+selection, only the task at the cursor is grouped.
 
 ## Workflow Overview
 

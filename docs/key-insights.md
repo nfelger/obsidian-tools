@@ -141,19 +141,32 @@ a task nested under something else — only top-level candidates are folded.
 **Toggling the shape by hand.** `toggleCollectorTask` (`src/utils/collectorToggle.ts`)
 is the manual override for the grouping flag's guess, and it is the one place
 that *removes* a collector. It reuses the same primitives rather than a second
-set of rules: grouping folds the slice's top-level prefixed tasks through
-`findCollector` (reuse an existing collector) or `groupUnderNewCollector`
-(create one), exactly as insertion cases 2 and 3 do. Two rules differ from
-insertion, and both follow from this being a reshape *within* one note rather
-than a transfer between two. Terminal tasks participate: a completed task is
-history the source keeps during a transfer, but leaving it behind while its
-siblings regroup would split the group, so
+set of rules: grouping folds prefixed tasks through `findCollector` (reuse an
+existing collector) or `groupUnderNewCollector` (create one), exactly as
+insertion cases 2 and 3 do. What differs is scope, and all of it follows from
+this being a manual reshape *within* one note rather than an automatic
+transfer between two.
+
+**Grouping acts on the selection, not the section.** Insertion-time
+consolidation may sweep up every matching task it finds — it is converging the
+section as a side effect of a transfer the user asked for. The toggle is the
+gesture itself, so it obeys the gesture's extent: `selectedRoots` maps each
+selected line to its top-level root (so selecting a task's note child selects
+that task), and only matches in that set fold. A task for the same project
+elsewhere in the section may be loose deliberately; sweeping it in would be the
+command deciding something the user did not ask for. Ungrouping is the
+exception — its unit is the whole collector, because its children are one group
+by definition and hoisting half of them leaves the note in neither shape.
+
+Two further rules differ from insertion. Terminal tasks participate: a
+completed task is history the source keeps during a transfer, but leaving it
+behind while its siblings regroup would split the group, so
 `findPrefixedProjectTasks({ includeTerminal: true })` gathers it and ungrouping
-hoists it. And the scope is the innermost heading-delimited slice around the
-**cursor** (`findSliceRange` over the whole document), not a configured target
-heading — the toggle works in any section of any note, including project notes.
-Ungrouping keeps the non-task children where they are, under a collector line
-that survives only to hold them; a collector left with nothing is removed.
+hoists it. And the search range is the innermost heading-delimited slice around
+the **target** (`findSliceRange` over the whole document), not a configured
+target heading — the toggle works in any section of any note, including project
+notes. Ungrouping keeps the non-task children where they are, under a collector
+line that survives only to hold them; a collector left with nothing is removed.
 Both directions require the collector or task to be at indent 0, because a
 nested one has no unambiguous set of siblings to gather.
 

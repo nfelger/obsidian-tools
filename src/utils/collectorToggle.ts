@@ -40,6 +40,12 @@ export interface ToggleContext {
 	settings: BulletFlowSettings;
 }
 
+/** Inclusive line range the user has selected; start === end for a cursor. */
+export interface Selection {
+	start: number;
+	end: number;
+}
+
 export type ToggleFailureReason =
 	/** The cursor is not on a collector or a project task */
 	| 'no-project-task'
@@ -105,25 +111,53 @@ function classifyLine(lines: string[], line: number, ctx: ToggleContext): Toggle
 }
 
 /**
- * Decide what the cursor is pointing at. A cursor anywhere inside a
- * collector's block toggles that collector, so the user need not land on the
+ * Clamp a selection to lines that exist. Every lookup downstream indexes
+ * `lines` directly, so this is what keeps a cursor past the end (or a
+ * negative one) from reading undefined.
+ */
+function clampToDocument(lines: string[], selection: Selection): Selection {
+	return {
+		start: Math.max(0, selection.start),
+		end: Math.min(lines.length - 1, selection.end)
+	};
+}
+
+/**
+ * The top-level lines the selection reaches into — a line's own root when it
+ * is nested, itself when it is already top-level. This is the set the toggle
+ * acts on: selecting a task's note child selects that task.
+ */
+function selectedRoots(lines: string[], selection: Selection): Set<number> {
+	const { start, end } = clampToDocument(lines, selection);
+	const roots = new Set<number>();
+	for (let i = start; i <= end; i++) {
+		const root = findTopLevelRoot(lines, i);
+		if (root >= 0) roots.add(root);
+	}
+	return roots;
+}
+
+/**
+ * Decide what the selection is pointing at: the first selected line that
+ * reads as a collector or a project task wins. A cursor anywhere inside a
+ * collector's block picks that collector, so the user need not land on the
  * collector line itself.
  */
-function detectToggleTarget(lines: string[], cursorLine: number, ctx: ToggleContext): ToggleTarget {
-	// Both bounds matter: every lookup below indexes `lines` directly.
-	if (cursorLine < 0 || cursorLine >= lines.length) return { kind: 'none', reason: 'no-project-task' };
+function detectToggleTarget(lines: string[], selection: Selection, ctx: ToggleContext): ToggleTarget {
+	const { start, end } = clampToDocument(lines, selection);
 
-	const root = findTopLevelRoot(lines, cursorLine);
-	if (root >= 0) {
+	for (let i = start; i <= end; i++) {
+		const root = findTopLevelRoot(lines, i);
+		if (root < 0) continue;
 		const target = classifyLine(lines, root, ctx);
 		if (target) return target;
 	}
 
-	// A collector or prefixed task the cursor sits on directly, but nested
+	// A collector or prefixed task the selection covers directly, but nested
 	// under something else: regrouping it would restructure a hierarchy that
 	// isn't this project's to reshape.
-	if (classifyLine(lines, cursorLine, ctx)) {
-		return { kind: 'none', reason: 'nested' };
+	for (let i = start; i <= end; i++) {
+		if (classifyLine(lines, i, ctx)) return { kind: 'none', reason: 'nested' };
 	}
 
 	return { kind: 'none', reason: 'no-project-task' };
@@ -210,19 +244,27 @@ function ungroupCollector(
 }
 
 /**
- * Fold the slice's top-level prefixed tasks for the project under a
+ * Fold the **selected** top-level prefixed tasks for the project under a
  * collector — the existing one when the slice already has it (so a second
  * collector is never created), otherwise a fresh one at the first task's
  * position.
+ *
+ * Only what the user pointed at moves. A task for the same project sitting
+ * elsewhere in the section is left alone: it may be loose deliberately, and
+ * sweeping it in would be the command deciding something the user didn't ask
+ * for. Insertion-time consolidation converges the section on its own; this is
+ * a manual gesture, so it obeys the gesture's extent.
  */
 function groupProjectTasks(
 	lines: string[],
 	target: { line: number; projectName: string },
-	ctx: ToggleContext,
-	slice: { start: number; end: number }
+	scope: { slice: { start: number; end: number }; roots: Set<number> },
+	ctx: ToggleContext
 ): Transformed {
+	const { slice, roots } = scope;
 	const keywords = parseProjectKeywords(ctx.settings.projectKeywords);
-	const matches = findPrefixedProjectTasks(lines, slice, target.projectName, { includeTerminal: true });
+	const matches = findPrefixedProjectTasks(lines, slice, target.projectName, { includeTerminal: true })
+		.filter(m => roots.has(m.line));
 	if (matches.length === 0) return { reason: 'no-matching-tasks' };
 
 	const collector = findCollector(lines, slice, target.projectName, keywords);
@@ -236,24 +278,28 @@ function groupProjectTasks(
 }
 
 /**
- * Toggle the project grouping around the cursor.
+ * Toggle the project grouping the selection points at.
+ *
+ * Grouping acts on the selected tasks only. Ungrouping acts on the whole
+ * collector the selection reaches — its children are one group by definition,
+ * and taking half of them out would leave the note in neither shape.
  *
  * @param content - The note's full text
- * @param cursorLine - Zero-based line the cursor sits on
+ * @param selection - Inclusive line range; start === end for a bare cursor
  */
 export function toggleProjectGrouping(
 	content: string,
-	cursorLine: number,
+	selection: Selection,
 	ctx: ToggleContext
 ): ToggleResult {
 	const lines = content.split('\n');
-	const target = detectToggleTarget(lines, cursorLine, ctx);
+	const target = detectToggleTarget(lines, selection, ctx);
 	if (target.kind === 'none') return { ok: false, reason: target.reason };
 
 	const slice = findSliceRange(lines, { start: -1, end: lines.length }, target.line);
 	const transformed = target.kind === 'ungroup'
 		? ungroupCollector(lines, target)
-		: groupProjectTasks(lines, target, ctx, slice);
+		: groupProjectTasks(lines, target, { slice, roots: selectedRoots(lines, selection) }, ctx);
 	if ('reason' in transformed) return { ok: false, reason: transformed.reason };
 
 	return {

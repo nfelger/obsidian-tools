@@ -15,9 +15,13 @@ const resolver: LinkResolver = {
 
 const ctx = { sourcePath: '+Diary/2026-08-07 Fri.md', resolver, settings: DEFAULT_SETTINGS };
 
-/** Run the toggle on markdown written as a template string. */
-function toggle(markdown: string, cursorLine: number, settings = DEFAULT_SETTINGS) {
-	return toggleProjectGrouping(markdown.trim(), cursorLine, { ...ctx, settings });
+/**
+ * Run the toggle on markdown written as a template string. A number is a bare
+ * cursor; a pair is an inclusive selection range.
+ */
+function toggle(markdown: string, at: number | [number, number], settings = DEFAULT_SETTINGS) {
+	const selection = typeof at === 'number' ? { start: at, end: at } : { start: at[0], end: at[1] };
+	return toggleProjectGrouping(markdown.trim(), selection, { ...ctx, settings });
 }
 
 describe('toggleProjectGrouping — ungrouping a collector', () => {
@@ -201,7 +205,7 @@ describe('toggleProjectGrouping — ungrouping a collector', () => {
 });
 
 describe('toggleProjectGrouping — grouping prefixed tasks', () => {
-	it('creates a collector at the first task and folds all of them under it', () => {
+	it('creates a collector at the first selected task and folds them under it', () => {
 		const result = toggle(`
 ## Todo
 
@@ -209,7 +213,7 @@ describe('toggleProjectGrouping — grouping prefixed tasks', () => {
 - [ ] [[P]] Ask Samir for numbers
 - [ ] [[Other]] Something else
 - [ ] [[P]] Draft update
-`, 3);
+`, [3, 6]);
 
 		expect(result).toMatchObject({ ok: true, direction: 'grouped', projectName: 'P', taskCount: 2 });
 		expect((result as any).content).toBe(`## Todo
@@ -221,12 +225,58 @@ describe('toggleProjectGrouping — grouping prefixed tasks', () => {
 - [ ] [[Other]] Something else`);
 	});
 
+	it('leaves the project\'s unselected tasks in the section alone', () => {
+		const result = toggle(`
+## Todo
+
+- [ ] [[P]] Ask Samir for numbers
+- [ ] [[P]] Draft update
+- [ ] [[P]] Book the review
+`, 2);
+
+		expect((result as any).taskCount).toBe(1);
+		expect((result as any).content).toBe(`## Todo
+
+- [ ] Push [[P]]
+	- [ ] Ask Samir for numbers
+- [ ] [[P]] Draft update
+- [ ] [[P]] Book the review`);
+	});
+
+	it('groups only what the selection covers', () => {
+		const result = toggle(`
+- [ ] [[P]] Ask Samir for numbers
+- [ ] [[P]] Draft update
+- [ ] [[P]] Book the review
+`, [0, 1]);
+
+		expect((result as any).taskCount).toBe(2);
+		expect((result as any).content).toBe(`- [ ] Push [[P]]
+	- [ ] Ask Samir for numbers
+	- [ ] Draft update
+- [ ] [[P]] Book the review`);
+	});
+
+	it('reaches a task through a child the selection covers', () => {
+		const result = toggle(`
+- [ ] [[P]] Ask Samir for numbers
+	- he is out until Tuesday
+- [ ] [[P]] Draft update
+`, 1);
+
+		expect((result as any).taskCount).toBe(1);
+		expect((result as any).content).toBe(`- [ ] Push [[P]]
+	- [ ] Ask Samir for numbers
+		- he is out until Tuesday
+- [ ] [[P]] Draft update`);
+	});
+
 	it('uses the first alias found and the first configured keyword', () => {
 		const settings = { ...DEFAULT_SETTINGS, projectKeywords: '"Advance", "Finish"' };
 		const result = toggle(`
 - [ ] [[P]] Ask Samir for numbers
 - [ ] [[P|EU]] Draft update
-`, 0, settings);
+`, [0, 1], settings);
 
 		expect((result as any).content).toBe(`- [ ] Advance [[P|EU]]
 	- [ ] Ask Samir for numbers
@@ -270,7 +320,7 @@ describe('toggleProjectGrouping — grouping prefixed tasks', () => {
 		const result = toggle(`
 - [x] [[P]] Ask Samir for numbers
 - [ ] [[P]] Draft update
-`, 1);
+`, [0, 1]);
 
 		expect((result as any).taskCount).toBe(2);
 		expect((result as any).content).toBe(`- [ ] Push [[P]]
@@ -337,7 +387,7 @@ describe('toggleProjectGrouping — grouping prefixed tasks', () => {
 		const result = toggle(`
 - [ ] [[1 Projekte/P]] Ask Samir for numbers
 - [ ] [[P]] Draft update
-`, 1);
+`, [0, 1]);
 
 		expect((result as any).taskCount).toBe(2);
 	});
@@ -366,7 +416,7 @@ describe('toggleProjectGrouping — round trip', () => {
 		expect((ungrouped as any).content).toBe(`- [ ] [[P|EU]] Ask Samir for numbers
 - [x] [[P|EU]] Draft update`);
 
-		const regrouped = toggleProjectGrouping((ungrouped as any).content, 0, ctx);
+		const regrouped = toggleProjectGrouping((ungrouped as any).content, { start: 0, end: 1 }, ctx);
 		expect((regrouped as any).content).toBe(grouped);
 	});
 });
@@ -400,7 +450,11 @@ describe('toggleProjectGrouping — nothing to toggle', () => {
 	it('refuses a collector with nothing above it to hang from', () => {
 		// Indented with no parent above it — malformed, but the toggle must
 		// not treat it as top-level.
-		const result = toggleProjectGrouping('\t- [ ] Push [[P]]\n\t\t- [ ] Draft update', 0, ctx);
+		const result = toggleProjectGrouping(
+			'\t- [ ] Push [[P]]\n\t\t- [ ] Draft update',
+			{ start: 0, end: 0 },
+			ctx
+		);
 
 		expect(result).toEqual({ ok: false, reason: 'nested' });
 	});
@@ -415,7 +469,7 @@ describe('toggleProjectGrouping — nothing to toggle', () => {
 					: null
 		};
 
-		const result = toggleProjectGrouping('- [ ] [[Codename]] Draft update', 0, {
+		const result = toggleProjectGrouping('- [ ] [[Codename]] Draft update', { start: 0, end: 0 }, {
 			...ctx,
 			resolver: aliasResolver
 		});

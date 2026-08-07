@@ -16,6 +16,9 @@ interface TestToggleCollectorTaskOptions {
 	source: string;
 	/** Line the cursor sits on, zero-based, counting from the trimmed source */
 	cursorLine: number;
+	/** Selected line range; omit for a bare cursor at cursorLine */
+	selectionStartLine?: number | null;
+	selectionEndLine?: number | null;
 	sourcePath?: string;
 	/** Project note basenames that exist in the vault */
 	projects?: string[];
@@ -32,6 +35,8 @@ interface TestToggleCollectorTaskResult {
 export async function testToggleCollectorTaskPlugin({
 	source,
 	cursorLine,
+	selectionStartLine = null,
+	selectionEndLine = null,
 	sourcePath = '+Diary/2026/08/2026-08-07 Fri.md',
 	projects = ['Migration Initiative'],
 	projectsFolder = '1 Projekte',
@@ -45,9 +50,12 @@ export async function testToggleCollectorTaskPlugin({
 		projectKeywords
 	};
 
+	const hasSelection = selectionStartLine !== null && selectionEndLine !== null;
 	const mockEditor = createMockEditor({
 		content: sourceContent,
-		cursor: { line: cursorLine, ch: 0 }
+		cursor: { line: cursorLine, ch: 0 },
+		selectionStart: hasSelection ? { line: selectionStartLine, ch: 0 } : null,
+		selectionEnd: hasSelection ? { line: selectionEndLine, ch: 0 } : null
 	});
 
 	// The editor mocks are re-derived from the live content on every call, so

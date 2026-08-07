@@ -101,7 +101,7 @@ describe('toggleCollectorTask — grouping', () => {
 		vi.clearAllMocks();
 	});
 
-	it('folds a project\'s prefixed tasks under a new collector', async () => {
+	it('folds the selected prefixed tasks under a new collector', async () => {
 		const result = await testToggleCollectorTaskPlugin({
 			source: `
 ## Todo
@@ -116,6 +116,8 @@ describe('toggleCollectorTask — grouping', () => {
 - morning standup
 `,
 			cursorLine: 3,
+			selectionStartLine: 3,
+			selectionEndLine: 5,
 			projects: ['Migration Initiative', 'Engineering Update']
 		});
 
@@ -132,6 +134,29 @@ describe('toggleCollectorTask — grouping', () => {
 - morning standup`);
 		expect(result.notice).toBe(
 			'Toggle collector task: 2 tasks grouped under Migration Initiative.'
+		);
+	});
+
+	it('leaves the project\'s other tasks where the user left them', async () => {
+		const result = await testToggleCollectorTaskPlugin({
+			source: `
+## Todo
+
+- [ ] [[Migration Initiative]] Ask Samir for cost estimates
+- [ ] [[Migration Initiative]] Draft the rollback plan
+- [ ] [[Migration Initiative]] Book the retro
+`,
+			cursorLine: 3
+		});
+
+		expect(result.source).toBe(`## Todo
+
+- [ ] [[Migration Initiative]] Ask Samir for cost estimates
+- [ ] Push [[Migration Initiative]]
+	- [ ] Draft the rollback plan
+- [ ] [[Migration Initiative]] Book the retro`);
+		expect(result.notice).toBe(
+			'Toggle collector task: 1 task grouped under Migration Initiative.'
 		);
 	});
 
@@ -165,7 +190,9 @@ describe('toggleCollectorTask — grouping', () => {
 
 - [ ] [[Migration Initiative]] Draft the rollback plan
 `,
-			cursorLine: 2
+			cursorLine: 2,
+			selectionStartLine: 0,
+			selectionEndLine: 6
 		});
 
 		expect(result.source).toBe(`## Todo
@@ -210,7 +237,12 @@ describe('toggleCollectorTask — round trip', () => {
 - [x] [[Migration Initiative|MI]] Draft the rollback plan
 - [ ] Book the retro`);
 
-		const regrouped = await testToggleCollectorTaskPlugin({ source: ungrouped.source, cursorLine: 2 });
+		const regrouped = await testToggleCollectorTaskPlugin({
+			source: ungrouped.source,
+			cursorLine: 2,
+			selectionStartLine: 2,
+			selectionEndLine: 3
+		});
 		expect(regrouped.source).toBe(grouped);
 	});
 });

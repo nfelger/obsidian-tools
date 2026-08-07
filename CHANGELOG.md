@@ -12,10 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Toggle collector task grouping** — switch a project's tasks between the two
   shapes Bullet Flow already writes: gathered under one `- [ ] Push [[Project]]`
   bullet, or listed individually with the project link on each. Put the cursor
-  anywhere in a collector to spread its tasks back out, or on any project task
-  to gather that project's tasks in the section back up. Aliases, sub-tasks and
-  notes travel along, and completed tasks stay with their group. Available from
-  the command menu as `g`.
+  anywhere in a collector to spread its tasks back out, or on a project task to
+  gather it up — select several lines to gather several. Tasks you did not
+  select stay where you left them. Aliases, sub-tasks and notes travel along,
+  and completed tasks stay with their group. Available from the command menu
+  as `g`.
 
 ### Fixed
 
