@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation testing measures whether the suite's assertions actually bite: coverage says a line ran, not that its effect was checked. Scoped to the pure domain modules every command depends on — they are deterministic text transformations, so a surviving mutant is a real assertion gap rather than flakiness. Run with `npm run test:mutation`.",
+
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.config.js"
+  },
+
+  "mutate": [
+    "src/utils/tasks.ts",
+    "src/utils/taskMarker.ts",
+    "src/utils/projects.ts",
+    "src/utils/autoMove.ts",
+    "src/utils/indent.ts",
+    "src/utils/listItems.ts",
+    "src/utils/wikilinks.ts",
+    "src/utils/periodicNotes.ts",
+    "src/utils/notices.ts"
+  ],
+
+  "reporters": ["progress", "clear-text", "json"],
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
+  "clearTextReporter": {
+    "maxTestsToLog": 0
+  },
+
+  "coverageAnalysis": "perTest",
+
+  "_thresholdsComment": "low is the measured baseline, not an aspiration — it only rises. break stays null: this is an on-demand sensor, and a full run takes minutes, so it does not gate CI.",
+  "thresholds": {
+    "high": 90,
+    "low": 79,
+    "break": null
+  },
+
+  "incrementalFile": "reports/stryker-incremental.json",
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": true
+}

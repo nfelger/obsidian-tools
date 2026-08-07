@@ -1,0 +1,51 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": ["main.js", "coverage/**", ".fallow/**"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ],
+
+    "max-params": ["warn", { "max": 4 }],
+    "max-lines-per-function": ["warn", { "max": 80 }],
+    "max-lines": ["warn", { "max": 650 }],
+    "complexity": ["warn", { "max": 15 }],
+    "max-depth": ["warn", { "max": 4 }]
+  },
+  "overrides": [
+    {
+      "files": ["tests/**", "scripts/**"],
+      "rules": {
+        "max-lines": "off",
+        "max-lines-per-function": "off",
+        "max-params": "off",
+        "complexity": "off"
+      }
+    },
+    {
+      "files": ["src/utils/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "obsidian",
+                "allowTypeImports": true,
+                "message": "Domain code must not import Obsidian values. Put the Obsidian call in src/adapters/ and pass the result in, or take a narrow interface (see LinkResolver in src/types.ts). For moment, import from src/vendor.ts."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

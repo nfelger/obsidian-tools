@@ -221,7 +221,7 @@ export interface CollectorLink {
 	linkText: string;
 }
 
-export interface CollectorLineShape extends CollectorLink {
+interface CollectorLineShape extends CollectorLink {
 	/** Link target as written (possibly path-form), not yet resolved/matched */
 	linkTarget: string;
 }

@@ -8,7 +8,12 @@ SRC_CHANGED=$(git diff "$BASE" HEAD --name-only -- src/)
 VERSION_CHANGED=$(git diff "$BASE" HEAD --name-only -- manifest.json package.json versions.json)
 
 if [ -n "$SRC_CHANGED" ] && [ -z "$VERSION_CHANGED" ]; then
-  echo "Error: src/ changed since main but no version bump found on this branch."
-  echo "Bump manifest.json, package.json, and versions.json before pushing."
+  echo "Blocked: src/ changed on this branch but no version bump."
+  echo ""
+  echo "To fix: bump the version in manifest.json, package.json and"
+  echo "versions.json, and add a matching CHANGELOG.md entry. Keep all three"
+  echo "in step — versions.json maps the new version to manifest's"
+  echo "minAppVersion. For a release, use the cut-release skill, which does"
+  echo "all of this in one commit."
   exit 1
 fi

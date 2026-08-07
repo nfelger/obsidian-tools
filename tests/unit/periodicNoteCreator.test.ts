@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { getPeriodicConfig } from '../../src/utils/periodicNoteCreator';
+import { getPeriodicConfig } from '../../src/adapters/periodicNoteCreator';
 import { DEFAULT_PERIODIC_CONFIG } from '../../src/types';
 
 afterEach(() => {

@@ -6,8 +6,14 @@
 npm test              # Run all tests
 npm run test:watch    # Watch mode (TDD)
 npm run test:coverage # Coverage report
+npm run test:mutation # Mutation score — are the assertions load-bearing?
 npm run test:ui       # Interactive UI
 ```
+
+A surviving mutant means Stryker changed the code and the suite still passed, so nothing
+asserted on that behaviour — the gap coverage cannot show. `node mutation-report.mjs
+hotspots --file <path>` gives the lines; strengthen the assertion rather than adding a test
+that merely executes the branch.
 
 ## Pattern: Markdown-First
 

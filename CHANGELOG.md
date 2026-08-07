@@ -5,6 +5,40 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.2] - 2026-08-06
+
+### Maintenance
+
+- The Obsidian API is now confined to `src/adapters/`, so the task, project and
+  date logic is plain code with no editor dependency — easier to reason about
+  and to test. Two checks keep it that way rather than relying on convention.
+- Added mutation testing for the core logic, which reports where the tests run
+  code without actually checking what it does. Coverage cannot see that.
+- Added a whole-codebase design review, run before a release, that looks for
+  duplicated ideas and misplaced logic — the kind of drift no automated check
+  detects.
+- Added codebase analysis (dead code, duplication, complexity) that reports only
+  what a change newly introduces, leaving the existing backlog to be worked
+  down deliberately. It runs in CI and alongside AI coding sessions.
+- Lint and the test suite now run automatically before an AI coding session can
+  finish a turn, and lint errors in a file are reported back as soon as it is
+  written. Failures come with the suggested fix attached, so problems get caught
+  while the work is fresh rather than at review time. Development-only; the
+  plugin itself is unchanged.
+- Added linting to the development setup, configured with the size and
+  complexity limits that catch the mistakes AI-assisted changes tend to make.
+  Findings carry a suggested fix rather than only naming the rule, and the
+  limits that existing code already exceeds are reported as advisory warnings
+  so they can be tightened as the code improves instead of blocking work.
+- The auto-move trigger detection — the logic deciding whether a keystroke
+  actually completed or started a task — is now covered by tests. It was the
+  most complex untested code in the plugin, and it guards every automatic move
+  and project completion.
+- Raised the test coverage floor to sit just below actual coverage, so a drop
+  fails the test run instead of going unnoticed.
+- Removed unused imports and a dead local, and dropped an unnecessary export.
+  No behavior change.
+
 ## [0.16.1] - 2026-08-06
 
 ### Fixed

@@ -1,4 +1,4 @@
-import { Notice, TFile } from 'obsidian';
+import { Notice } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { markTaskAsScheduled, prepareTaskContentForTarget } from '../utils/tasks';
 import type { ProjectTaskInsertItem } from '../types';
@@ -9,10 +9,10 @@ import {
 	findSelectedTaskLines,
 	getTransferableChildren,
 	removeTransferredChildren
-} from '../utils/commandSetup';
+} from '../adapters/commandSetup';
 import { isProjectNote, getProjectName, parseProjectKeywords, insertProjectTasksInSection } from '../utils/projects';
 import { PeriodicNoteService } from '../utils/periodicNotes';
-import { getPeriodicConfig } from '../utils/periodicNoteCreator';
+import { getPeriodicConfig } from '../adapters/periodicNoteCreator';
 import { formatTransferNotice } from '../utils/notices';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 

@@ -14,6 +14,7 @@ obsidian-tools/
 │   ├── types.ts                  # All shared types — add new types here
 │   ├── config.ts                 # Notice timeouts & hotkey bindings
 │   ├── settings.ts               # Plugin settings tab
+│   ├── vendor.ts                 # Obsidian's re-exported moment (see layering below)
 │   ├── commands/                 # One file per command
 │   │   ├── extractLog.ts
 │   │   ├── migrateTask.ts
@@ -27,17 +28,18 @@ obsidian-tools/
 │   │   └── autoMoveCompleted.ts  # CM6 extension for auto-move (+ auto project completion)
 │   ├── ui/
 │   │   └── HotkeyModal.ts       # Leader-key hotkey modal
+│   ├── adapters/                 # Obsidian API lives here, and only here
+│   │   ├── commandSetup.ts       # Active view, editor, vault, notices
+│   │   ├── periodicNoteCreator.ts # Daily Notes / Periodic Notes plugin boundary
+│   │   └── projectCompletion.ts  # Project-note side of completing a task
 │   └── utils/                    # Domain services & pure functions
-│       ├── commandSetup.ts       # Common command setup
 │       ├── taskMarker.ts         # TaskState enum + TaskMarker class
 │       ├── tasks.ts              # Task utilities; re-exports from taskMarker.ts
 │       ├── periodicNotes.ts      # PeriodicNoteService (paths, week math)
-│       ├── periodicNoteCreator.ts # Daily Notes / Periodic Notes plugin boundary
 │       ├── wikilinks.ts          # LinkResolver + wikilink parsing
 │       ├── listItems.ts          # List item operations
 │       ├── indent.ts             # Indentation utilities
 │       ├── projects.ts           # Project note detection
-│       ├── projectCompletion.ts  # Project-note side of completing a task
 │       ├── autoMove.ts           # Auto-move computation logic
 │       └── notices.ts            # Shared transfer-command notice text
 ├── tests/
@@ -79,7 +81,7 @@ use wikilinks as the paper trail
 - `TaskMarker` (`src/utils/taskMarker.ts`) — type-safe task state transitions; never manipulate
   task markers as raw strings. See @docs/key-insights.md for extensibility guide.
 - `PeriodicNoteService` (`src/utils/periodicNotes.ts`) — periodic note paths and week math;
-  construct with `getPeriodicConfig()` (`src/utils/periodicNoteCreator.ts`), which resolves
+  construct with `getPeriodicConfig()` (`src/adapters/periodicNoteCreator.ts`), which resolves
   folder/format per granularity from the Daily Notes / Periodic Notes plugins
 - `LinkResolver` interface (`src/types.ts`) — keeps Obsidian types out of domain logic;
   use `ObsidianLinkResolver` as the infrastructure adapter
@@ -106,15 +108,26 @@ use wikilinks as the paper trail
 
 For periodic note edge cases (ISO weeks, wikilink parsing, list hierarchy): @docs/key-insights.md
 
-## Testing
+## Testing and Linting
 
 ```bash
 npm test              # Run all tests
 npm run test:watch    # Watch mode (TDD)
-npm run test:coverage # Coverage report
+npm run test:coverage # Coverage report (fails below the floor in vitest.config.js)
+npm run lint          # Errors block; complexity/size limits are advisory warnings
+npm run lint:guided   # Same findings, each with how to fix it
+npm run audit:code    # Dead code, duplication, complexity — only what this change adds
+npm run test:mutation # Slow, on demand: do the assertions actually catch changes?
 ```
 
+Mutation testing answers what coverage cannot — coverage says a line ran, not that its
+effect was asserted. Query the report with `node mutation-report.mjs summary|files|hotspots`;
+never read `reports/mutation/mutation.json` directly, it embeds every mutated source file.
+
 Write tests first. See @tests/CLAUDE.md for patterns and mock API reference.
+
+Lint and tests also run automatically before a turn can end (`.claude/hooks/`). That is a
+backstop, not a substitute for running them as you work.
 
 ## Code Conventions
 
@@ -124,12 +137,25 @@ belong in GitHub issues and PR descriptions — not in source files.
 **NEVER include statistics in documentation.** Line counts, test counts, and coverage
 percentages go out of date immediately. Describe *what*, not *how many*.
 
-**Expose Obsidian types only at the boundary.** Domain interfaces (like `LinkResolver`)
-must not reference `TFile` or other Obsidian types — use the adapter pattern.
+**Call the Obsidian API only from `src/adapters/`.** Domain code under `src/utils/` may
+*name* Obsidian types (`import type { TFile }`) but must never import a value from
+`obsidian` — take a narrow interface instead, as `LinkResolver` (`src/types.ts`) does, or do
+the call in an adapter and pass the result in. Obsidian's vendored `moment` comes from
+`src/vendor.ts`, which is library access rather than a boundary crossing. Both halves are
+enforced: `no-restricted-imports` in `.oxlintrc.json` for the API, `boundaries` in
+`.fallowrc.json` for import direction and for keeping new files inside the layering.
 
 **All shared types live in `src/types.ts`.** Import with `import type { TypeName } from '../types'`.
 Exception: the task state machine types (`TaskState`, `TaskMatch`) live with their logic in
 `src/utils/taskMarker.ts` and are re-exported through `src/utils/tasks.ts`.
+
+**Quality limits only tighten.** The lint warning thresholds (`.oxlintrc.json`) and the
+coverage floor (`vitest.config.js`) record where the code is today: raise them as it
+improves, never relax them to make a run pass. If a finding genuinely can't be refactored,
+suppress that one line with a `-- reason` rather than loosening the limit for everything.
+Advisory warnings are a backlog, not a to-do list — don't clear them alongside unrelated
+work. Rationale and the remaining roadmap:
+[docs/specs/2026-08-06-maintainability-sensors.md](docs/specs/2026-08-06-maintainability-sensors.md).
 
 ## Documentation: CHANGELOG
 

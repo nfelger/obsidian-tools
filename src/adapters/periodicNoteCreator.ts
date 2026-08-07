@@ -24,7 +24,7 @@ import {
 } from 'obsidian-daily-notes-interface';
 import type { NoteInfo, PeriodicConfig, PeriodPathConfig } from '../types';
 import { DEFAULT_PERIODIC_CONFIG } from '../types';
-import { getMondayOfISOWeek, usesLocaleWeeks } from './periodicNotes';
+import { getMondayOfISOWeek, usesLocaleWeeks } from '../utils/periodicNotes';
 
 /**
  * Resolve the folder/format configuration for all granularities from the

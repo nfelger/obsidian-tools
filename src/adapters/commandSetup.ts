@@ -1,12 +1,12 @@
 import { MarkdownView, Notice, TFile, Vault, Editor } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import type { ListItem, LinkResolver, BulletFlowSettings, ResolvedLink, ProjectTaskInsertItem } from '../types';
-import { isIncompleteTask, findTopLevelTasksInRange, selectTransferableChildLines, TaskMarker, prepareTaskContentForTarget } from './tasks';
-import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from './listItems';
-import { countIndent } from './indent';
-import { parseNoteType } from './periodicNotes';
+import { isIncompleteTask, findTopLevelTasksInRange, selectTransferableChildLines, TaskMarker, prepareTaskContentForTarget } from '../utils/tasks';
+import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from '../utils/listItems';
+import { countIndent } from '../utils/indent';
+import { parseNoteType } from '../utils/periodicNotes';
 import { createPeriodicNoteFromTemplate, getPeriodicConfig } from './periodicNoteCreator';
-import { findProjectLinkInAncestors } from './projects';
+import { findProjectLinkInAncestors } from '../utils/projects';
 
 /**
  * Context for working with an active markdown file.

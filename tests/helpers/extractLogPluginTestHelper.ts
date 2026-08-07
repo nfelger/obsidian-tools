@@ -7,7 +7,6 @@ import {
   createMockMetadataCache,
   createMockVault,
   createMockWorkspace,
-  createMockNotice,
   createMockClipboard
 } from '../mocks/obsidian.js';
 import type { ListItem, BulletFlowSettings } from '../../src/types';

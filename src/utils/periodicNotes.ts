@@ -5,7 +5,7 @@
  * @see https://momentjs.com/docs/#/displaying/format/
  */
 
-import { moment } from 'obsidian';
+import { moment } from '../vendor';
 import type { NoteInfo, PeriodicConfig } from '../types';
 import { DEFAULT_PERIODIC_CONFIG } from '../types';
 

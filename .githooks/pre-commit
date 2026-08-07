@@ -1,26 +1,52 @@
 #!/bin/sh
+#
+# Messages here are written to be acted on without further context — by a person
+# returning to the repo after a month, or by an agent that will otherwise guess.
+# Each one names the fix, not just the violation.
 
 # Hook 1: Block planning comments in staged TypeScript source files.
-# Comments should describe what the code is, not what it might become.
 PLANNING_COMMENTS=$(git diff --cached --name-only | grep -E '\.ts$' | \
   xargs grep -En '\b(TODO|FIXME|HACK|MVP|Slice)\b' 2>/dev/null)
 
 if [ -n "$PLANNING_COMMENTS" ]; then
-  echo "Error: planning comments found in staged .ts files."
-  echo "Comments should describe what the code is, not what it might become."
+  echo "Blocked: planning comments in staged .ts files."
   echo ""
   echo "$PLANNING_COMMENTS"
+  echo ""
+  echo "Comments should describe what the code is, not what it might become."
+  echo "To fix: delete the comment and open a GitHub issue for the intent, or"
+  echo "rewrite it to describe present behaviour. If the work is genuinely"
+  echo "unfinished, leave it out of this commit rather than annotating it."
   exit 1
 fi
 
-# Hook 2: Require CHANGELOG.md when bumping version files.
+# Hook 2: Require CHANGELOG.md when the version actually changes.
+#
+# Staging package.json is not the same as bumping it — adding a script touches
+# the same file. Comparing the version value against HEAD keeps the check on the
+# thing it cares about, so routine edits do not demand an empty changelog entry.
 STAGED=$(git diff --cached --name-only)
-VERSION_BUMPED=$(echo "$STAGED" | grep -E '^(manifest|package|versions)\.json$')
 CHANGELOG_STAGED=$(echo "$STAGED" | grep '^CHANGELOG\.md$')
 
+version_line() {
+  git show "$1:$2" 2>/dev/null | grep -m1 '"version"'
+}
+
+VERSION_BUMPED=""
+for f in manifest.json package.json; do
+  echo "$STAGED" | grep -qx "$f" || continue
+  [ "$(version_line HEAD "$f")" = "$(version_line "" "$f")" ] || VERSION_BUMPED="$f"
+done
+
+# versions.json is a map of released versions, so any change to it is a release.
+echo "$STAGED" | grep -qx 'versions.json' && VERSION_BUMPED="versions.json"
+
 if [ -n "$VERSION_BUMPED" ] && [ -z "$CHANGELOG_STAGED" ]; then
-  echo "Error: version file staged without CHANGELOG.md."
-  echo "Update the changelog before bumping versions."
+  echo "Blocked: version file staged without CHANGELOG.md."
+  echo ""
+  echo "To fix: add an entry under a '## [<version>] - <date>' heading in"
+  echo "CHANGELOG.md and stage it. Write what a user would notice, not what"
+  echo "changed internally; use '### Maintenance' for development-only work."
   exit 1
 fi
 
@@ -29,3 +55,38 @@ HOOK_DIR="$(dirname "$0")"
 if [ -x "$HOOK_DIR/check-claude-md-structure" ]; then
   "$HOOK_DIR/check-claude-md-structure" || exit 1
 fi
+
+# Hook 4: Report newly added quality exceptions. Advisory — never blocks.
+#
+# Suppressing a finding and ratcheting a threshold are both legitimate: they
+# keep a clean baseline reachable without forcing a bad refactor. What they must
+# not be is invisible, because the diff of exceptions is the highest-signal
+# place to start a review. So this lists them and moves on.
+
+# Added suppression comments, anywhere in the source.
+SUPPRESSIONS=$(git diff --cached -U0 -- 'src' 'tests' 2>/dev/null \
+  | grep -E '^\+' | grep -vE '^\+\+\+' \
+  | grep -E 'fallow-ignore|oxlint-disable|eslint-disable|@expected-unused')
+
+# Threshold changes in the config files. The line must carry a number, or every
+# passing mention of "complexity" in a comment reads as a raised limit — and a
+# ledger that cries wolf is one nobody reads.
+THRESHOLDS=$(git diff --cached -U0 -- .oxlintrc.json .fallowrc.json vitest.config.js stryker.config.json 2>/dev/null \
+  | grep -E '^\+' | grep -vE '^\+\+\+' \
+  | grep -E '(max-?(lines|params|depth|statements)|complexity|maxC(yclomatic|ognitive|rap)|maxUnitSize|thresholds|lines|branches|functions|statements)' \
+  | grep -E '[0-9]')
+
+EXCEPTIONS=$(printf '%s\n%s' "$SUPPRESSIONS" "$THRESHOLDS" | grep -vE '^$')
+
+if [ -n "$EXCEPTIONS" ]; then
+  echo "Note: this commit adds quality exceptions. Not blocking — review them."
+  echo ""
+  echo "$EXCEPTIONS"
+  echo ""
+  echo "A suppression needs a '-- reason' saying why refactoring is wrong here."
+  echo "Raising a threshold is a last resort; prefer extracting a function. It"
+  echo "is allowed when the complexity is the design, and the rule keeps firing"
+  echo "if things get worse. Never lower a limit to make a failing run pass."
+fi
+
+exit 0

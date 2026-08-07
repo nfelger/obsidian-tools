@@ -285,6 +285,7 @@ describe('computeAutoMove', () => {
 
 		// Inserted after "Already done" and before the blank line
 		expect(doneTaskIdx).toBeGreaterThan(alreadyDoneIdx);
+		expect(doneTaskIdx).toBeLessThan(blankIdx);
 		expect(futureIdx).toBeGreaterThan(doneTaskIdx);
 	});
 

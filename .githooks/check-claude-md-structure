@@ -26,6 +26,8 @@ done
 
 if [ $ERRORS -gt 0 ]; then
   echo ""
-  echo "Update the structure diagram in CLAUDE.md to match the actual layout."
+  echo "To fix: edit the structure diagram in CLAUDE.md so it lists exactly"
+  echo "what is on disk. The diagram is a contract, not decoration — an agent"
+  echo "reads it to decide where code belongs, so a stale entry misleads."
   exit 1
 fi

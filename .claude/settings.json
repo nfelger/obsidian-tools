@@ -1,1 +1,35 @@
-{}
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/lint-edited-file.mjs",
+              "${tool_input.file_path}"
+            ],
+            "timeout": 60,
+            "statusMessage": "Linting the edited file..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/quality-gate.mjs"],
+            "timeout": 300,
+            "statusMessage": "Checking lint and tests before finishing..."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -8,7 +8,7 @@ import type { ChildrenBlock, ListItem } from '../types';
  * - optional checkbox: [x] where x is any non-[, non-] char
  * - trailing spaces after checkbox if present
  */
-const LIST_PREFIX_RE = /^(\s*[-*+]\s+(\[[^\[\]]\]\s+)?)?/;
+const LIST_PREFIX_RE = /^(\s*[-*+]\s+(\[[^[\]]\]\s+)?)?/;
 
 /**
  * Build a map from line numbers to list items.

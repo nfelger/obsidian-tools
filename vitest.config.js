@@ -11,6 +11,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Stryker copies the project into a sandbox to mutate it. Without this,
+    // a plain `npm test` during a mutation run collects those copies too and
+    // reports several times the real number of tests.
+    exclude: ['**/node_modules/**', '**/dist/**', '.stryker-tmp/**', 'reports/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -22,11 +26,13 @@ export default defineConfig({
         'src/**/*.spec.ts',
         'node_modules/**'
       ],
+      // Ratcheted to sit just under actual coverage, so a regression fails the
+      // run instead of being absorbed by slack. Raise these when coverage rises.
       thresholds: {
-        lines: 75,
-        functions: 75,
-        branches: 75,
-        statements: 75
+        lines: 88,
+        functions: 93,
+        branches: 85,
+        statements: 88
       }
     }
   }

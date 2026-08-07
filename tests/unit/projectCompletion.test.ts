@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { completionSubHeading, isCompletionLogged } from '../../src/utils/projectCompletion';
+import { completionSubHeading, isCompletionLogged } from '../../src/adapters/projectCompletion';
 
 describe('completionSubHeading', () => {
 	it('sits one level below the log heading', () => {

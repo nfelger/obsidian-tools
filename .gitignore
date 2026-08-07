@@ -3,7 +3,14 @@ node_modules/
 
 # Test coverage
 coverage/
+coverage-istanbul/
 .nyc_output/
+
+# Fallow analysis cache and baselines
+.fallow/
+
+# Per-session state written by the agent quality-gate hook
+.claude/hooks/.state/
 
 # Build outputs
 dist/
@@ -24,3 +31,7 @@ Thumbs.db
 
 # E2E test Obsidian binary cache
 .obsidian-cache/
+
+# Mutation testing output
+reports/
+.stryker-tmp/

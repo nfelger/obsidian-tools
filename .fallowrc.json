@@ -1,0 +1,86 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+
+  // The plugin, plus the root development tools. The tools are run directly
+  // (`node mutation-report.mjs`, or from a hook), so nothing imports them —
+  // without declaring them they read as dead files.
+  "entry": [
+    "src/main.ts",
+    "lint-guided.mjs",
+    "mutation-report.mjs",
+    ".claude/hooks/*.mjs"
+  ],
+
+  "ignorePatterns": ["main.js", "coverage/**", "coverage-istanbul/**"],
+
+  // Driven by the wdio CLI (`npm run test:e2e`), which loads
+  // tests/e2e/wdio.conf.ts itself. Nothing imports these, so static analysis
+  // cannot see the reference.
+  "ignoreDependencies": [
+    "@wdio/cli",
+    "@wdio/local-runner",
+    "@wdio/mocha-framework",
+    "@wdio/spec-reporter",
+    "wdio-obsidian-service"
+  ],
+
+  // Obsidian lifecycle overrides: the framework calls these, we never do.
+  "usedClassMembers": ["display", "onload", "onunload", "onOpen", "onClose"],
+
+  "rules": {
+    // The rule assumes a Node app whose `dependencies` are installed at
+    // runtime. This plugin ships one bundled main.js and nobody installs its
+    // dependency tree, so every dependency is build-time and devDependencies
+    // is the correct home. The rule's premise does not hold here.
+    "dev-dependencies-in-production": "off"
+  },
+
+  // Pins the layering CLAUDE.md describes. The companion rule is the
+  // no-restricted-imports override in .oxlintrc.json, which stops domain code
+  // calling the Obsidian API; this stops the layers importing each other the
+  // wrong way round, and stops new files appearing outside the structure.
+  "boundaries": {
+    "zones": [
+      { "name": "entry", "patterns": ["src/main.ts", "src/settings.ts", "src/vendor.ts"] },
+      { "name": "ui", "patterns": ["src/ui/**"] },
+      { "name": "commands", "patterns": ["src/commands/**", "src/events/**"] },
+      { "name": "adapters", "patterns": ["src/adapters/**"] },
+      { "name": "domain", "patterns": ["src/utils/**", "src/types.ts", "src/config.ts"] }
+    ],
+    "rules": [
+      { "from": "entry", "allow": ["ui", "commands", "adapters", "domain"] },
+      { "from": "ui", "allow": ["commands", "domain", "entry"] },
+      { "from": "commands", "allow": ["adapters", "domain", "entry"] },
+      { "from": "adapters", "allow": ["domain", "entry"] },
+      { "from": "domain", "allow": ["domain", "entry"] }
+    ],
+    // Zones cover src/ only: every new file there must declare which layer it
+    // belongs to. Tests and build tooling sit outside the layering.
+    "coverage": {
+      "requireAllFiles": true,
+      "allowUnmatched": ["tests/**", "scripts/**", "*.mjs", "*.js", "*.css"]
+    }
+  },
+
+  "health": {
+    // Written by `npm run test:crap`. Without it CRAP scores are estimated
+    // from export references, which flattens the risk ranking badly.
+    "coverage": "coverage-istanbul/coverage-final.json",
+
+    // Development tooling, not shipped plugin code, and deliberately untested —
+    // so a CRAP score built from zero coverage says nothing useful about it.
+    // The complexity limits in .oxlintrc.json still apply to these files.
+    "ignore": ["*.mjs", ".claude/hooks/*.mjs"]
+  },
+
+  "audit": {
+    // Fail only on findings this changeset introduced. Duplication in the test
+    // helpers and the complexity of the transfer commands are pre-existing and
+    // tracked separately; gating on them would fail every PR from day one.
+    "gate": "new-only",
+
+    // styles.css is a handful of declarations, so the styling report is all
+    // low-confidence noise here. Dropping it keeps the gate's output readable.
+    "css": false
+  }
+}

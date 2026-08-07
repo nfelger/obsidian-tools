@@ -2,9 +2,9 @@ import { Notice } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { extractTaskText } from '../utils/tasks';
 import { findChildrenBlockFromListItems, withoutTrailingEmptyLine } from '../utils/listItems';
-import { getActiveMarkdownFile, getListItems, findSelectedTaskLines, resolveProjectLinkAndFile } from '../utils/commandSetup';
+import { getActiveMarkdownFile, getListItems, findSelectedTaskLines, resolveProjectLinkAndFile } from '../adapters/commandSetup';
 import { isProjectNote, stripResolvedProjectPrefix } from '../utils/projects';
-import { buildCompletionEntry, notifyCompletion, writeProjectCompletions, type CompletionEntry, type CompletionsByProject } from '../utils/projectCompletion';
+import { buildCompletionEntry, notifyCompletion, writeProjectCompletions, type CompletionEntry, type CompletionsByProject } from '../adapters/projectCompletion';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 
