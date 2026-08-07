@@ -8,30 +8,19 @@
  */
 
 /*
- * Two paths in this flow can fire Obsidian's "create" event, which is what
- * Templater's "Trigger Templater on new file creation" setting listens on:
+ * Placing a note calls app.vault.create(), which fires Obsidian's "create"
+ * event — what Templater's "Trigger Templater on new file creation" setting
+ * listens on. Templater then walks up from the note's folder to find a folder
+ * template, so any mapping on the destination *or one of its ancestors* fires.
+ * When that resolves back to the template calling this script, the whole flow
+ * runs again on the note just placed: another picker, another note.
  *
- *   - the note this script places, when its destination folder is mapped to
- *     the template that calls this script;
- *   - the note this script clears out, if Templater writes its rendered output
- *     back afterwards and recreates the file at that path.
- *
- * Either one re-runs the whole flow: another picker, another note. Both paths
- * are claimed below, so a re-triggered run recognises this script's own work
- * and steps aside. The window bounds how long a path stays claimed, so a note
- * the user later creates by hand at the same path is still handled normally.
- */
-/*
- * The two claims get different windows because they race different things.
- * The placed path waits on Templater noticing a genuinely new file, which can
- * lag. The cleared path waits only on Templater's own write finishing, which
- * follows within milliseconds — and Obsidian hands the *same* placeholder name
- * to the next new note once this one is moved away, so a generous window there
- * would swallow the picker for a note the user deliberately created moments
- * later. Short enough to miss that, long enough to catch the rewrite.
+ * The placed path is claimed below so the re-triggered run recognises this
+ * script's own work and steps aside. The window bounds how long the claim
+ * lasts — Templater waits 300ms before acting on a new file — so a note the
+ * user later creates at the same path is still handled normally.
  */
 const PLACED_WINDOW_MS = 5000;
-const CLEARED_WINDOW_MS = 750;
 
 const claimedPaths = new Map();
 
@@ -101,9 +90,7 @@ async function handleNewNote(tp) {
     claimPath(newPath, PLACED_WINDOW_MS);
     const newFile = await app.vault.create(newPath, '');
 
-    // 7. Delete the original, claiming its path in case Templater's write
-    //    lands after the delete and recreates the file there
-    claimPath(currentFile.path, CLEARED_WINDOW_MS);
+    // 7. Delete the original
     await app.vault.delete(currentFile);
 
     // 8. Open the new note

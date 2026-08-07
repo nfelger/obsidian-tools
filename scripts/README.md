@@ -20,28 +20,25 @@ new file creation** setting listens on — so if the destination folder is mappe
 the very template that calls this script, Templater runs the flow again on the note
 just placed, and the folder picker reappears.
 
-There is a second, less obvious route to the same loop. After the calling template
-runs, Templater writes its rendered output back to the target file — the file this
-script has just deleted. That write recreates the note at the original path, which
-is itself a `create` event, which re-matches the folder template that started the
-flow. This one fires whatever destination you pick, so it looks like the picker
-simply always runs twice.
+Crucially, Templater does not match the destination folder alone.
+`get_new_file_template_for_folder` walks *up* the parent chain and takes the first
+mapping it finds, so a template mapped to an ancestor — including the vault root —
+applies to every folder beneath it. A root mapping therefore re-triggers the flow
+for **every** destination you could pick.
 
-The script defends against both: it claims the path it places and the path it
-clears, and steps aside when a run targets either. The two claims expire on
-different timers — the cleared path is released quickly, because Obsidian hands
-that same placeholder name to the next new note once this one is moved away, and a
-long claim there would swallow the picker for a note you deliberately created a
-moment later.
+The script claims the path it places and steps aside when a run targets it, so the
+re-triggered run recognises its own work. The claim expires after a few seconds;
+Templater waits 300ms before acting on a new file, so that is ample.
 
 Two things are worth knowing when the flow still surprises you:
 
 - A folder template on the *destination* fires on placement. That is deliberate —
-  it is how filing into a project folder picks up the project template.
-- Do **not** add `await` to the `tp.user.handleNewNote(tp)` call in the calling
-  template. It reads like a missing keyword, but awaiting it moves Templater's
-  write-back to strictly after the delete, turning the recreation from a race into
-  a certainty.
+  it is how filing into a project folder picks up the project template. It works
+  because this script creates the note empty, and Templater only applies a folder
+  template to a file whose content is empty.
+- A non-empty new note takes a different branch entirely: Templater parses the
+  note's **own content** as a template. That is not this flow, but it is why
+  pasting template syntax into a new note can execute it.
 
 ## Why Keep This File?
 

@@ -176,49 +176,6 @@ describe('handleNewNote', () => {
       expect(reentrant.returnValue).toBe('');
     });
 
-    it('does nothing when Templater recreates the note it just cleared', async () => {
-      await testHandleNewNote({
-        folders: ['Projekte'],
-        fileName: 'MyNote',
-        userChoice: 'Projekte',
-        currentFilePath: 'Inbox/Untitled.md'
-      });
-
-      // Templater writes its rendered output back after the delete, recreating
-      // the file and firing the Inbox folder template all over again.
-      const resurrected = await testHandleNewNote({
-        folders: ['Projekte'],
-        fileName: 'MyNote',
-        userChoice: 'Projekte',
-        currentFilePath: 'Inbox/Untitled.md'
-      });
-
-      expect(resurrected.displayedFolders).toEqual([]);
-      expect(resurrected.createdPath).toBeNull();
-      expect(resurrected.returnValue).toBe('');
-    });
-
-    it('still runs for the next note reusing the same placeholder name', async () => {
-      await testHandleNewNote({
-        folders: ['Projekte'],
-        fileName: 'First',
-        userChoice: 'Projekte',
-        currentFilePath: 'Inbox/Untitled.md'
-      });
-
-      // Obsidian hands the freed-up placeholder name to the next new note.
-      vi.advanceTimersByTime(1000);
-
-      const next = await testHandleNewNote({
-        folders: ['Projekte'],
-        fileName: 'Second',
-        userChoice: 'Projekte',
-        currentFilePath: 'Inbox/Untitled.md'
-      });
-
-      expect(next.createdPath).toBe('Projekte/Second.md');
-    });
-
     it('still runs for a genuinely new note at an unrelated path', async () => {
       await testHandleNewNote({
         folders: ['Projekte'],
