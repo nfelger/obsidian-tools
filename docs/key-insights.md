@@ -138,6 +138,25 @@ string-level convention `stripProjectPrefix` uses. Consolidation never crosses
 a sub-heading boundary within the section (`findSliceRange`) and never touches
 a task nested under something else — only top-level candidates are folded.
 
+**Toggling the shape by hand.** `toggleCollectorTask` (`src/utils/collectorToggle.ts`)
+is the manual override for the grouping flag's guess, and it is the one place
+that *removes* a collector. It reuses the same primitives rather than a second
+set of rules: grouping folds the slice's top-level prefixed tasks through
+`findCollector` (reuse an existing collector) or `groupUnderNewCollector`
+(create one), exactly as insertion cases 2 and 3 do. Two rules differ from
+insertion, and both follow from this being a reshape *within* one note rather
+than a transfer between two. Terminal tasks participate: a completed task is
+history the source keeps during a transfer, but leaving it behind while its
+siblings regroup would split the group, so
+`findPrefixedProjectTasks({ includeTerminal: true })` gathers it and ungrouping
+hoists it. And the scope is the innermost heading-delimited slice around the
+**cursor** (`findSliceRange` over the whole document), not a configured target
+heading — the toggle works in any section of any note, including project notes.
+Ungrouping keeps the non-task children where they are, under a collector line
+that survives only to hold them; a collector left with nothing is removed.
+Both directions require the collector or task to be at indent 0, because a
+nested one has no unambiguous set of siblings to gather.
+
 **Selecting a collector line itself is not a task transfer.** A collector
 (`- [ ] Push [[Project]]`) is an ordinary incomplete task, so it can be the
 line a user selects to push/pull/migrate. Moving it verbatim as one blob

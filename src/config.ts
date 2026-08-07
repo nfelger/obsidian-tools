@@ -28,6 +28,7 @@ export const HOTKEY_BINDINGS = [
 	{ key: 'p', label: 'Drop task to project', commandId: 'dropTaskToProject' },
 	{ key: 'c', label: 'Complete project task', commandId: 'completeProjectTask' },
 	{ key: 'f', label: 'Finish project', commandId: 'finishProject' },
+	{ key: 'g', label: 'Toggle collector', commandId: 'toggleCollectorTask' },
 ] as const;
 
 export type CommandId = typeof HOTKEY_BINDINGS[number]['commandId'];

@@ -12,6 +12,7 @@
     "src/utils/tasks.ts",
     "src/utils/taskMarker.ts",
     "src/utils/projects.ts",
+    "src/utils/collectorToggle.ts",
     "src/utils/autoMove.ts",
     "src/utils/indent.ts",
     "src/utils/listItems.ts",

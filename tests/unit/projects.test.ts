@@ -620,6 +620,19 @@ describe('insertUnderCollectorTask', () => {
     - [ ] Other`);
 	});
 
+	it('stays inside the list block when a blank line follows the collector', () => {
+		const content = `- [ ] Push [[Migration Initiative]]
+\t- [ ] Existing subtask
+
+## Log`;
+		const result = insertUnderCollectorTask(content, 0, '- [ ] New task');
+		expect(result).toBe(`- [ ] Push [[Migration Initiative]]
+\t- [ ] Existing subtask
+\t- [ ] New task
+
+## Log`);
+	});
+
 	it('nests under a tab-indented collector with tabs, converting task children', () => {
 		const content = `- Plan
 \t- [ ] Push [[Migration Initiative]]

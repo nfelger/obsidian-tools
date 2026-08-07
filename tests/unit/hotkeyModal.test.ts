@@ -21,6 +21,9 @@ vi.mock('../../src/commands/finishProject', () => ({
 vi.mock('../../src/commands/completeProjectTask', () => ({
 	completeProjectTask: vi.fn()
 }));
+vi.mock('../../src/commands/toggleCollectorTask', () => ({
+	toggleCollectorTask: vi.fn()
+}));
 
 import { migrateTask } from '../../src/commands/migrateTask';
 import { pushTaskDown } from '../../src/commands/pushTaskDown';
@@ -28,6 +31,7 @@ import { pullTaskUp } from '../../src/commands/pullTaskUp';
 import { extractLog } from '../../src/commands/extractLog';
 import { finishProject } from '../../src/commands/finishProject';
 import { completeProjectTask } from '../../src/commands/completeProjectTask';
+import { toggleCollectorTask } from '../../src/commands/toggleCollectorTask';
 
 describe('HotkeyModal', () => {
 	let modal: HotkeyModal;
@@ -93,9 +97,17 @@ describe('HotkeyModal', () => {
 			expect(completeBinding?.label).toBe('Complete project task');
 		});
 
-		it('should have exactly 8 bindings', () => {
+		it('should have binding for toggle collector (g)', () => {
 			const bindings = modal.getBindings();
-			expect(bindings).toHaveLength(8);
+			const toggleBinding = bindings.find(b => b.key === 'g');
+
+			expect(toggleBinding).toBeDefined();
+			expect(toggleBinding?.label).toBe('Toggle collector');
+		});
+
+		it('should have exactly 9 bindings', () => {
+			const bindings = modal.getBindings();
+			expect(bindings).toHaveLength(9);
 		});
 	});
 
@@ -104,8 +116,8 @@ describe('HotkeyModal', () => {
 			modal.open();
 
 			// Check that scope.register was called for each binding
-			expect(modal.scope.keys).toHaveLength(8);
-			expect(modal.scope.keys.map((k: any) => k.key)).toEqual(['m', 'd', 'u', 'x', 't', 'p', 'c', 'f']);
+			expect(modal.scope.keys).toHaveLength(9);
+			expect(modal.scope.keys.map((k: any) => k.key)).toEqual(['m', 'd', 'u', 'x', 't', 'p', 'c', 'f', 'g']);
 		});
 
 		it('should execute migrateTask when m is pressed', () => {
@@ -172,6 +184,17 @@ describe('HotkeyModal', () => {
 			handler?.callback(mockEvent);
 
 			expect(completeProjectTask).toHaveBeenCalledWith(mockPlugin);
+		});
+
+		it('should execute toggleCollectorTask when g is pressed', () => {
+			modal.open();
+
+			const handler = modal.scope.keys.find((k: any) => k.key === 'g');
+			const mockEvent = { preventDefault: vi.fn() } as unknown as KeyboardEvent;
+
+			handler?.callback(mockEvent);
+
+			expect(toggleCollectorTask).toHaveBeenCalledWith(mockPlugin);
 		});
 
 		it('should close modal before executing command', () => {

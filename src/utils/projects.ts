@@ -288,17 +288,24 @@ export interface PrefixedTaskMatch {
  * Find top-level live tasks in a section carrying a prefix for the project.
  * Nested tasks are excluded — consolidation never restructures someone
  * else's hierarchy.
+ *
+ * @param options.includeTerminal - Also match completed/migrated copies.
+ *   Insertion-time consolidation never does (a terminal task is history, not
+ *   something to regroup); an explicit regroup of the whole project does, so
+ *   its tasks stay together.
  */
 export function findPrefixedProjectTasks(
 	lines: string[],
 	range: { start: number; end: number },
-	projectName: string
+	projectName: string,
+	options: { includeTerminal?: boolean } = {}
 ): PrefixedTaskMatch[] {
 	const matches: PrefixedTaskMatch[] = [];
 	for (let i = range.start + 1; i < range.end; i++) {
 		if (countIndent(lines[i]) > 0) continue;
 		const marker = TaskMarker.fromLine(lines[i]);
-		if (!marker || !(marker.isIncomplete() || marker.isScheduled())) continue;
+		if (!marker) continue;
+		if (!options.includeTerminal && !(marker.isIncomplete() || marker.isScheduled())) continue;
 		const prefix = parseProjectPrefix(extractTaskText(lines[i]));
 		if (prefix && linkTargetBasename(prefix.linkTarget) === projectName) {
 			matches.push({ line: i, alias: prefix.alias });
@@ -323,22 +330,11 @@ export function insertUnderCollectorTask(
 	const lines = content.split('\n');
 	if (collectorLine < 0 || collectorLine >= lines.length) return content;
 
-	// Find the end of existing subtasks under the collector
-	let insertLine = collectorLine + 1;
-	const collectorIndent = countIndent(lines[collectorLine]);
-
-	while (insertLine < lines.length) {
-		const currentLine = lines[insertLine];
-		if (currentLine.trim() === '') {
-			insertLine++;
-			continue;
-		}
-		if (countIndent(currentLine) > collectorIndent) {
-			insertLine++;
-		} else {
-			break;
-		}
-	}
+	// End of the collector's existing subtasks. Trailing blank lines are not
+	// part of the block, so the new child lands directly under the last
+	// existing one rather than after the blank separating the block from
+	// whatever follows it.
+	const insertLine = findTaskBlockEnd(lines, collectorLine);
 
 	// Nest the task content one level under the collector, matching the
 	// file's indentation unit (falling back to the block's own unit, then tabs)
@@ -478,11 +474,8 @@ function insertUnderProjectGrouping(
 		const sameSlice = matches.every(m => m.line > firstSlice.start && m.line < firstSlice.end);
 		if (sameSlice) {
 			const alias = matches.find(m => m.alias)?.alias ?? aliasFromLinkText(remaining[0].linkText);
-			const keyword = options.keywords[0] ?? 'Push';
-			const link = alias ? `[[${projectName}|${alias}]]` : `[[${projectName}]]`;
-			lines.splice(matches[0].line, 0, `- [ ] ${keyword} ${link}`);
-			const shifted = matches.map(m => ({ ...m, line: m.line + 1 }));
-			return foldIntoCollector(lines, matches[0].line, shifted, remaining);
+			const collector = renderCollectorLine(projectName, alias, options.keywords[0] ?? 'Push');
+			return groupUnderNewCollector(lines, matches, collector, remaining);
 		}
 	}
 
@@ -498,6 +491,15 @@ function aliasFromLinkText(linkText: string): string | null {
 	return parseWikilinkText(match[1]).alias;
 }
 
+/**
+ * Render a collector line for a project — always an open task, using the
+ * given keyword and carrying an alias when one applies.
+ */
+export function renderCollectorLine(projectName: string, alias: string | null, keyword: string): string {
+	const link = alias ? `[[${projectName}|${alias}]]` : `[[${projectName}]]`;
+	return `- [ ] ${keyword} ${link}`;
+}
+
 /** Create a fresh collector at the end of the section holding all tasks. */
 function insertNewCollectorBlock(
 	content: string,
@@ -506,25 +508,39 @@ function insertNewCollectorBlock(
 	options: ProjectInsertionOptions
 ): string {
 	const alias = aliasFromLinkText(remaining[0].linkText);
-	const keyword = options.keywords[0] ?? 'Push';
-	const link = alias ? `[[${projectName}|${alias}]]` : `[[${projectName}]]`;
 	const taskLines = remaining.flatMap(t => t.taskContent.split('\n'));
 	const contentLines = content.split('\n');
 	const unit = detectIndentUnit(contentLines) ?? detectIndentUnit(taskLines) ?? '\t';
 	const indented = indentLinesWith(convertIndentUnit(taskLines, unit), unit);
-	const block = [`- [ ] ${keyword} ${link}`, ...indented].join('\n');
+	const collector = renderCollectorLine(projectName, alias, options.keywords[0] ?? 'Push');
+	const block = [collector, ...indented].join('\n');
 	return insertMultipleUnderTargetHeading(content, [block], options.targetHeading);
+}
+
+/**
+ * Insert a collector at the first match's position and fold the matches (plus
+ * any incoming tasks) under it. `lines` is mutated.
+ */
+export function groupUnderNewCollector(
+	lines: string[],
+	matches: PrefixedTaskMatch[],
+	collectorLine: string,
+	remaining: ProjectTaskInsertItem[] = []
+): string {
+	lines.splice(matches[0].line, 0, collectorLine);
+	const shifted = matches.map(m => ({ ...m, line: m.line + 1 }));
+	return foldIntoCollector(lines, matches[0].line, shifted, remaining);
 }
 
 /**
  * Move stray prefixed task blocks under a collector (prefixes stripped) and
  * append the remaining new tasks after them, as the collector's last items.
  */
-function foldIntoCollector(
+export function foldIntoCollector(
 	lines: string[],
 	collectorLine: number,
 	strays: PrefixedTaskMatch[],
-	remaining: ProjectTaskInsertItem[]
+	remaining: ProjectTaskInsertItem[] = []
 ): string {
 	const strayBlocks: string[] = [];
 	const ranges: Array<{ start: number; end: number }> = [];
