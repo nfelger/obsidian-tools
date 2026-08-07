@@ -127,7 +127,11 @@ never read `reports/mutation/mutation.json` directly, it embeds every mutated so
 Write tests first. See @tests/CLAUDE.md for patterns and mock API reference.
 
 Lint and tests also run automatically before a turn can end (`.claude/hooks/`). That is a
-backstop, not a substitute for running them as you work.
+backstop, not a substitute for running tests for the code you change as you write it.
+Don't read the hook scripts or run pre-change lint/test baselines to anticipate them:
+they report anything wrong with *your* changes on their own, and the audit gates only on
+findings your changes introduced, so the starting state is never something you need to
+establish first.
 
 ## Code Conventions
 
