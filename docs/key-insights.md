@@ -44,16 +44,9 @@ Key function: `isDescendantOf()` in `src/utils/listItems.ts` — recursively fin
 
 ## TaskMarker Extensibility
 
-The `TaskState` enum and `TaskMarker` class live in `src/utils/taskMarker.ts`. The file
-header lists all four locations that must be updated when adding a new task state:
-
-1. `TaskState` enum — add the new state value
-2. `TaskMarker.fromLine()` — add the character in the switch
-3. `TaskMarker.isIncomplete()` — decide if the new state is "incomplete"
-4. `TaskMarker.isTerminal()` — decide if the new state is terminal
-
-`tasks.ts` re-exports everything from `taskMarker.ts`, so callers that import from `tasks.ts`
-require no import changes. When adding a new state, edit only `taskMarker.ts`.
+When adding a new task state, edit only `src/utils/taskMarker.ts` — its file header lists
+the four locations to update. `tasks.ts` re-exports everything, so callers that import
+from `tasks.ts` need no import changes.
 
 ## Indentation Model
 
@@ -74,84 +67,53 @@ Never hardcode `'  '` when building nested content — always go through these h
 
 ## Transfer Command Ordering
 
-All transfer commands, extract log, and complete project task follow a strict
-phase order: collect (read-only) → write target via `vault.process` → mutate
-source. The source must never be modified before the target write succeeds;
-collected content exists only in memory, so the old order could lose tasks on a
-failed write.
+All transfer commands, extract log, complete project task, and auto-move follow a strict
+phase order: **collect (read-only) → write target via `vault.process` → mutate source.**
+The source must never be modified before the target write succeeds; collected content
+exists only in memory, so the old order could lose tasks on a failed write.
 
-Auto-move follows the same order when a ticked task turns out to be a project
-task — in either section of the daily note: ticked in Todo it is filed to the
-project and moved under Log, ticked where it already sits in Log only its notes
-travel (`completeTriggerInProject` is one code path, parameterised by the
-section heading). The Log pass needs the ticked line's **text** carried over
-from the update listener: completed tasks accumulate there, so "first completed
-in the section" — reliable in Todo, where auto-move files them immediately —
-says nothing about which line the user just ticked, and two identical lines
-make the tick unattributable, so the run bails. In both cases the project write
-is awaited before anything moves, and a failed write aborts the run. Because that await happens inside an editor extension, two
-things must hold that a synchronous run got for free — runs are serialized per
-editor view (otherwise two quick completions both file the same task to the
-project note), and the trigger line is re-located afterwards and matched by
-text (otherwise an intervening edit could file the wrong task line-only,
-dropping its children). Auto-completion is deliberately narrower than the
-command: only a completed task carrying its **own** project prefix and sitting
-at the root of the block being filed qualifies — an ancestor collector or
-project bullet doesn't count, since the ticked line wouldn't be the task the
-project note knows about. Whether the project ever listed the task is not a
-condition either way: both paths log the completion, so ad-hoc daily-note work
-reaches its project. What makes a completion idempotent is the log entry
-itself (`isCompletionLogged` — same task text, same source-note sub-heading),
-which is why the command's `[x]` waking the extension doesn't file the work
-twice, and why the same task completed on another day still gets an entry.
+Invariants the auto-move extension (`src/events/autoMoveCompleted.ts`) must keep — each
+prevents a specific data-loss or double-filing bug:
 
-Children handling differs by command: on migrate/push/pull/take,
-completed/migrated child subtrees stay in the source
-(`selectTransferableChildLines` in `src/utils/tasks.ts`); extract log and
-complete project task move the whole subtree. Complete project task also folds
-any leftover children of the removed Todo copy into the log entry, so terminal
-subtrees left behind by take are never lost.
+- Runs are serialized per editor view, and the awaited project write completes (or aborts
+  the run) before anything moves.
+- The trigger line is re-located after the await and matched by **text**; the Log pass
+  needs the ticked line's text from the update listener, and bails when two identical
+  lines make the tick unattributable.
+- Auto-completion requires the completed task to carry its **own** project prefix at the
+  root of the filed block — an ancestor collector or project bullet doesn't count.
+- Idempotency comes from the log entry itself (`isCompletionLogged` — same task text,
+  same source-note sub-heading), never from whether the project listed the task.
+
+Rationale and worked cases: docs/specs/2026-08-05-auto-complete-project-tasks.md.
+
+Children handling differs by command: migrate/push/pull/take leave completed/migrated
+child subtrees in the source (`selectTransferableChildLines` in `src/utils/tasks.ts`);
+extract log and complete project task move the whole subtree, and complete project task
+folds leftover children of the removed Todo copy into the log entry, so terminal subtrees
+left behind by take are never lost.
 
 ## Project Task Consolidation
 
 Target-side insertion for project tasks (push/pull/migrate/take) goes through
-`insertProjectTasksInSection` in `src/utils/projects.ts`, scoped to the
-target heading's section. It always deduplicates first (alias-aware, matching
-a task's own prefix or the collector it sits under), then — only when a
-**collector-grouping flag** is enabled — appends under an existing collector,
-consolidates loose prefixed siblings under a new one, or creates a collector
-outright for a multi-task insert. Otherwise every task is appended
-individually, prefixed with its project link.
+`insertProjectTasksInSection` in `src/utils/projects.ts`, scoped to the target heading's
+section. It always deduplicates first (alias-aware); collector grouping applies only when
+the **target note's type** allows it — weekly/monthly/yearly targets group, daily targets
+never do (daily tasks are worked out of order, so grouping would hide their individual
+priorities). The command never decides this; the hop's target does.
 
-The grouping flag derives from the **target note's type**, not the command:
-weekly/monthly/yearly targets group, daily targets never do (daily tasks are
-worked out of order and carry individual priorities, so grouping would hide
-that). This is why `takeProjectTask` (always targets today's daily note) never
-groups, `pullTaskUp` (never targets a daily note) always does, and
-`pushTaskDown`/`migrateTask` switch per hop — migrate's daily→daily case (the
-common one, every day but the last of the week) is the one place migration
-touches a daily target.
+Rules that must survive any change here:
 
-Matching (`findProjectTaskMatch`, `findCollector`, `parseProjectPrefix`) is by
-link-target **basename**, not display text or resolved path — the same
-string-level convention `stripProjectPrefix` uses. Consolidation never crosses
-a sub-heading boundary within the section (`findSliceRange`) and never touches
-a task nested under something else — only top-level candidates are folded.
+- Matching (`findProjectTaskMatch`, `findCollector`, `parseProjectPrefix`) is by
+  link-target **basename**, never display text or resolved path.
+- Consolidation never crosses a sub-heading boundary within the section
+  (`findSliceRange`) and only folds top-level candidates — never a task nested under
+  something else.
+- A **selected collector line is decomposed, not moved verbatim**:
+  `detectCollectorContext` + `getCollectorChildGroups` split it into individual project
+  tasks carrying the collector's link, each routed through
+  `insertProjectTasksInSection`; non-task children stay in the source. This applies to
+  push/pull/migrate only — in `takeProjectTask`'s project-note source, a
+  `Push [[Project]]`-shaped line has no collector meaning.
 
-**Selecting a collector line itself is not a task transfer.** A collector
-(`- [ ] Push [[Project]]`) is an ordinary incomplete task, so it can be the
-line a user selects to push/pull/migrate. Moving it verbatim as one blob
-would be wrong: an identical collector already in the target would match by
-exact text and the generic children-merge would blindly concatenate
-children with no per-child dedup. Instead, `detectCollectorContext` (checks
-whether the *selected line itself* is a resolvable collector) plus
-`getCollectorChildGroups` (splits its direct children into task groups vs.
-non-task groups, skipping already-terminal subtrees exactly like
-`selectTransferableChildLines` does for an ordinary task) decompose the
-collector into individual project tasks — one per task child, carrying the
-collector's own link — each routed through `insertProjectTasksInSection`
-like any other project task. Non-task children (plain note bullets) have no
-dedup identity and stay in the source, under the now-scheduled/migrated
-collector line. This only applies to `pushTaskDown`, `pullTaskUp`, and
-`migrateTask`; `takeProjectTask`'s source is always a project note, where a
-`Push [[Project]]`-shaped line has no collector meaning.
+Full rationale and worked examples: docs/specs/2026-07-06-project-task-consolidation.md.
