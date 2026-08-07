@@ -62,6 +62,7 @@ export async function testHandleNewNote({
   // Set up workspace mock
   const openFileMock = vi.fn((file) => {
     state.openedFile = file.path;
+    state.operations.push('open');
   });
   const mockWorkspace = createMockWorkspace();
   mockWorkspace.getLeaf = vi.fn(() => ({ openFile: openFileMock }));

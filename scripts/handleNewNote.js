@@ -8,19 +8,25 @@
  */
 
 /*
- * Placing a note calls app.vault.create(), which fires Obsidian's "create"
- * event — what Templater's "Trigger Templater on new file creation" setting
- * listens on. Templater then walks up from the note's folder to find a folder
- * template, so any mapping on the destination *or one of its ancestors* fires.
- * When that resolves back to the template calling this script, the whole flow
- * runs again on the note just placed: another picker, another note.
+ * Both halves of the move can fire Obsidian's "create" event, which is what
+ * Templater's "Trigger Templater on new file creation" setting listens on:
  *
- * The placed path is claimed below so the re-triggered run recognises this
- * script's own work and steps aside. The window bounds how long the claim
- * lasts — Templater waits 300ms before acting on a new file — so a note the
- * user later creates at the same path is still handled normally.
+ *   - the note placed at the destination, when that folder (or an ancestor —
+ *     Templater walks up the parent chain) maps back to the template calling
+ *     this script;
+ *   - the note removed from the source, if it is written back to disk after
+ *     the delete and so reappears at its old path. The source folder is by
+ *     definition mapped to that template, since that mapping is what started
+ *     the flow, so this one always loops.
+ *
+ * Ordering handles the second case — the editor moves to the new note before
+ * the old one is deleted — and both paths are claimed here as a backstop, so
+ * a re-triggered run recognises this script's own work and steps aside. The
+ * window comfortably clears the 300ms Templater waits before acting on a new
+ * file, while staying short enough that a note the user creates afterwards at
+ * the same path is still handled normally.
  */
-const CLAIM_WINDOW_MS = 5000;
+const CLAIM_WINDOW_MS = 2000;
 
 const claimedPaths = new Map();
 
@@ -90,11 +96,15 @@ async function handleNewNote(tp) {
     claimPath(newPath);
     const newFile = await app.vault.create(newPath, '');
 
-    // 7. Delete the original
-    await app.vault.delete(currentFile);
-
-    // 8. Open the new note
+    // 7. Move the editor onto the new note *before* removing the old one.
+    //    Deleting a file that is still open makes Obsidian flush the outgoing
+    //    editor buffer back to disk, recreating the note at its old path.
     await app.workspace.getLeaf(false).openFile(newFile);
+
+    // 8. Delete the original, claiming its path in case anything still writes
+    //    it back after the switch
+    claimPath(currentFile.path);
+    await app.vault.delete(currentFile);
 
     return '';
 }

@@ -105,7 +105,7 @@ describe('handleNewNote', () => {
       expect(result.createdPath).toBe('folder/MyNote.md');
     });
 
-    it('creates the new note before deleting the old one', async () => {
+    it('switches the editor off the old note before deleting it', async () => {
       const result = await testHandleNewNote({
         folders: ['folder'],
         fileName: 'MyNote',
@@ -113,7 +113,9 @@ describe('handleNewNote', () => {
         currentFilePath: 'temp.md'
       });
 
-      expect(result.operations).toEqual(['create', 'delete']);
+      // Deleting while the note is still open makes Obsidian write the
+      // outgoing editor buffer back, recreating the file it just removed.
+      expect(result.operations).toEqual(['create', 'open', 'delete']);
     });
 
     it('opens the newly created file', async () => {
@@ -174,6 +176,47 @@ describe('handleNewNote', () => {
       expect(reentrant.createdPath).toBeNull();
       expect(reentrant.deletedFile).toBeNull();
       expect(reentrant.returnValue).toBe('');
+    });
+
+    it('does nothing when the cleared note reappears at its old path', async () => {
+      await testHandleNewNote({
+        folders: ['Areas'],
+        fileName: 'MyNote',
+        userChoice: 'Areas',
+        currentFilePath: 'Inbox/MyNote.md'
+      });
+
+      const reappeared = await testHandleNewNote({
+        folders: ['Areas'],
+        fileName: 'MyNote',
+        userChoice: 'Areas',
+        currentFilePath: 'Inbox/MyNote.md'
+      });
+
+      expect(reappeared.displayedFolders).toEqual([]);
+      expect(reappeared.createdPath).toBeNull();
+      expect(reappeared.returnValue).toBe('');
+    });
+
+    it('still runs for the next note reusing the same placeholder name', async () => {
+      await testHandleNewNote({
+        folders: ['Areas'],
+        fileName: 'First',
+        userChoice: 'Areas',
+        currentFilePath: 'Inbox/Untitled.md'
+      });
+
+      // Obsidian hands the freed-up placeholder name to the next new note.
+      vi.advanceTimersByTime(2500);
+
+      const next = await testHandleNewNote({
+        folders: ['Areas'],
+        fileName: 'Second',
+        userChoice: 'Areas',
+        currentFilePath: 'Inbox/Untitled.md'
+      });
+
+      expect(next.createdPath).toBe('Areas/Second.md');
     });
 
     it('still runs for a genuinely new note at an unrelated path', async () => {
