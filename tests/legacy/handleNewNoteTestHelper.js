@@ -42,6 +42,7 @@ export async function testHandleNewNote({
     createdPath: null,
     deletedFile: null,
     openedFile: null,
+    operations: [],
     cancelled: userChoice === null
   };
 
@@ -50,9 +51,11 @@ export async function testHandleNewNote({
   mockVault.getAllFolders = vi.fn(() => folderObjects);
   mockVault.delete = vi.fn((file) => {
     state.deletedFile = file.path;
+    state.operations.push('delete');
   });
   mockVault.create = vi.fn((path, _content) => {
     state.createdPath = path;
+    state.operations.push('create');
     return createMockFile({ path });
   });
 
@@ -90,6 +93,7 @@ export async function testHandleNewNote({
     createdPath: state.createdPath,
     deletedFile: state.deletedFile,
     openedFile: state.openedFile,
+    operations: state.operations,
 
     // User interaction
     cancelled: state.cancelled,

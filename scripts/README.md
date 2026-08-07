@@ -20,15 +20,28 @@ new file creation** setting listens on — so if the destination folder is mappe
 the very template that calls this script, Templater runs the flow again on the note
 just placed, and the folder picker reappears.
 
-The script defends against this itself: it remembers the paths it places and steps
-aside when a run targets one of them. Two vault-side settings still shape the
-behaviour, and are worth checking when the flow surprises you:
+There is a second, less obvious route to the same loop. After the calling template
+runs, Templater writes its rendered output back to the target file — the file this
+script has just deleted. That write recreates the note at the original path, which
+is itself a `create` event, which re-matches the folder template that started the
+flow. This one fires whatever destination you pick, so it looks like the picker
+simply always runs twice.
 
-- A **folder template** mapping the new-note default folder to the template that
-  calls this script is what starts the flow. Picking that same folder in the picker
-  is the self-triggering case.
-- A folder template on the *destination* still fires on placement — that is
-  deliberate, and how filing into a project folder picks up the project template.
+The script defends against both: it claims the path it places and the path it
+clears, and steps aside when a run targets either. The two claims expire on
+different timers — the cleared path is released quickly, because Obsidian hands
+that same placeholder name to the next new note once this one is moved away, and a
+long claim there would swallow the picker for a note you deliberately created a
+moment later.
+
+Two things are worth knowing when the flow still surprises you:
+
+- A folder template on the *destination* fires on placement. That is deliberate —
+  it is how filing into a project folder picks up the project template.
+- Do **not** add `await` to the `tp.user.handleNewNote(tp)` call in the calling
+  template. It reads like a missing keyword, but awaiting it moves Templater's
+  write-back to strictly after the delete, turning the recreation from a race into
+  a certainty.
 
 ## Why Keep This File?
 

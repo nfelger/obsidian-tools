@@ -8,36 +8,51 @@
  */
 
 /*
- * Placing a note calls app.vault.create(), which fires Obsidian's "create"
- * event — the same event Templater's "Trigger Templater on new file creation"
- * setting listens on. When the destination folder is mapped to the template
- * that calls this script, that second trigger runs the whole flow again on the
- * note we just placed: another picker, another note. These paths record what
- * this script placed so the re-triggered run can recognise its own work and
- * step aside. The window bounds how long a path stays claimed, so a note the
- * user later creates by hand at the same path is still handled normally.
+ * Two paths in this flow can fire Obsidian's "create" event, which is what
+ * Templater's "Trigger Templater on new file creation" setting listens on:
+ *
+ *   - the note this script places, when its destination folder is mapped to
+ *     the template that calls this script;
+ *   - the note this script clears out, if Templater writes its rendered output
+ *     back afterwards and recreates the file at that path.
+ *
+ * Either one re-runs the whole flow: another picker, another note. Both paths
+ * are claimed below, so a re-triggered run recognises this script's own work
+ * and steps aside. The window bounds how long a path stays claimed, so a note
+ * the user later creates by hand at the same path is still handled normally.
  */
-const placedPaths = new Map();
-const PLACEMENT_WINDOW_MS = 5000;
+/*
+ * The two claims get different windows because they race different things.
+ * The placed path waits on Templater noticing a genuinely new file, which can
+ * lag. The cleared path waits only on Templater's own write finishing, which
+ * follows within milliseconds — and Obsidian hands the *same* placeholder name
+ * to the next new note once this one is moved away, so a generous window there
+ * would swallow the picker for a note the user deliberately created moments
+ * later. Short enough to miss that, long enough to catch the rewrite.
+ */
+const PLACED_WINDOW_MS = 5000;
+const CLEARED_WINDOW_MS = 750;
 
-function claimPlacement(path) {
-    placedPaths.set(path, Date.now());
+const claimedPaths = new Map();
+
+function claimPath(path, windowMs) {
+    claimedPaths.set(path, { at: Date.now(), windowMs });
 }
 
-function isOwnPlacement(path) {
+function isOwnPath(path) {
     const now = Date.now();
 
-    for (const [placedPath, placedAt] of placedPaths) {
-        if (now - placedAt > PLACEMENT_WINDOW_MS) {
-            placedPaths.delete(placedPath);
+    for (const [claimedPath, claim] of claimedPaths) {
+        if (now - claim.at > claim.windowMs) {
+            claimedPaths.delete(claimedPath);
         }
     }
 
-    if (!placedPaths.has(path)) {
+    if (!claimedPaths.has(path)) {
         return false;
     }
 
-    placedPaths.delete(path);
+    claimedPaths.delete(path);
     return true;
 }
 
@@ -47,7 +62,7 @@ async function handleNewNote(tp) {
     const currentFile = tp.config.target_file;
 
     // 2. Step aside if this run is Templater re-triggering us on our own output
-    if (currentFile && isOwnPlacement(currentFile.path)) {
+    if (currentFile && isOwnPath(currentFile.path)) {
         return '';
     }
 
@@ -77,16 +92,19 @@ async function handleNewNote(tp) {
         return '';
     }
 
-    // 6. Delete the current note
-    await app.vault.delete(currentFile);
-
-    // 7. Create new note in chosen folder
+    // 6. Create the note at its destination before touching the original, so a
+    //    failure here leaves the user's note where it is rather than losing it
     const newPath = chosenFolder === '/'
         ? `${noteTitle}.md`
         : `${chosenFolder}/${noteTitle}.md`;
 
-    claimPlacement(newPath);
+    claimPath(newPath, PLACED_WINDOW_MS);
     const newFile = await app.vault.create(newPath, '');
+
+    // 7. Delete the original, claiming its path in case Templater's write
+    //    lands after the delete and recreates the file there
+    claimPath(currentFile.path, CLEARED_WINDOW_MS);
+    await app.vault.delete(currentFile);
 
     // 8. Open the new note
     await app.workspace.getLeaf(false).openFile(newFile);

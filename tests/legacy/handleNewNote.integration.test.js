@@ -1,9 +1,20 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { testHandleNewNote } from './handleNewNoteTestHelper.js';
 
 describe('handleNewNote', () => {
+  // The script claims paths for a few seconds to recognise re-triggered runs.
+  // Each test starts a minute further on so no claim outlives its own case.
+  let clockOffset = 0;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    clockOffset += 60_000;
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + clockOffset);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('folder filtering', () => {
@@ -94,6 +105,17 @@ describe('handleNewNote', () => {
       expect(result.createdPath).toBe('folder/MyNote.md');
     });
 
+    it('creates the new note before deleting the old one', async () => {
+      const result = await testHandleNewNote({
+        folders: ['folder'],
+        fileName: 'MyNote',
+        userChoice: 'folder',
+        currentFilePath: 'temp.md'
+      });
+
+      expect(result.operations).toEqual(['create', 'delete']);
+    });
+
     it('opens the newly created file', async () => {
       const result = await testHandleNewNote({
         folders: ['folder'],
@@ -152,6 +174,49 @@ describe('handleNewNote', () => {
       expect(reentrant.createdPath).toBeNull();
       expect(reentrant.deletedFile).toBeNull();
       expect(reentrant.returnValue).toBe('');
+    });
+
+    it('does nothing when Templater recreates the note it just cleared', async () => {
+      await testHandleNewNote({
+        folders: ['Projekte'],
+        fileName: 'MyNote',
+        userChoice: 'Projekte',
+        currentFilePath: 'Inbox/Untitled.md'
+      });
+
+      // Templater writes its rendered output back after the delete, recreating
+      // the file and firing the Inbox folder template all over again.
+      const resurrected = await testHandleNewNote({
+        folders: ['Projekte'],
+        fileName: 'MyNote',
+        userChoice: 'Projekte',
+        currentFilePath: 'Inbox/Untitled.md'
+      });
+
+      expect(resurrected.displayedFolders).toEqual([]);
+      expect(resurrected.createdPath).toBeNull();
+      expect(resurrected.returnValue).toBe('');
+    });
+
+    it('still runs for the next note reusing the same placeholder name', async () => {
+      await testHandleNewNote({
+        folders: ['Projekte'],
+        fileName: 'First',
+        userChoice: 'Projekte',
+        currentFilePath: 'Inbox/Untitled.md'
+      });
+
+      // Obsidian hands the freed-up placeholder name to the next new note.
+      vi.advanceTimersByTime(1000);
+
+      const next = await testHandleNewNote({
+        folders: ['Projekte'],
+        fileName: 'Second',
+        userChoice: 'Projekte',
+        currentFilePath: 'Inbox/Untitled.md'
+      });
+
+      expect(next.createdPath).toBe('Projekte/Second.md');
     });
 
     it('still runs for a genuinely new note at an unrelated path', async () => {
