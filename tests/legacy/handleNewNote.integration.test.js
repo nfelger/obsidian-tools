@@ -178,7 +178,7 @@ describe('handleNewNote', () => {
       expect(reentrant.returnValue).toBe('');
     });
 
-    it('does nothing when the cleared note reappears at its old path', async () => {
+    it('runs again at a claimed path once the claim has expired', async () => {
       await testHandleNewNote({
         folders: ['Areas'],
         fileName: 'MyNote',
@@ -186,37 +186,17 @@ describe('handleNewNote', () => {
         currentFilePath: 'Inbox/MyNote.md'
       });
 
-      const reappeared = await testHandleNewNote({
-        folders: ['Areas'],
-        fileName: 'MyNote',
-        userChoice: 'Areas',
-        currentFilePath: 'Inbox/MyNote.md'
-      });
-
-      expect(reappeared.displayedFolders).toEqual([]);
-      expect(reappeared.createdPath).toBeNull();
-      expect(reappeared.returnValue).toBe('');
-    });
-
-    it('still runs for the next note reusing the same placeholder name', async () => {
-      await testHandleNewNote({
-        folders: ['Areas'],
-        fileName: 'First',
-        userChoice: 'Areas',
-        currentFilePath: 'Inbox/Untitled.md'
-      });
-
-      // Obsidian hands the freed-up placeholder name to the next new note.
+      // Long after the placement, a note at that path is the user's own doing.
       vi.advanceTimersByTime(2500);
 
-      const next = await testHandleNewNote({
+      const later = await testHandleNewNote({
         folders: ['Areas'],
-        fileName: 'Second',
+        fileName: 'MyNote',
         userChoice: 'Areas',
-        currentFilePath: 'Inbox/Untitled.md'
+        currentFilePath: 'Areas/MyNote.md'
       });
 
-      expect(next.createdPath).toBe('Areas/Second.md');
+      expect(later.createdPath).toBe('Areas/MyNote.md');
     });
 
     it('still runs for a genuinely new note at an unrelated path', async () => {

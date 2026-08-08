@@ -25,11 +25,11 @@ its editor is still the active one makes Obsidian flush the outgoing buffer back
 to disk, so the note reappears at the path it was just removed from — inside the
 folder whose template started the flow. That folder is mapped by definition, so
 this route re-triggers no matter which destination you choose, and needs no
-folder template on the destination at all.
+folder template on the destination at all. The script therefore moves the editor
+onto the new note *before* deleting the original.
 
-The script therefore moves the editor onto the new note *before* deleting the
-original. It also claims both paths and steps aside when a run targets one of
-them, as a backstop. The claim expires after a couple of seconds — comfortably
+For the destination side, the script claims the path it places and steps aside
+when a run targets it. The claim expires after a couple of seconds — comfortably
 past the 300ms Templater waits before acting on a new file, and short enough that
 the next note you create at that path is handled normally.
 

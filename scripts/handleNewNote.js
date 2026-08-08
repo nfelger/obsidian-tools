@@ -8,23 +8,17 @@
  */
 
 /*
- * Both halves of the move can fire Obsidian's "create" event, which is what
- * Templater's "Trigger Templater on new file creation" setting listens on:
+ * Placing a note calls app.vault.create(), which fires Obsidian's "create"
+ * event — what Templater's "Trigger Templater on new file creation" setting
+ * listens on. Templater walks up from the note's folder looking for a folder
+ * template, so a mapping on the destination or any ancestor of it applies.
+ * When that resolves back to the template calling this script, the whole flow
+ * runs again on the note just placed: another picker, another note.
  *
- *   - the note placed at the destination, when that folder (or an ancestor —
- *     Templater walks up the parent chain) maps back to the template calling
- *     this script;
- *   - the note removed from the source, if it is written back to disk after
- *     the delete and so reappears at its old path. The source folder is by
- *     definition mapped to that template, since that mapping is what started
- *     the flow, so this one always loops.
- *
- * Ordering handles the second case — the editor moves to the new note before
- * the old one is deleted — and both paths are claimed here as a backstop, so
- * a re-triggered run recognises this script's own work and steps aside. The
- * window comfortably clears the 300ms Templater waits before acting on a new
- * file, while staying short enough that a note the user creates afterwards at
- * the same path is still handled normally.
+ * The placed path is claimed below so the re-triggered run recognises this
+ * script's own work and steps aside. The window comfortably clears the 300ms
+ * Templater waits before acting on a new file, while staying short enough
+ * that a note the user creates afterwards at that path is handled normally.
  */
 const CLAIM_WINDOW_MS = 2000;
 
@@ -101,9 +95,7 @@ async function handleNewNote(tp) {
     //    editor buffer back to disk, recreating the note at its old path.
     await app.workspace.getLeaf(false).openFile(newFile);
 
-    // 8. Delete the original, claiming its path in case anything still writes
-    //    it back after the switch
-    claimPath(currentFile.path);
+    // 8. Delete the original
     await app.vault.delete(currentFile);
 
     return '';
