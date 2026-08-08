@@ -1,20 +1,9 @@
-import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { testHandleNewNote } from './handleNewNoteTestHelper.js';
 
 describe('handleNewNote', () => {
-  // The script claims paths for a few seconds to recognise re-triggered runs.
-  // Each test starts a minute further on so no claim outlives its own case.
-  let clockOffset = 0;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    clockOffset += 60_000;
-    vi.useFakeTimers();
-    vi.setSystemTime(Date.now() + clockOffset);
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
   });
 
   describe('folder filtering', () => {
@@ -141,80 +130,6 @@ describe('handleNewNote', () => {
       expect(result.returnValue).toBe('');
       expect(result.createdPath).toBeNull();
     });
-
-    it('leaves the placeholder note in place when user cancels', async () => {
-      const result = await testHandleNewNote({
-        folders: ['folder'],
-        fileName: 'MyNote',
-        userChoice: null,
-        currentFilePath: 'Inbox/Untitled.md'
-      });
-
-      expect(result.deletedFile).toBeNull();
-    });
   });
 
-  describe('re-entrancy', () => {
-    it('does nothing when run again on a note it just placed', async () => {
-      await testHandleNewNote({
-        folders: ['Projekte'],
-        fileName: 'MyNote',
-        userChoice: 'Projekte',
-        currentFilePath: 'Inbox/MyNote.md'
-      });
-
-      // Templater's new-file trigger fires on the note the script just created,
-      // running this same template a second time.
-      const reentrant = await testHandleNewNote({
-        folders: ['Projekte'],
-        fileName: 'MyNote',
-        userChoice: 'Projekte',
-        currentFilePath: 'Projekte/MyNote.md'
-      });
-
-      expect(reentrant.displayedFolders).toEqual([]);
-      expect(reentrant.createdPath).toBeNull();
-      expect(reentrant.deletedFile).toBeNull();
-      expect(reentrant.returnValue).toBe('');
-    });
-
-    it('runs again at a claimed path once the claim has expired', async () => {
-      await testHandleNewNote({
-        folders: ['Areas'],
-        fileName: 'MyNote',
-        userChoice: 'Areas',
-        currentFilePath: 'Inbox/MyNote.md'
-      });
-
-      // Long after the placement, a note at that path is the user's own doing.
-      vi.advanceTimersByTime(2500);
-
-      const later = await testHandleNewNote({
-        folders: ['Areas'],
-        fileName: 'MyNote',
-        userChoice: 'Areas',
-        currentFilePath: 'Areas/MyNote.md'
-      });
-
-      expect(later.createdPath).toBe('Areas/MyNote.md');
-    });
-
-    it('still runs for a genuinely new note at an unrelated path', async () => {
-      await testHandleNewNote({
-        folders: ['Projekte'],
-        fileName: 'First',
-        userChoice: 'Projekte',
-        currentFilePath: 'Inbox/First.md'
-      });
-
-      const second = await testHandleNewNote({
-        folders: ['Projekte'],
-        fileName: 'Second',
-        userChoice: 'Projekte',
-        currentFilePath: 'Inbox/Second.md'
-      });
-
-      expect(second.createdPath).toBe('Projekte/Second.md');
-    });
-  });
 });

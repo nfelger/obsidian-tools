@@ -12,41 +12,6 @@ The functionality previously provided by Templater scripts has been migrated to 
 
 See the main [README.md](../README.md) for plugin installation via BRAT.
 
-## Templater Trigger Interaction
-
-`handleNewNote.js` places a note by creating it at the chosen path. That creation
-fires Obsidian's `create` event, which is what Templater's **Trigger Templater on
-new file creation** setting listens on — so if the destination folder is mapped to
-the very template that calls this script, Templater runs the flow again on the note
-just placed, and the folder picker reappears.
-
-The loop that actually bites comes from the *source* side. Deleting a note while
-its editor is still the active one makes Obsidian flush the outgoing buffer back
-to disk, so the note reappears at the path it was just removed from — inside the
-folder whose template started the flow. That folder is mapped by definition, so
-this route re-triggers no matter which destination you choose, and needs no
-folder template on the destination at all. The script therefore moves the editor
-onto the new note *before* deleting the original.
-
-For the destination side, the script claims the path it places and steps aside
-when a run targets it. The claim expires after a couple of seconds — comfortably
-past the 300ms Templater waits before acting on a new file, and short enough that
-the next note you create at that path is handled normally.
-
-Note also that `get_new_file_template_for_folder` walks *up* the parent chain and
-takes the first mapping it finds, so a template mapped to an ancestor — including
-the vault root — applies to every folder beneath it.
-
-Two things are worth knowing when the flow still surprises you:
-
-- A folder template on the *destination* fires on placement. That is deliberate —
-  it is how filing into a project folder picks up the project template. It works
-  because this script creates the note empty, and Templater only applies a folder
-  template to a file whose content is empty.
-- A non-empty new note takes a different branch entirely: Templater parses the
-  note's **own content** as a template. That is not this flow, but it is why
-  pasting template syntax into a new note can execute it.
-
 ## Why Keep This File?
 
 This script is preserved for:

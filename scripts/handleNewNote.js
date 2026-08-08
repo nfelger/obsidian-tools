@@ -7,55 +7,12 @@
  * Usage in template: <% tp.user.handleNewNote(tp) %>
  */
 
-/*
- * Placing a note calls app.vault.create(), which fires Obsidian's "create"
- * event — what Templater's "Trigger Templater on new file creation" setting
- * listens on. Templater walks up from the note's folder looking for a folder
- * template, so a mapping on the destination or any ancestor of it applies.
- * When that resolves back to the template calling this script, the whole flow
- * runs again on the note just placed: another picker, another note.
- *
- * The placed path is claimed below so the re-triggered run recognises this
- * script's own work and steps aside. The window comfortably clears the 300ms
- * Templater waits before acting on a new file, while staying short enough
- * that a note the user creates afterwards at that path is handled normally.
- */
-const CLAIM_WINDOW_MS = 2000;
-
-const claimedPaths = new Map();
-
-function claimPath(path) {
-    claimedPaths.set(path, Date.now());
-}
-
-function isOwnPath(path) {
-    const now = Date.now();
-
-    for (const [claimedPath, claimedAt] of claimedPaths) {
-        if (now - claimedAt > CLAIM_WINDOW_MS) {
-            claimedPaths.delete(claimedPath);
-        }
-    }
-
-    if (!claimedPaths.has(path)) {
-        return false;
-    }
-
-    claimedPaths.delete(path);
-    return true;
-}
-
 async function handleNewNote(tp) {
     // 1. Capture the current note's title before we delete it
     const noteTitle = tp.file.title;
     const currentFile = tp.config.target_file;
 
-    // 2. Step aside if this run is Templater re-triggering us on our own output
-    if (currentFile && isOwnPath(currentFile.path)) {
-        return '';
-    }
-
-    // 3. Gather all folders, excluding those starting with "."
+    // 2. Gather all folders, excluding those starting with "."
     const allFolders = app.vault.getAllFolders();
     const folders = allFolders
         .filter(folder => {
@@ -72,30 +29,28 @@ async function handleNewNote(tp) {
     // Add root folder option
     folders.unshift('/');
 
-    // 4. Display folder picker
+    // 3. Display folder picker
     const displayNames = folders.map(f => f === '/' ? '/ (root)' : f);
-    const chosenFolder = await tp.system.suggester(displayNames, folders, false, 'Choose folder for new note...');
+    const chosenFolder = await tp.system.suggester(displayNames, folders, true, 'Choose folder for new note...');
 
-    // 5. If user cancelled, leave the note where it is
-    if (chosenFolder === null || chosenFolder === undefined) {
+    // 4. If user cancelled, we're done
+    if (chosenFolder === null) {
         return '';
     }
 
-    // 6. Create the note at its destination before touching the original, so a
-    //    failure here leaves the user's note where it is rather than losing it
+    // 5. Create new note in chosen folder
     const newPath = chosenFolder === '/'
         ? `${noteTitle}.md`
         : `${chosenFolder}/${noteTitle}.md`;
 
-    claimPath(newPath);
     const newFile = await app.vault.create(newPath, '');
 
-    // 7. Move the editor onto the new note *before* removing the old one.
-    //    Deleting a file that is still open makes Obsidian flush the outgoing
-    //    editor buffer back to disk, recreating the note at its old path.
+    // 6. Open the new note
     await app.workspace.getLeaf(false).openFile(newFile);
 
-    // 8. Delete the original
+    // 7. Delete the original, now that the editor has moved off it. Deleting a
+    //    note while it is still open makes Obsidian flush the outgoing editor
+    //    buffer back to disk, recreating the file at the path just cleared.
     await app.vault.delete(currentFile);
 
     return '';
