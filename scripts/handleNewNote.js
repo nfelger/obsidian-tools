@@ -21,6 +21,10 @@ async function applyFolderTemplate(tp, file) {
     const templater = app.plugins?.plugins?.['templater-obsidian']?.templater;
 
     if (!templater?.get_new_file_template_for_folder || !templater?.write_template_to_file) {
+        // Templater is always present — this script runs inside it — so a
+        // missing method means its API moved. Say so, rather than quietly
+        // filing untemplated notes for weeks.
+        new Notice('Note filed, but Templater\'s folder templates could not be applied.');
         return;
     }
 

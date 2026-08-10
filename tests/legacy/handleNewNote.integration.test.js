@@ -4,6 +4,7 @@ import { testHandleNewNote } from './handleNewNoteTestHelper.js';
 describe('handleNewNote', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal('Notice', vi.fn());
   });
 
   describe('folder filtering', () => {
@@ -172,6 +173,19 @@ describe('handleNewNote', () => {
 
       expect(result.movedTo).toBe('1 Projekte/MyNote.md');
       expect(result.appliedTemplate).toBeNull();
+    });
+
+    it('says so when the templating could not be applied', async () => {
+      await testHandleNewNote({
+        folders: ['1 Projekte'],
+        fileName: 'MyNote',
+        userChoice: '1 Projekte',
+        folderTemplate: 'Templates/Projekt.md',
+        templaterAvailable: false
+      });
+
+      // Silence here means untemplated project notes going unnoticed.
+      expect(Notice).toHaveBeenCalledWith(expect.stringContaining('could not be applied'));
     });
   });
 
