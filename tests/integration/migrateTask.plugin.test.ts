@@ -608,7 +608,7 @@ title: Note
 			expect(result.target!.split('\n')).toContain('- [ ] [[Migration Initiative]] New goal');
 		});
 
-		it('daily→weekly joins a collector the weekly note already has', async () => {
+		it('daily→weekly lands beside a collector the weekly note already has', async () => {
 			const result = await testMigrateTaskPlugin({
 				source: `
 - [ ] [[Migration Initiative]] New goal
@@ -627,7 +627,8 @@ title: Note
 			const collectorIdx = lines.indexOf('- [ ] Push [[Migration Initiative|MI]]');
 			expect(collectorIdx).toBeGreaterThan(-1);
 			expect(lines[collectorIdx + 1]).toBe('\t- [ ] Existing goal');
-			expect(lines[collectorIdx + 2]).toBe('\t- [ ] New goal');
+			expect(lines).toContain('- [ ] [[Migration Initiative]] New goal');
+			expect(lines).not.toContain('\t- [ ] New goal');
 		});
 
 		it('migrates into the weekly Todo body, not into a day sub-section', async () => {

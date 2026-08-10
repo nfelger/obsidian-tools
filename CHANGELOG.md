@@ -15,12 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `### Tuesday` or priority buckets and arriving tasks wait in the Todo body
   for you to place them, instead of dropping into whichever section happens to
   be last.
-- **Moving a task no longer gathers a project's other tasks under a
-  collector.** Tasks already in the target note stay exactly where you put
-  them. A task still joins a `Push [[Project]]` collector when the target
-  section already has one, so a group you made keeps filling up — but Bullet
-  Flow no longer creates one for you. Use *Toggle collector task grouping*
-  (`g`) to gather or spread a project's tasks when you want to.
+- **Moving a task never groups it under a collector any more.** Migrate, push,
+  pull and take always leave a project task on its own line, whatever kind of
+  note it lands in — no collector is created for you, nothing already in the
+  note is rearranged, and a task no longer disappears into an existing group.
+  Grouping is now entirely yours, through *Toggle collector task grouping*
+  (`g`). A task that's already in the note still merges instead of arriving
+  twice, including when its copy sits under a collector.
+- **Toggling a collector now gathers before it spreads.** With the cursor on a
+  `Push [[Project]]` line, the first press pulls the project's loose tasks in
+  the section into the group — completed ones included — and the next press
+  spreads the whole group back out. So a group and a freshly arrived task are
+  one keypress from being tidy. Toggling an individual task still groups only
+  what you selected.
 
 ## [0.18.0] - 2026-08-07
 

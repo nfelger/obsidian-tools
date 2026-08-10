@@ -162,8 +162,7 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 		await plugin.app.vault.process(targetFile, (data: string) => {
 			const result = insertProjectTasksInSection(data, projectName, collectedTasks, {
 				targetHeading,
-				keywords,
-				joinExistingCollector: granularity !== 'daily'
+				keywords
 			});
 			mergedCount = result.mergedCount;
 			newCount = result.newCount;

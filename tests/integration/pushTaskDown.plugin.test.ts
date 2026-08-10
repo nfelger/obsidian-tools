@@ -575,7 +575,7 @@ Some content
 - [ ] [[Migration Initiative]] Prioritised goal`);
 		});
 
-		it('monthly→weekly: appends under an existing collector, stripped', async () => {
+		it('monthly→weekly: lands beside an existing collector, not under it', async () => {
 			const result = await testPushTaskDownPlugin({
 				source: `
 - [ ] [[Migration Initiative]] New goal
@@ -592,8 +592,9 @@ Some content
 			});
 
 			const lines = result.target!.split('\n');
-			expect(lines).toContain('\t- [ ] New goal');
-			expect(lines).not.toContain('- [ ] [[Migration Initiative]] New goal');
+			expect(lines).toContain('- [ ] [[Migration Initiative]] New goal');
+			expect(lines).not.toContain('\t- [ ] New goal');
+			expect(lines).toContain('\t- [ ] Existing goal');
 		});
 	});
 

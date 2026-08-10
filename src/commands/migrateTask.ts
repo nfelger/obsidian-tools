@@ -136,13 +136,10 @@ export async function migrateTask(plugin: BulletFlowPlugin): Promise<void> {
 
 		const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
 		const keywords = parseProjectKeywords(plugin.settings.projectKeywords);
-		const targetBasename = targetPath.split('/').pop()!.replace(/\.md$/, '');
-		const targetInfo = noteService.parseNoteType(targetBasename);
-		const joinExistingCollector = targetInfo ? targetInfo.type !== 'daily' : true;
 		await plugin.app.vault.process(targetFile, (data: string) => {
 			let result = insertMultipleUnderTargetHeading(data, collectedContent, targetHeading);
 			for (const [name, items] of projectGroups) {
-				const r = insertProjectTasksInSection(result, name, items, { targetHeading, keywords, joinExistingCollector });
+				const r = insertProjectTasksInSection(result, name, items, { targetHeading, keywords });
 				result = r.content;
 			}
 			return result;

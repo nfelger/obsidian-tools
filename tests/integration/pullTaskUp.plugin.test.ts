@@ -424,7 +424,7 @@ Some content`,
 			expect(result.target!.match(/Push \[\[/g)).toBeNull();
 		});
 
-		it('appends under an existing weekly collector, stripped', async () => {
+		it('lands beside an existing weekly collector, not under it', async () => {
 			const result = await testPullUpPlugin({
 				source: `
 - [ ] [[Migration Initiative]] Draft plan
@@ -440,8 +440,30 @@ Some content`,
 			});
 
 			const lines = result.target!.split('\n');
-			expect(lines).toContain('\t- [ ] Draft plan');
-			expect(lines).not.toContain('- [ ] [[Migration Initiative]] Draft plan');
+			expect(lines).toContain('- [ ] [[Migration Initiative]] Draft plan');
+			expect(lines).not.toContain('\t- [ ] Draft plan');
+			expect(lines).toContain('\t- [ ] Existing goal');
+		});
+
+		it('still merges into a copy already under the collector', async () => {
+			const result = await testPullUpPlugin({
+				source: `
+- [ ] [[Migration Initiative]] Existing goal
+	- new note
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: `
+## Todo
+- [ ] Push [[Migration Initiative]]
+	- [<] Existing goal
+`,
+				cursorLine: 0,
+				projectNotes: ['Migration Initiative']
+			});
+
+			expect(result.target!.match(/Existing goal/g)).toHaveLength(1);
+			expect(result.target).toContain('\t- [ ] Existing goal');
+			expect(result.target).toContain('new note');
 		});
 
 		it('leaves a prefixed sibling loose instead of grouping it', async () => {

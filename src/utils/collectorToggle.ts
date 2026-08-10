@@ -5,10 +5,10 @@
  * (`- [ ] [[Project]] Task`).
  *
  * Both directions are text transformations confined to the innermost
- * heading-delimited slice around the cursor — the same boundary consolidation
- * respects, so a toggle never moves a task across a heading. Which shape a
- * note *converges* to on insertion is decided by the note's type; this is the
- * manual override for the times that guess is wrong.
+ * heading-delimited slice around the cursor — the same boundary insertion
+ * respects, so a toggle never moves a task across a heading. This is the only
+ * place a collector is created, filled or removed: commands that bring tasks
+ * into a note always leave them individually prefixed.
  */
 
 import type { BulletFlowSettings, LinkResolver } from '../types';
@@ -74,8 +74,8 @@ export interface ToggleSuccess {
 export type ToggleResult = ToggleSuccess | { ok: false; reason: ToggleFailureReason };
 
 type ToggleTarget =
-	| { kind: 'ungroup'; line: number; projectName: string; linkText: string }
-	| { kind: 'group'; line: number; projectName: string }
+	| { kind: 'collector'; line: number; projectName: string; linkText: string }
+	| { kind: 'task'; line: number; projectName: string }
 	| { kind: 'none'; reason: ToggleFailureReason };
 
 /**
@@ -98,13 +98,13 @@ function findTopLevelRoot(lines: string[], line: number): number {
 function classifyLine(lines: string[], line: number, ctx: ToggleContext): ToggleTarget | null {
 	const collector = detectCollectorContext(lines[line], ctx.sourcePath, ctx.resolver, ctx.settings);
 	if (collector) {
-		return { kind: 'ungroup', line, projectName: collector.projectName, linkText: collector.linkText };
+		return { kind: 'collector', line, projectName: collector.projectName, linkText: collector.linkText };
 	}
 
 	const editor = { getLine: (n: number) => lines[n] };
 	const project = detectProjectContext(editor, [], line, ctx.sourcePath, ctx.resolver, ctx.settings);
 	if (project?.hasOwnPrefix) {
-		return { kind: 'group', line, projectName: project.projectName };
+		return { kind: 'task', line, projectName: project.projectName };
 	}
 
 	return null;
@@ -252,8 +252,8 @@ function ungroupCollector(
  * Only what the user pointed at moves. A task for the same project sitting
  * elsewhere in the section is left alone: it may be loose deliberately, and
  * sweeping it in would be the command deciding something the user didn't ask
- * for. Insertion-time consolidation converges the section on its own; this is
- * a manual gesture, so it obeys the gesture's extent.
+ * for. Pointing at the collector instead is how you ask for all of them
+ * (`toggleCollector`).
  */
 function groupProjectTasks(
 	lines: string[],
@@ -278,11 +278,37 @@ function groupProjectTasks(
 }
 
 /**
+ * A collector is toggled as a whole group, in two steps: while loose tasks
+ * for its project remain in the slice it gathers them all; once it is the
+ * project's only shape left it dissolves. So a half-grouped section takes one
+ * press to become grouped and a second to go flat, and the collector is never
+ * dissolved while a task it should be holding is still lying next to it.
+ *
+ * This is the one gesture that sweeps the slice rather than the selection:
+ * pointing at the collector *is* pointing at the whole group. Pointing at an
+ * individual task keeps its narrower extent (`groupProjectTasks`).
+ */
+function toggleCollector(
+	lines: string[],
+	target: { line: number; projectName: string; linkText: string },
+	slice: { start: number; end: number }
+): { transformed: Transformed; direction: 'grouped' | 'ungrouped' } {
+	const strays = findPrefixedProjectTasks(lines, slice, target.projectName);
+	if (strays.length > 0) {
+		return {
+			transformed: { content: foldIntoCollector(lines, target.line, strays), taskCount: strays.length },
+			direction: 'grouped'
+		};
+	}
+	return { transformed: ungroupCollector(lines, target), direction: 'ungrouped' };
+}
+
+/**
  * Toggle the project grouping the selection points at.
  *
- * Grouping acts on the selected tasks only. Ungrouping acts on the whole
- * collector the selection reaches — its children are one group by definition,
- * and taking half of them out would leave the note in neither shape.
+ * Pointing at a task groups that task (and any other selected). Pointing at a
+ * collector acts on the whole group: gather the project's loose tasks, or —
+ * when there are none left — spread the collector's children back out.
  *
  * @param content - The note's full text
  * @param selection - Inclusive line range; start === end for a bare cursor
@@ -297,15 +323,18 @@ export function toggleProjectGrouping(
 	if (target.kind === 'none') return { ok: false, reason: target.reason };
 
 	const slice = findSliceRange(lines, { start: -1, end: lines.length }, target.line);
-	const transformed = target.kind === 'ungroup'
-		? ungroupCollector(lines, target)
-		: groupProjectTasks(lines, target, { slice, roots: selectedRoots(lines, selection) }, ctx);
+	const { transformed, direction } = target.kind === 'collector'
+		? toggleCollector(lines, target, slice)
+		: {
+			transformed: groupProjectTasks(lines, target, { slice, roots: selectedRoots(lines, selection) }, ctx),
+			direction: 'grouped' as const
+		};
 	if ('reason' in transformed) return { ok: false, reason: transformed.reason };
 
 	return {
 		ok: true,
 		content: transformed.content,
-		direction: target.kind === 'ungroup' ? 'ungrouped' : 'grouped',
+		direction,
 		projectName: target.projectName,
 		taskCount: transformed.taskCount,
 		range: { start: slice.start + 1, end: slice.end }

@@ -175,7 +175,7 @@ describe('takeProjectTask', () => {
 	});
 
 	describe('grouping follows the target note', () => {
-		it('groups under an existing collector in a weekly note', async () => {
+		it('lands beside an existing collector in a weekly note, not under it', async () => {
 			const result = await testTakeProjectTaskPlugin({
 				source: `
 - [ ] Define rollback strategy
@@ -192,8 +192,9 @@ describe('takeProjectTask', () => {
 			});
 
 			const lines = result.target!.split('\n');
-			expect(lines).toContain('\t- [ ] Define rollback strategy');
-			expect(result.target).not.toContain('[[Migration Initiative]] Define rollback strategy');
+			expect(lines).toContain('- [ ] [[Migration Initiative]] Define rollback strategy');
+			expect(lines).not.toContain('\t- [ ] Define rollback strategy');
+			expect(lines).toContain('\t- [ ] Some other task');
 		});
 
 		it('takes several tasks as prefixed siblings in a monthly note without a collector', async () => {

@@ -36,14 +36,15 @@ function applyToggle(editor: Editor, before: string, result: ToggleSuccess): voi
 /**
  * Toggle a project's tasks between grouped and flattened shape, in place.
  *
- * With the cursor anywhere inside a collector's block, its task children rise
- * to top level, each prefixed with the collector's link. With the cursor on a
- * prefixed project task, that task folds back under a collector — select more
- * lines to fold more tasks; tasks outside the selection stay where they are.
+ * With the cursor on a prefixed project task, that task folds under a
+ * collector — select more lines to fold more; tasks outside the selection stay
+ * where they are. With the cursor anywhere inside a collector's block, the
+ * whole group toggles: any loose tasks for its project in the section are
+ * gathered in first, and only once there are none left do its children rise
+ * back to top level, each prefixed with the collector's link.
  *
- * Insertion decides the shape from the note's type — collectors in weekly and
- * above, prefixed tasks in daily notes. This is the manual override for the
- * times that guess is wrong.
+ * Commands that bring tasks into a note never group them, so this is the only
+ * way a collector is created, filled or removed.
  *
  * @param plugin - BulletFlow plugin instance
  */
