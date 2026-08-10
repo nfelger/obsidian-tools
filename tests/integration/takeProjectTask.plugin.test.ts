@@ -196,7 +196,7 @@ describe('takeProjectTask', () => {
 			expect(result.target).not.toContain('[[Migration Initiative]] Define rollback strategy');
 		});
 
-		it('gathers several tasks under a new collector in a monthly note', async () => {
+		it('takes several tasks as prefixed siblings in a monthly note without a collector', async () => {
 			const result = await testTakeProjectTaskPlugin({
 				source: `
 - [ ] First task
@@ -213,9 +213,33 @@ describe('takeProjectTask', () => {
 			});
 
 			const lines = result.target!.split('\n');
-			expect(result.target).toContain('- [ ] Push [[Migration Initiative]]');
-			expect(lines).toContain('\t- [ ] First task');
-			expect(lines).toContain('\t- [ ] Second task');
+			expect(result.target).not.toContain('Push [[Migration Initiative]]');
+			expect(lines).toContain('- [ ] [[Migration Initiative]] First task');
+			expect(lines).toContain('- [ ] [[Migration Initiative]] Second task');
+		});
+
+		it('takes into the Todo body of a weekly note, not into a day sub-section', async () => {
+			const result = await testTakeProjectTaskPlugin({
+				source: `
+- [ ] Define rollback strategy
+`,
+				sourceFileName: 'Migration Initiative',
+				targetNoteContent: `
+## Todo
+
+### Monday
+- [ ] [[Migration Initiative]] Prioritised task
+`,
+				period: 'weekly',
+				today,
+				cursorLine: 0
+			});
+
+			expect(result.target).toContain(`## Todo
+- [ ] [[Migration Initiative]] Define rollback strategy
+
+### Monday
+- [ ] [[Migration Initiative]] Prioritised task`);
 		});
 	});
 

@@ -444,7 +444,7 @@ Some content`,
 			expect(lines).not.toContain('- [ ] [[Migration Initiative]] Draft plan');
 		});
 
-		it('consolidates with a prefixed sibling under a new collector', async () => {
+		it('leaves a prefixed sibling loose instead of grouping it', async () => {
 			const result = await testPullUpPlugin({
 				source: `
 - [ ] [[Migration Initiative]] New goal
@@ -459,10 +459,32 @@ Some content`,
 			});
 
 			const lines = result.target!.split('\n');
-			const collectorIdx = lines.indexOf('- [ ] Push [[Migration Initiative|MI]]');
-			expect(collectorIdx).toBeGreaterThan(-1);
-			expect(lines[collectorIdx + 1]).toBe('\t- [ ] Existing goal');
-			expect(lines[collectorIdx + 2]).toBe('\t- [ ] New goal');
+			expect(result.target).not.toContain('Push [[Migration Initiative');
+			expect(lines).toContain('- [ ] [[Migration Initiative|MI]] Existing goal');
+			expect(lines).toContain('- [ ] [[Migration Initiative]] New goal');
+		});
+
+		it('pulls into the weekly Todo body, above its sub-sections', async () => {
+			const result = await testPullUpPlugin({
+				source: `
+- [ ] [[Migration Initiative]] New goal
+`,
+				sourceFileName: '2026-01-22 Thu',
+				targetContent: `
+## Todo
+
+### Monday
+- [ ] [[Migration Initiative]] Prioritised goal
+`,
+				cursorLine: 0,
+				projectNotes: ['Migration Initiative']
+			});
+
+			expect(result.target).toContain(`## Todo
+- [ ] [[Migration Initiative]] New goal
+
+### Monday
+- [ ] [[Migration Initiative]] Prioritised goal`);
 		});
 
 		it('merges alias-insensitively into an existing prefixed weekly copy', async () => {
@@ -623,11 +645,11 @@ Some content`,
 			});
 
 			// Both project tasks recognized via the source collector ancestor;
-			// grouped under a fresh collector in the target (multi-task insert)
+			// each arrives prefixed — the target has no collector to join
 			expect(result.notice).not.toMatch(/no incomplete tasks/i);
-			expect(result.target).toContain('- [ ] Push [[Migration Initiative|MI]]');
-			expect(result.target).toContain('\t- [ ] Storyline sketchen');
-			expect(result.target).toContain('\t- [ ] Draft plan');
+			expect(result.target).not.toContain('Push [[Migration Initiative');
+			expect(result.target).toContain('- [ ] [[Migration Initiative|MI]] Storyline sketchen');
+			expect(result.target).toContain('- [ ] [[Migration Initiative|MI]] Draft plan');
 			expect(result.source).toContain('- [ ] Push [[Migration Initiative|MI]]');
 			expect(result.source).toContain('- [<] Storyline sketchen');
 			expect(result.source).toContain('- [<] Draft plan');

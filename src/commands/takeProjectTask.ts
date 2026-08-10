@@ -163,7 +163,7 @@ export async function takeProjectTask(plugin: BulletFlowPlugin): Promise<void> {
 			const result = insertProjectTasksInSection(data, projectName, collectedTasks, {
 				targetHeading,
 				keywords,
-				groupUnderCollector: granularity !== 'daily'
+				joinExistingCollector: granularity !== 'daily'
 			});
 			mergedCount = result.mergedCount;
 			newCount = result.newCount;

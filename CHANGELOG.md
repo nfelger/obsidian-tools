@@ -5,6 +5,23 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Tasks moved into a note now stay out of its sub-sections.** Migrate, push,
+  pull, take and drop append under the target heading itself, above any `###`
+  sections below it. Organise a weekly `## Todo` into `### Monday`,
+  `### Tuesday` or priority buckets and arriving tasks wait in the Todo body
+  for you to place them, instead of dropping into whichever section happens to
+  be last.
+- **Moving a task no longer gathers a project's other tasks under a
+  collector.** Tasks already in the target note stay exactly where you put
+  them. A task still joins a `Push [[Project]]` collector when the target
+  section already has one, so a group you made keeps filling up — but Bullet
+  Flow no longer creates one for you. Use *Toggle collector task grouping*
+  (`g`) to gather or spread a project's tasks when you want to.
+
 ## [0.18.0] - 2026-08-07
 
 ### Changed

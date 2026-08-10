@@ -530,7 +530,7 @@ Some content
 			expect(result.target).toContain('- new note');
 		});
 
-		it('monthly→weekly: consolidates with a prefixed sibling under a new collector', async () => {
+		it('monthly→weekly: leaves a prefixed sibling loose instead of grouping it', async () => {
 			const result = await testPushTaskDownPlugin({
 				source: `
 - [ ] [[Migration Initiative]] New goal
@@ -546,10 +546,33 @@ Some content
 			});
 
 			const lines = result.target!.split('\n');
-			const collectorIdx = lines.indexOf('- [ ] Push [[Migration Initiative|MI]]');
-			expect(collectorIdx).toBeGreaterThan(-1);
-			expect(lines[collectorIdx + 1]).toBe('\t- [ ] Existing goal');
-			expect(lines[collectorIdx + 2]).toBe('\t- [ ] New goal');
+			expect(result.target).not.toContain('Push [[Migration Initiative');
+			expect(lines).toContain('- [ ] [[Migration Initiative|MI]] Existing goal');
+			expect(lines).toContain('- [ ] [[Migration Initiative]] New goal');
+		});
+
+		it('monthly→weekly: pushes into the Todo body, above its sub-sections', async () => {
+			const result = await testPushTaskDownPlugin({
+				source: `
+- [ ] [[Migration Initiative]] New goal
+`,
+				sourceFileName: '2026-01 Jan',
+				targetContent: `
+## Todo
+
+### Monday
+- [ ] [[Migration Initiative]] Prioritised goal
+`,
+				today: new Date(2026, 0, 22),
+				cursorLine: 0,
+				projectNotes: ['Migration Initiative']
+			});
+
+			expect(result.target).toContain(`## Todo
+- [ ] [[Migration Initiative]] New goal
+
+### Monday
+- [ ] [[Migration Initiative]] Prioritised goal`);
 		});
 
 		it('monthly→weekly: appends under an existing collector, stripped', async () => {
