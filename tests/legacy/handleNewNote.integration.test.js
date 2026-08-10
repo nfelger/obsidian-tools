@@ -60,54 +60,44 @@ describe('handleNewNote', () => {
       expect(result.displayedValues[0]).toBe('/');
     });
 
-    it('creates note in root when root is chosen', async () => {
+    it('moves note to root when root is chosen', async () => {
       const result = await testHandleNewNote({
         folders: ['folder1'],
         fileName: 'MyNote',
         userChoice: '/'
       });
 
-      expect(result.createdPath).toBe('MyNote.md');
+      expect(result.movedTo).toBe('MyNote.md');
     });
   });
 
-  describe('note creation', () => {
-    it('creates note in chosen subfolder', async () => {
+  describe('note placement', () => {
+    it('moves note to chosen subfolder', async () => {
       const result = await testHandleNewNote({
         folders: ['Projects', 'Areas'],
         fileName: 'MyNote',
         userChoice: 'Projects'
       });
 
-      expect(result.createdPath).toBe('Projects/MyNote.md');
+      expect(result.movedTo).toBe('Projects/MyNote.md');
     });
 
-    it('deletes current file before creating new one', async () => {
+    it('renames the note rather than recreating it', async () => {
       const result = await testHandleNewNote({
         folders: ['folder'],
         fileName: 'MyNote',
         userChoice: 'folder',
-        currentFilePath: 'temp.md'
+        currentFilePath: 'Inbox/MyNote.md'
       });
 
-      expect(result.deletedFile).toBe('temp.md');
-      expect(result.createdPath).toBe('folder/MyNote.md');
+      // A delete leaves a path that a pending editor save can resurrect;
+      // a rename carries the file, and any queued write, to the new path.
+      expect(result.deletedFile).toBeNull();
+      expect(result.createdPath).toBeNull();
+      expect(result.movedTo).toBe('folder/MyNote.md');
     });
 
-    it('switches the editor off the old note before deleting it', async () => {
-      const result = await testHandleNewNote({
-        folders: ['folder'],
-        fileName: 'MyNote',
-        userChoice: 'folder',
-        currentFilePath: 'temp.md'
-      });
-
-      // Deleting while the note is still open makes Obsidian write the
-      // outgoing editor buffer back, recreating the file it just removed.
-      expect(result.operations).toEqual(['create', 'open', 'delete']);
-    });
-
-    it('opens the newly created file', async () => {
+    it('opens the moved note', async () => {
       const result = await testHandleNewNote({
         folders: ['folder'],
         fileName: 'MyNote',
@@ -128,7 +118,7 @@ describe('handleNewNote', () => {
 
       expect(result.cancelled).toBe(true);
       expect(result.returnValue).toBe('');
-      expect(result.createdPath).toBeNull();
+      expect(result.movedTo).toBeNull();
     });
   });
 

@@ -38,20 +38,23 @@ async function handleNewNote(tp) {
         return '';
     }
 
-    // 5. Create new note in chosen folder
+    // 5. Move the note to the chosen folder.
+    //
+    //    This is a rename, not a delete-and-recreate. Obsidian saves an idle
+    //    editor buffer a couple of seconds after the last edit, and deleting
+    //    the note does not cancel a write already queued for it — that write
+    //    lands afterwards and recreates the note at the path just cleared,
+    //    inside the folder whose template started this flow, which triggers
+    //    the whole thing again. Renaming carries the file, and any queued
+    //    write, to the new path, leaving nothing behind to be recreated.
     const newPath = chosenFolder === '/'
         ? `${noteTitle}.md`
         : `${chosenFolder}/${noteTitle}.md`;
 
-    const newFile = await app.vault.create(newPath, '');
+    await app.fileManager.renameFile(currentFile, newPath);
 
-    // 6. Open the new note
-    await app.workspace.getLeaf(false).openFile(newFile);
-
-    // 7. Delete the original, now that the editor has moved off it. Deleting a
-    //    note while it is still open makes Obsidian flush the outgoing editor
-    //    buffer back to disk, recreating the file at the path just cleared.
-    await app.vault.delete(currentFile);
+    // 6. Keep the note focused at its new home
+    await app.workspace.getLeaf(false).openFile(currentFile);
 
     return '';
 }

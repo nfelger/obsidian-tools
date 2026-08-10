@@ -41,6 +41,7 @@ export async function testHandleNewNote({
     displayedValues: [],
     createdPath: null,
     deletedFile: null,
+    movedTo: null,
     openedFile: null,
     operations: [],
     cancelled: userChoice === null
@@ -69,12 +70,23 @@ export async function testHandleNewNote({
 
   // Set up app mock
   const mockApp = createMockApp({ vault: mockVault, workspace: mockWorkspace });
+
+  // renameFile moves the file object itself, so the same TFile the editor
+  // holds ends up at the new path
+  const currentFile = createMockFile({ path: currentFilePath });
+  mockApp.fileManager = {
+    renameFile: vi.fn((file, newPath) => {
+      state.movedTo = newPath;
+      state.operations.push('rename');
+      file.path = newPath;
+    })
+  };
   vi.stubGlobal('app', mockApp);
 
   // Set up tp mock
   const mockTp = createMockTp({ app: mockApp });
   mockTp.file = { title: fileName };
-  mockTp.config = { target_file: createMockFile({ path: currentFilePath }) };
+  mockTp.config = { target_file: currentFile };
   mockTp.system.suggester = vi.fn(async (display, values) => {
     // Capture what was shown to user
     state.displayedFolders = [...display];
@@ -93,6 +105,7 @@ export async function testHandleNewNote({
     // File operations performed
     createdPath: state.createdPath,
     deletedFile: state.deletedFile,
+    movedTo: state.movedTo,
     openedFile: state.openedFile,
     operations: state.operations,
 
