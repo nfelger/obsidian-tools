@@ -100,7 +100,8 @@ thing that does.**
 
 Target-side insertion for project tasks (push/pull/migrate/take) goes through
 `insertProjectTasksInSection` in `src/utils/projects.ts`, and has just two outcomes:
-deduplicate into an existing live copy, or append the task prefixed. There is no
+deduplicate into an existing live copy, or append the task prefixed at the end of
+the target section (`insertUnderTargetHeading`, unchanged placement). There is no
 note-type flag any more — a weekly note and a daily note receive a task identically.
 
 Rules that must survive any change here:
@@ -114,10 +115,6 @@ Rules that must survive any change here:
   target section, alias-aware, matching a live copy either by its own prefix or by
   the collector it sits under (hence `keywords` in the options). A duplicate task is
   worse than a merge into a copy in some distant sub-section.
-- **Nothing is written into a sub-section.** New tasks land in the target heading's
-  own body (`findSectionBodyRange`), the slice above its first `###`. Sub-headings
-  under a Todo section are the user's organisation (days of the week, priority
-  buckets); arriving tasks belong to none of them and wait in the body.
 - A **selected collector line is decomposed, not moved verbatim**:
   `detectCollectorContext` + `getCollectorChildGroups` split it into individual project
   tasks carrying the collector's link, each routed through

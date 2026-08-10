@@ -438,49 +438,44 @@ describe('insertProjectTasksInSection — never groups', () => {
 	});
 });
 
-describe('insertProjectTasksInSection — sub-section boundaries', () => {
-	it('appends into the section body, not the last sub-section', () => {
-		const content = `
+describe('insertProjectTasksInSection — a Todo section organised into sub-sections', () => {
+	// The shape a weekly note takes in practice: priority buckets, some
+	// already holding collectors for the arriving task's project.
+	const structured = `
 ## Todo
+### Arbeit
+#### MUSS
+- [ ] Push [[P]]
+	- [ ] Projekt abschließen
+- [<] Website Deployment
 
-### Monday
-- [ ] [[P]] monday task
+#### SOLL
+- [ ] [[Other]] Einzelgespräche terminieren
+- [ ] Push [[P]]
+	- [ ] Andreas' notes lesen
 
-### Tuesday
-- [ ] [[P]] tuesday task
+#### KANN
 
-## Log
+---
 `.trim();
-		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
-		expect(result.content).toBe(`
-## Todo
-- [ ] [[P]] New task
 
-### Monday
-- [ ] [[P]] monday task
-
-### Tuesday
-- [ ] [[P]] tuesday task
-
-## Log
-`.trim());
+	it('appends at the end of the section, joining none of the collectors', () => {
+		const result = insertProjectTasksInSection(
+			structured, 'P', [item('Read & comment on proposal', '[[P|P: Catchup]]')], opts
+		);
+		expect(result.newCount).toBe(1);
+		expect(result.content).toBe(`${structured}
+- [ ] [[P|P: Catchup]] Read & comment on proposal`);
 	});
 
-	it('ignores a collector inside a sub-section', () => {
-		const content = `
-## Todo
-### Someday
-- [ ] Push [[P]]
-	- [ ] someday task
-`.trim();
-		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
-		expect(result.content.split('\n')).toEqual([
-			'## Todo',
-			'- [ ] [[P]] New task',
-			'### Someday',
-			'- [ ] Push [[P]]',
-			'\t- [ ] someday task'
-		]);
+	it('still merges into a copy sitting under a collector in a sub-section', () => {
+		const result = insertProjectTasksInSection(
+			structured, 'P', [item('Projekt abschließen', '[[P]]', '\t- new note')], opts
+		);
+		expect(result.mergedCount).toBe(1);
+		expect(result.newCount).toBe(0);
+		expect(result.content.match(/Projekt abschließen/g)).toHaveLength(1);
+		expect(result.content).toContain('\t- [ ] Projekt abschließen\n\t\t- new note');
 	});
 });
 
