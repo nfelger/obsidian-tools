@@ -7,7 +7,7 @@ field report: selecting the collector line itself for push/pull/migrate
 decomposes its task children into individual project tasks instead of
 transferring the collector as an opaque blob; **revised 2026-08-10** — see
 "Revision: insertion places, it does not restructure" below, which supersedes
-cases 3 and 4's placement and the multi-select rule)
+cases 2, 3 and 4's placement and the multi-select rule)
 Status: Proposed
 
 ## Problem
@@ -465,3 +465,38 @@ that reshuffles that work destroys the arrangement it was placed into.
 Log insertion is untouched: `insertBlockAfterHeading` and
 `insertUnderSubheading` (extract log, complete project task, auto-move) place
 entries under sub-headings on purpose.
+
+### Second pass, same day: no automatic joining either
+
+Keeping case 2 (an existing collector absorbs an arriving task) left the rule
+hard to state — a transfer's outcome still depended on the target's shape and
+the target note's type, for one case out of two. Dropping it makes the whole
+subsystem describable in a sentence:
+
+> **Insertion never groups. `toggleCollectorTask` is the only thing that
+> does.**
+
+So `joinExistingCollector` goes with it, and with it the note-type reasoning on
+all four commands: `insertProjectTasksInSection` now dedups or appends
+prefixed, and a weekly note receives a task exactly as a daily note does.
+Dedup still finds a live copy sitting under a collector and merges into it in
+place — that is not grouping, it moves nothing, and without it a task already
+in the group would arrive a second time.
+
+**The toggle takes over the missing step.** With nothing filling a collector
+automatically, a group and a newly arrived task for the same project can sit
+side by side, and dissolving the group in that state would be the wrong answer
+to the obvious gesture. So a collector-targeted toggle acts on the whole group
+in two steps: while loose tasks for its project remain in the slice it gathers
+*all* of them; only when none are left does it ungroup. One press completes a
+half-grouped section, a second flattens it.
+
+That makes the collector the one place the toggle sweeps the slice rather than
+the selection — deliberately. Pointing at the collector is pointing at the
+whole group, the same reason ungrouping has always taken all of its children.
+Pointing at an individual task keeps the narrow, selection-scoped behaviour.
+
+The cost, accepted: a user who wants to ungroup while a task is deliberately
+loose next to the collector gets a gather on the first press and must press
+again. The alternative — dissolving a group while a task that belongs in it
+sits alongside — is the worse surprise, and the extra press is reversible.

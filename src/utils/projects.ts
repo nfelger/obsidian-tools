@@ -13,7 +13,6 @@ import {
 	TaskMarker,
 	buildTaskContent,
 	extractTaskText,
-	findSectionBodyRange,
 	findSectionRange,
 	findTaskBlockEnd,
 	insertMultipleUnderTargetHeading,
@@ -384,15 +383,8 @@ export function findProjectTaskMatch(
 
 export interface ProjectInsertionOptions {
 	targetHeading: string;
+	/** Collector keywords — dedup needs them to read a collector's children. */
 	keywords: string[];
-	/**
-	 * Append new tasks under a collector the target section's body already
-	 * has for the project. Never *creates* one and never moves a task that is
-	 * already in the target: grouping is a manual gesture
-	 * (`toggleCollectorTask`), not something a transfer decides. Off for
-	 * daily targets, which stay flat entirely.
-	 */
-	joinExistingCollector: boolean;
 }
 
 function prefixTaskContent(task: ProjectTaskInsertItem): string {
@@ -404,11 +396,14 @@ function prefixTaskContent(task: ProjectTaskInsertItem): string {
 /**
  * Insert one project's tasks into a note's target section.
  *
- * Three cases, in order: an existing live copy anywhere in the section
- * absorbs the task (dedup); a collector in the section's *body* takes it as
- * its last child; otherwise it is appended to the body as a prefixed task.
- * Tasks already in the target are never moved, and nothing is ever written
- * into a sub-section. See the design spec
+ * Two cases: an existing live copy anywhere in the section absorbs the task
+ * (dedup, alias-aware, and it finds copies sitting under a collector);
+ * otherwise the task is appended to the section's *body* as a prefixed task.
+ *
+ * Insertion never groups. It creates no collector, puts nothing under one,
+ * and moves nothing that is already in the target — grouping is
+ * `toggleCollectorTask`'s gesture alone. Nor does it write into a
+ * sub-section. See the design spec
  * (docs/specs/2026-07-06-project-task-consolidation.md).
  */
 export function insertProjectTasksInSection(
@@ -435,20 +430,6 @@ export function insertProjectTasksInSection(
 	}
 	if (remaining.length === 0) {
 		return { content: result, mergedCount, newCount: 0 };
-	}
-
-	if (options.joinExistingCollector) {
-		const lines = result.split('\n');
-		const body = findSectionBodyRange(lines, options.targetHeading);
-		const collector = body && findCollector(lines, body, projectName, options.keywords);
-		if (collector) {
-			const block = remaining.map(t => t.taskContent).join('\n');
-			return {
-				content: insertUnderCollectorTask(result, collector.line, block),
-				mergedCount,
-				newCount: remaining.length
-			};
-		}
 	}
 
 	result = insertMultipleUnderTargetHeading(result, remaining.map(prefixTaskContent), options.targetHeading);

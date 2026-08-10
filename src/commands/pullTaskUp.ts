@@ -144,7 +144,6 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 		let newCount = 0;
 		const targetHeading = plugin.settings.periodicNoteTaskTargetHeading;
 		const keywords = parseProjectKeywords(plugin.settings.projectKeywords);
-		const joinExistingCollector = true;
 		await plugin.app.vault.process(targetFile, (data: string) => {
 			let result = data;
 			if (collectedTasks.length > 0) {
@@ -154,7 +153,7 @@ export async function pullTaskUp(plugin: BulletFlowPlugin): Promise<void> {
 				newCount += r.newCount;
 			}
 			for (const [name, items] of projectGroups) {
-				const r = insertProjectTasksInSection(result, name, items, { targetHeading, keywords, joinExistingCollector });
+				const r = insertProjectTasksInSection(result, name, items, { targetHeading, keywords });
 				result = r.content;
 				mergedCount += r.mergedCount;
 				newCount += r.newCount;

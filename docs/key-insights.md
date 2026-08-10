@@ -93,33 +93,31 @@ extract log and complete project task move the whole subtree, and complete proje
 folds leftover children of the removed Todo copy into the log entry, so terminal subtrees
 left behind by take are never lost.
 
-## Project Task Consolidation
+## Project Tasks: Insertion vs. Grouping
+
+The two are strictly separated. **Insertion never groups; the toggle is the only
+thing that does.**
 
 Target-side insertion for project tasks (push/pull/migrate/take) goes through
-`insertProjectTasksInSection` in `src/utils/projects.ts`. It always deduplicates first
-(alias-aware, section-wide); then, when the **target note's type** allows joining
-(`joinExistingCollector` — weekly/monthly/yearly yes, daily no, because daily tasks are
-worked out of order and grouping would hide their individual priorities), a collector the
-target already has takes the task; otherwise the task is appended prefixed. The command
-never decides this; the hop's target does — including `takeProjectTask`, where the user
-picks the target period and the shape follows from it.
+`insertProjectTasksInSection` in `src/utils/projects.ts`, and has just two outcomes:
+deduplicate into an existing live copy, or append the task prefixed. There is no
+note-type flag any more — a weekly note and a daily note receive a task identically.
 
 Rules that must survive any change here:
 
 - Matching (`findProjectTaskMatch`, `findCollector`, `parseProjectPrefix`) is by
   link-target **basename**, never display text or resolved path.
-- **Insertion places the incoming task; it never restructures the target.** No
-  collector is ever created automatically and no task already in the note is moved
-  under one. Grouping is the user's gesture (`toggleCollectorTask`) — a loose task
-  next to a group may be loose deliberately. Insertion only *joins* what is already
-  there.
-- **Nothing is written into a sub-section.** Placement — the collector lookup and the
-  prefixed append alike — is scoped to the target heading's own body
-  (`findSectionBodyRange`), the slice above its first `###`. Sub-headings under a Todo
-  section are the user's organisation (days of the week, priority buckets); arriving
-  tasks belong to none of them and wait in the body. Dedup is the deliberate
-  exception: it scans the whole section, because merging into an existing copy moves
-  nothing and a duplicate is worse than a distant match.
+- **Insertion places the incoming task and changes nothing else.** It creates no
+  collector, puts nothing under one, and never moves a task already in the target.
+  A note's shape is the user's, and a transfer is not a mandate to rearrange it.
+- **Dedup is the exception that scans widely**, because it moves nothing: the whole
+  target section, alias-aware, matching a live copy either by its own prefix or by
+  the collector it sits under (hence `keywords` in the options). A duplicate task is
+  worse than a merge into a copy in some distant sub-section.
+- **Nothing is written into a sub-section.** New tasks land in the target heading's
+  own body (`findSectionBodyRange`), the slice above its first `###`. Sub-headings
+  under a Todo section are the user's organisation (days of the week, priority
+  buckets); arriving tasks belong to none of them and wait in the body.
 - A **selected collector line is decomposed, not moved verbatim**:
   `detectCollectorContext` + `getCollectorChildGroups` split it into individual project
   tasks carrying the collector's link, each routed through
@@ -127,31 +125,32 @@ Rules that must survive any change here:
   push/pull/migrate only — in `takeProjectTask`'s project-note source, a
   `Push [[Project]]`-shaped line has no collector meaning.
 
-**Toggling the shape by hand.** `toggleCollectorTask` (`src/utils/collectorToggle.ts`)
-is the *only* place a collector is created or removed. Grouping folds prefixed
-tasks through `findCollector` (reuse an existing collector) or
-`groupUnderNewCollector` (create one), reusing the same primitives insertion
-joins with rather than a second set of rules.
+**Grouping by hand.** `toggleCollectorTask` (`src/utils/collectorToggle.ts`) is
+the *only* place a collector is created, filled or removed. What it does depends
+on what the cursor points at, and that difference is the whole design:
 
-**Grouping acts on the selection, not the section.** The toggle is the gesture
-itself, so it obeys the gesture's extent: `selectedRoots` maps each selected
-line to its top-level root (so selecting a task's note child selects that
-task), and only matches in that set fold. A task for the same project elsewhere
-in the section may be loose deliberately; sweeping it in would be the command
-deciding something the user did not ask for. Ungrouping is the exception — its
-unit is the whole collector, because its children are one group by definition
-and hoisting half of them leaves the note in neither shape.
+- **On a project task** (`groupProjectTasks`) — folds the **selected** tasks under
+  the slice's existing collector (`findCollector`) or a fresh one
+  (`groupUnderNewCollector`). Only what the user pointed at moves: a task for the
+  same project elsewhere may be loose deliberately.
+- **On a collector** (`toggleCollector`) — acts on the whole group, in two steps.
+  While loose prefixed tasks for the project remain in the slice it gathers *all*
+  of them (`findPrefixedProjectTasks` → `foldIntoCollector`, reported as
+  `grouped`); only when none are left does it ungroup. So one press completes a
+  half-grouped section and a second flattens it, and a collector is never
+  dissolved while a task it should be holding lies next to it. This is the one
+  gesture that sweeps the slice rather than the selection — pointing at the
+  collector *is* pointing at the whole group.
 
-Two further rules differ from insertion. Terminal tasks participate: a
-completed task is history the source keeps during a transfer, but leaving it
-behind while its siblings regroup would split the group, so
-`findPrefixedProjectTasks` gathers terminal copies too and ungrouping hoists
-them. And the search range is the innermost heading-delimited slice around
-the **target** (`findSliceRange` over the whole document), not a configured
-target heading — the toggle works in any section of any note, including project
-notes. Ungrouping keeps the non-task children where they are, under a collector
-line that survives only to hold them; a collector left with nothing is removed.
-Both directions require the collector or task to be at indent 0, because a
-nested one has no unambiguous set of siblings to gather.
+Terminal tasks participate in both directions: a completed task is history the
+source keeps during a transfer, but leaving it behind while its siblings regroup
+would split the group, so `findPrefixedProjectTasks` gathers terminal copies too
+and ungrouping hoists them. The search range is the innermost heading-delimited
+slice around the **target** (`findSliceRange` over the whole document), not a
+configured target heading — the toggle works in any section of any note,
+including project notes. Ungrouping keeps the non-task children where they are,
+under a collector line that survives only to hold them; a collector left with
+nothing is removed. Both directions require the collector or task to be at
+indent 0, because a nested one has no unambiguous set of siblings to gather.
 
 Full rationale and worked examples: docs/specs/2026-07-06-project-task-consolidation.md.

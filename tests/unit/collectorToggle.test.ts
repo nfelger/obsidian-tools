@@ -406,6 +406,93 @@ describe('toggleProjectGrouping — grouping prefixed tasks', () => {
 	});
 });
 
+describe('toggleProjectGrouping — a collector gathers before it dissolves', () => {
+	const halfGrouped = `## Todo
+
+- [ ] Push [[P]]
+	- [ ] Ask Samir for numbers
+- [ ] [[P]] Draft update
+- [ ] Unrelated task`;
+
+	it('first press folds the project\'s loose tasks under the collector', () => {
+		const result = toggle(halfGrouped, 2);
+
+		expect(result).toMatchObject({ ok: true, direction: 'grouped', projectName: 'P', taskCount: 1 });
+		expect((result as any).content).toBe(`## Todo
+
+- [ ] Push [[P]]
+	- [ ] Ask Samir for numbers
+	- [ ] Draft update
+- [ ] Unrelated task`);
+	});
+
+	it('second press ungroups everything, the gathered task included', () => {
+		const gathered = (toggle(halfGrouped, 2) as any).content;
+		const result = toggleProjectGrouping(gathered, { start: 2, end: 2 }, ctx);
+
+		expect(result).toMatchObject({ ok: true, direction: 'ungrouped', taskCount: 2 });
+		expect((result as any).content).toBe(`## Todo
+
+- [ ] [[P]] Ask Samir for numbers
+- [ ] [[P]] Draft update
+- [ ] Unrelated task`);
+	});
+
+	it('gathers every loose task for the project, not just the selected one', () => {
+		const result = toggle(`
+- [ ] Push [[P]]
+	- [ ] First
+- [ ] [[P]] Second
+- [ ] [[P|EU]] Third
+`, 0);
+
+		expect(result).toMatchObject({ direction: 'grouped', taskCount: 2 });
+		expect((result as any).content).toBe(`- [ ] Push [[P]]
+	- [ ] First
+	- [ ] Second
+	- [ ] Third`);
+	});
+
+	it('gathers terminal copies too, so the group keeps its history', () => {
+		const result = toggle(`
+- [ ] Push [[P]]
+	- [ ] Live
+- [x] [[P]] Done earlier
+`, 0);
+
+		expect((result as any).content).toBe(`- [ ] Push [[P]]
+	- [ ] Live
+	- [x] Done earlier`);
+	});
+
+	it('fills a childless collector instead of reporting nothing to ungroup', () => {
+		const result = toggle(`
+- [ ] Push [[P]]
+- [ ] [[P]] Draft update
+`, 0);
+
+		expect(result).toMatchObject({ ok: true, direction: 'grouped' });
+		expect((result as any).content).toBe(`- [ ] Push [[P]]
+	- [ ] Draft update`);
+	});
+
+	it('does not reach a loose task on the far side of a heading', () => {
+		const result = toggle(`
+## Todo
+
+- [ ] Push [[P]]
+	- [ ] Ask Samir for numbers
+
+### Someday
+
+- [ ] [[P]] Later idea
+`, 2);
+
+		expect(result).toMatchObject({ direction: 'ungrouped' });
+		expect((result as any).content).toContain('### Someday\n\n- [ ] [[P]] Later idea');
+	});
+});
+
 describe('toggleProjectGrouping — round trip', () => {
 	const grouped = `- [ ] Push [[P|EU]]
 	- [ ] Ask Samir for numbers
