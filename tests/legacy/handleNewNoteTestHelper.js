@@ -30,7 +30,10 @@ export async function testHandleNewNote({
   folders = [],
   fileName = 'Test',
   userChoice = null,
-  currentFilePath = 'temp.md'
+  currentFilePath = 'temp.md',
+  folderTemplate = null,
+  runningTemplate = 'Templates/New Note.md',
+  templaterAvailable = true
 }) {
   // Convert folder strings to folder objects
   const folderObjects = folders.map(path => ({ path }));
@@ -41,7 +44,11 @@ export async function testHandleNewNote({
     displayedValues: [],
     createdPath: null,
     deletedFile: null,
+    movedTo: null,
     openedFile: null,
+    appliedTemplate: null,
+    templatedFile: null,
+    operations: [],
     cancelled: userChoice === null
   };
 
@@ -50,27 +57,65 @@ export async function testHandleNewNote({
   mockVault.getAllFolders = vi.fn(() => folderObjects);
   mockVault.delete = vi.fn((file) => {
     state.deletedFile = file.path;
+    state.operations.push('delete');
   });
   mockVault.create = vi.fn((path, _content) => {
     state.createdPath = path;
+    state.operations.push('create');
     return createMockFile({ path });
   });
 
   // Set up workspace mock
   const openFileMock = vi.fn((file) => {
     state.openedFile = file.path;
+    state.operations.push('open');
   });
   const mockWorkspace = createMockWorkspace();
   mockWorkspace.getLeaf = vi.fn(() => ({ openFile: openFileMock }));
 
   // Set up app mock
   const mockApp = createMockApp({ vault: mockVault, workspace: mockWorkspace });
+
+  // renameFile moves the file object itself, so the same TFile the editor
+  // holds ends up at the new path
+  const currentFile = createMockFile({ path: currentFilePath });
+  mockApp.fileManager = {
+    renameFile: vi.fn((file, newPath) => {
+      state.movedTo = newPath;
+      state.operations.push('rename');
+      file.path = newPath;
+    })
+  };
+  // Templater exposes its own folder-template resolution and application; the
+  // script reuses both so a moved note is templated exactly as a new one is
+  if (templaterAvailable) {
+    mockApp.plugins = {
+      plugins: {
+        'templater-obsidian': {
+          templater: {
+            get_new_file_template_for_folder: vi.fn(() => folderTemplate),
+            write_template_to_file: vi.fn((templateFile, file) => {
+              state.appliedTemplate = templateFile.path;
+              state.templatedFile = file.path;
+              state.operations.push('template');
+            })
+          }
+        }
+      }
+    };
+  }
+
+  mockVault.getAbstractFileByPath = vi.fn((path) => createMockFile({ path }));
+
   vi.stubGlobal('app', mockApp);
 
   // Set up tp mock
   const mockTp = createMockTp({ app: mockApp });
   mockTp.file = { title: fileName };
-  mockTp.config = { target_file: createMockFile({ path: currentFilePath }) };
+  mockTp.config = {
+    target_file: currentFile,
+    template_file: createMockFile({ path: runningTemplate })
+  };
   mockTp.system.suggester = vi.fn(async (display, values) => {
     // Capture what was shown to user
     state.displayedFolders = [...display];
@@ -89,7 +134,11 @@ export async function testHandleNewNote({
     // File operations performed
     createdPath: state.createdPath,
     deletedFile: state.deletedFile,
+    movedTo: state.movedTo,
     openedFile: state.openedFile,
+    appliedTemplate: state.appliedTemplate,
+    templatedFile: state.templatedFile,
+    operations: state.operations,
 
     // User interaction
     cancelled: state.cancelled,
