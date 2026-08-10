@@ -30,7 +30,10 @@ export async function testHandleNewNote({
   folders = [],
   fileName = 'Test',
   userChoice = null,
-  currentFilePath = 'temp.md'
+  currentFilePath = 'temp.md',
+  folderTemplate = null,
+  runningTemplate = 'Templates/New Note.md',
+  templaterAvailable = true
 }) {
   // Convert folder strings to folder objects
   const folderObjects = folders.map(path => ({ path }));
@@ -43,6 +46,8 @@ export async function testHandleNewNote({
     deletedFile: null,
     movedTo: null,
     openedFile: null,
+    appliedTemplate: null,
+    templatedFile: null,
     operations: [],
     cancelled: userChoice === null
   };
@@ -81,12 +86,36 @@ export async function testHandleNewNote({
       file.path = newPath;
     })
   };
+  // Templater exposes its own folder-template resolution and application; the
+  // script reuses both so a moved note is templated exactly as a new one is
+  if (templaterAvailable) {
+    mockApp.plugins = {
+      plugins: {
+        'templater-obsidian': {
+          templater: {
+            get_new_file_template_for_folder: vi.fn(() => folderTemplate),
+            write_template_to_file: vi.fn((templateFile, file) => {
+              state.appliedTemplate = templateFile.path;
+              state.templatedFile = file.path;
+              state.operations.push('template');
+            })
+          }
+        }
+      }
+    };
+  }
+
+  mockVault.getAbstractFileByPath = vi.fn((path) => createMockFile({ path }));
+
   vi.stubGlobal('app', mockApp);
 
   // Set up tp mock
   const mockTp = createMockTp({ app: mockApp });
   mockTp.file = { title: fileName };
-  mockTp.config = { target_file: currentFile };
+  mockTp.config = {
+    target_file: currentFile,
+    template_file: createMockFile({ path: runningTemplate })
+  };
   mockTp.system.suggester = vi.fn(async (display, values) => {
     // Capture what was shown to user
     state.displayedFolders = [...display];
@@ -107,6 +136,8 @@ export async function testHandleNewNote({
     deletedFile: state.deletedFile,
     movedTo: state.movedTo,
     openedFile: state.openedFile,
+    appliedTemplate: state.appliedTemplate,
+    templatedFile: state.templatedFile,
     operations: state.operations,
 
     // User interaction

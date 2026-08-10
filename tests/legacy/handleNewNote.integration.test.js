@@ -108,6 +108,73 @@ describe('handleNewNote', () => {
     });
   });
 
+  describe('destination folder template', () => {
+    it('applies the destination folder template to the moved note', async () => {
+      const result = await testHandleNewNote({
+        folders: ['1 Projekte'],
+        fileName: 'MyNote',
+        userChoice: '1 Projekte',
+        folderTemplate: 'Templates/Projekt.md'
+      });
+
+      // A rename fires no create event, so Templater never applies this
+      // itself — the script has to ask for it.
+      expect(result.appliedTemplate).toBe('Templates/Projekt.md');
+      expect(result.templatedFile).toBe('1 Projekte/MyNote.md');
+    });
+
+    it('applies the template only after the note has moved', async () => {
+      const result = await testHandleNewNote({
+        folders: ['1 Projekte'],
+        fileName: 'MyNote',
+        userChoice: '1 Projekte',
+        folderTemplate: 'Templates/Projekt.md'
+      });
+
+      expect(result.operations).toEqual(['rename', 'open', 'template']);
+    });
+
+    it('applies nothing when the destination folder has no template', async () => {
+      const result = await testHandleNewNote({
+        folders: ['2 Areas'],
+        fileName: 'MyNote',
+        userChoice: '2 Areas',
+        folderTemplate: null
+      });
+
+      expect(result.appliedTemplate).toBeNull();
+      expect(result.movedTo).toBe('2 Areas/MyNote.md');
+    });
+
+    it('refuses to re-apply the template it is running inside', async () => {
+      const result = await testHandleNewNote({
+        folders: ['Inbox'],
+        fileName: 'MyNote',
+        userChoice: 'Inbox',
+        runningTemplate: 'Templates/New Note.md',
+        folderTemplate: 'Templates/New Note.md'
+      });
+
+      // Filing back into the folder that started the flow would otherwise
+      // re-run this script against the note it just moved, forever.
+      expect(result.appliedTemplate).toBeNull();
+      expect(result.movedTo).toBe('Inbox/MyNote.md');
+    });
+
+    it('still files the note when Templater internals are unavailable', async () => {
+      const result = await testHandleNewNote({
+        folders: ['1 Projekte'],
+        fileName: 'MyNote',
+        userChoice: '1 Projekte',
+        folderTemplate: 'Templates/Projekt.md',
+        templaterAvailable: false
+      });
+
+      expect(result.movedTo).toBe('1 Projekte/MyNote.md');
+      expect(result.appliedTemplate).toBeNull();
+    });
+  });
+
   describe('cancellation', () => {
     it('returns empty string when user cancels', async () => {
       const result = await testHandleNewNote({

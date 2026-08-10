@@ -7,6 +7,44 @@
  * Usage in template: <% tp.user.handleNewNote(tp) %>
  */
 
+/*
+ * A rename fires no "create" event, so Templater never applies the
+ * destination folder's template the way it would for a genuinely new file.
+ * Reusing Templater's own resolution and application keeps a moved note
+ * templated identically to a new one — same walk up the parent chain, same
+ * frontmatter merging — rather than reimplementing either here.
+ *
+ * Everything is optional: if Templater's shape changes, the note is still
+ * filed and only the templating is skipped.
+ */
+async function applyFolderTemplate(tp, file) {
+    const templater = app.plugins?.plugins?.['templater-obsidian']?.templater;
+
+    if (!templater?.get_new_file_template_for_folder || !templater?.write_template_to_file) {
+        return;
+    }
+
+    const templatePath = templater.get_new_file_template_for_folder(file.parent);
+
+    if (!templatePath) {
+        return;
+    }
+
+    // Filing into the folder that started this flow would re-run this script
+    // against the note it just moved, with no end to it
+    if (templatePath === tp.config.template_file?.path) {
+        return;
+    }
+
+    const templateFile = app.vault.getAbstractFileByPath(templatePath);
+
+    if (!templateFile) {
+        return;
+    }
+
+    await templater.write_template_to_file(templateFile, file);
+}
+
 async function handleNewNote(tp) {
     // 1. Capture the current note's title before we delete it
     const noteTitle = tp.file.title;
@@ -55,6 +93,10 @@ async function handleNewNote(tp) {
 
     // 6. Keep the note focused at its new home
     await app.workspace.getLeaf(false).openFile(currentFile);
+
+    // 7. Apply the destination folder's template, which the create event would
+    //    have done had this been a new file rather than a move
+    await applyFolderTemplate(tp, currentFile);
 
     return '';
 }
