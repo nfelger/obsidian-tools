@@ -190,24 +190,12 @@ export function findSliceRange(
 }
 
 /**
- * The section's *own* body: the slice from the heading down to the first
- * heading nested inside it. Sub-headings there are the user's organisation —
- * days of the week, priority buckets — and transferred content belongs to
- * none of them, so it lands in the body rather than in whichever sub-section
- * happens to be last.
- */
-export function findSectionBodyRange(
-	lines: string[],
-	heading: string
-): { start: number; end: number } | null {
-	const section = findSectionRange(lines, heading);
-	return section && findSliceRange(lines, section, section.start);
-}
-
-/**
- * Insert content under a target heading, creating it if necessary. Appends at
- * the end of the heading's own body (see `findSectionBodyRange`), never
- * inside one of its sub-sections.
+ * Insert content under target heading, creating it if necessary.
+ *
+ * @param content - Full file content
+ * @param taskContent - Content to insert
+ * @param targetHeading - The target heading to use (e.g., "## Log")
+ * @returns Updated file content
  */
 export function insertUnderTargetHeading(
 	content: string,
@@ -215,7 +203,7 @@ export function insertUnderTargetHeading(
 	targetHeading: string = DEFAULT_SETTINGS.periodicNoteTaskTargetHeading
 ): string {
 	const lines = content.split('\n');
-	const range = findSectionBodyRange(lines, targetHeading);
+	const range = findSectionRange(lines, targetHeading);
 
 	if (range) {
 		// Skip trailing blank lines before the next section

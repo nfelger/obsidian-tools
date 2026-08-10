@@ -631,29 +631,6 @@ title: Note
 			expect(lines).not.toContain('\t- [ ] New goal');
 		});
 
-		it('migrates into the weekly Todo body, not into a day sub-section', async () => {
-			const result = await testMigrateTaskPlugin({
-				source: `
-- [ ] [[Migration Initiative]] New goal
-`,
-				sourceFileName: '2026-01-18 Sun',
-				targetContent: `
-## Todo
-
-### Monday
-- [ ] [[Migration Initiative]] Prioritised goal
-`,
-				cursorLine: 0,
-				projects: ['Migration Initiative']
-			});
-
-			expect(result.target).toContain(`## Todo
-- [ ] [[Migration Initiative]] New goal
-
-### Monday
-- [ ] [[Migration Initiative]] Prioritised goal`);
-		});
-
 		it('merges a project task with an existing copy instead of duplicating', async () => {
 			const result = await testMigrateTaskPlugin({
 				source: `

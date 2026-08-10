@@ -3,7 +3,6 @@ import {
 	isIncompleteTask,
 	dedentLinesByAmount,
 	findSectionRange,
-	findSectionBodyRange,
 	findSliceRange,
 	insertUnderTargetHeading,
 	insertBlockAfterHeading,
@@ -350,7 +349,7 @@ Other content`;
 		expect(newTaskIdx).toBeLessThan(topIdx);
 	});
 
-	it('appends in the section body, above a deeper heading', () => {
+	it('does not stop at a deeper heading within the section', () => {
 		const content = `## Log
 
 - Existing task
@@ -359,45 +358,12 @@ Other content`;
 
 Sub content`;
 		const result = insertUnderTargetHeading(content, '- New task', '## Log');
-		expect(result).toBe(`## Log
+		const lines = result.split('\n');
+		const subIdx = lines.findIndex(l => l === '### Subsection');
+		const newTaskIdx = lines.findIndex(l => l === '- New task');
 
-- Existing task
-- New task
-
-### Subsection
-
-Sub content`);
-	});
-
-	it('inserts directly under the heading when the section is all sub-sections', () => {
-		const content = `## Todo
-
-### Monday
-
-- [ ] planned`;
-		const result = insertUnderTargetHeading(content, '- [ ] New task', '## Todo');
-		expect(result).toBe(`## Todo
-- [ ] New task
-
-### Monday
-
-- [ ] planned`);
-	});
-});
-
-describe('findSectionBodyRange', () => {
-	it('stops at the first nested heading', () => {
-		const lines = ['## Todo', '- [ ] a', '### Monday', '- [ ] b', '## Log'];
-		expect(findSectionBodyRange(lines, '## Todo')).toEqual({ start: 0, end: 2 });
-	});
-
-	it('spans the whole section when it has no sub-headings', () => {
-		const lines = ['## Todo', '- [ ] a', '- [ ] b', '## Log'];
-		expect(findSectionBodyRange(lines, '## Todo')).toEqual({ start: 0, end: 3 });
-	});
-
-	it('returns null when the heading is missing', () => {
-		expect(findSectionBodyRange(['# Note'], '## Todo')).toBeNull();
+		// New task should be appended after subsection content (end of ## Log section)
+		expect(newTaskIdx).toBeGreaterThan(subIdx);
 	});
 });
 

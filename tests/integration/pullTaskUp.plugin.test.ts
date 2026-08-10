@@ -486,29 +486,6 @@ Some content`,
 			expect(lines).toContain('- [ ] [[Migration Initiative]] New goal');
 		});
 
-		it('pulls into the weekly Todo body, above its sub-sections', async () => {
-			const result = await testPullUpPlugin({
-				source: `
-- [ ] [[Migration Initiative]] New goal
-`,
-				sourceFileName: '2026-01-22 Thu',
-				targetContent: `
-## Todo
-
-### Monday
-- [ ] [[Migration Initiative]] Prioritised goal
-`,
-				cursorLine: 0,
-				projectNotes: ['Migration Initiative']
-			});
-
-			expect(result.target).toContain(`## Todo
-- [ ] [[Migration Initiative]] New goal
-
-### Monday
-- [ ] [[Migration Initiative]] Prioritised goal`);
-		});
-
 		it('merges alias-insensitively into an existing prefixed weekly copy', async () => {
 			const result = await testPullUpPlugin({
 				source: `

@@ -551,30 +551,6 @@ Some content
 			expect(lines).toContain('- [ ] [[Migration Initiative]] New goal');
 		});
 
-		it('monthly→weekly: pushes into the Todo body, above its sub-sections', async () => {
-			const result = await testPushTaskDownPlugin({
-				source: `
-- [ ] [[Migration Initiative]] New goal
-`,
-				sourceFileName: '2026-01 Jan',
-				targetContent: `
-## Todo
-
-### Monday
-- [ ] [[Migration Initiative]] Prioritised goal
-`,
-				today: new Date(2026, 0, 22),
-				cursorLine: 0,
-				projectNotes: ['Migration Initiative']
-			});
-
-			expect(result.target).toContain(`## Todo
-- [ ] [[Migration Initiative]] New goal
-
-### Monday
-- [ ] [[Migration Initiative]] Prioritised goal`);
-		});
-
 		it('monthly→weekly: lands beside an existing collector, not under it', async () => {
 			const result = await testPushTaskDownPlugin({
 				source: `

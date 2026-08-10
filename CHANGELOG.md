@@ -9,12 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Tasks moved into a note now stay out of its sub-sections.** Migrate, push,
-  pull, take and drop append under the target heading itself, above any `###`
-  sections below it. Organise a weekly `## Todo` into `### Monday`,
-  `### Tuesday` or priority buckets and arriving tasks wait in the Todo body
-  for you to place them, instead of dropping into whichever section happens to
-  be last.
 - **Moving a task never groups it under a collector any more.** Migrate, push,
   pull and take always leave a project task on its own line, whatever kind of
   note it lands in — no collector is created for you, nothing already in the
