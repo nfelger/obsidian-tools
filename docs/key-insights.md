@@ -96,20 +96,30 @@ left behind by take are never lost.
 ## Project Task Consolidation
 
 Target-side insertion for project tasks (push/pull/migrate/take) goes through
-`insertProjectTasksInSection` in `src/utils/projects.ts`, scoped to the target heading's
-section. It always deduplicates first (alias-aware); collector grouping applies only when
-the **target note's type** allows it — weekly/monthly/yearly targets group, daily targets
-never do (daily tasks are worked out of order, so grouping would hide their individual
-priorities). The command never decides this; the hop's target does — including
-`takeProjectTask`, where the user picks the target period and the shape follows from it.
+`insertProjectTasksInSection` in `src/utils/projects.ts`. It always deduplicates first
+(alias-aware, section-wide); then, when the **target note's type** allows joining
+(`joinExistingCollector` — weekly/monthly/yearly yes, daily no, because daily tasks are
+worked out of order and grouping would hide their individual priorities), a collector the
+target already has takes the task; otherwise the task is appended prefixed. The command
+never decides this; the hop's target does — including `takeProjectTask`, where the user
+picks the target period and the shape follows from it.
 
 Rules that must survive any change here:
 
 - Matching (`findProjectTaskMatch`, `findCollector`, `parseProjectPrefix`) is by
   link-target **basename**, never display text or resolved path.
-- Consolidation never crosses a sub-heading boundary within the section
-  (`findSliceRange`) and only folds top-level candidates — never a task nested under
-  something else.
+- **Insertion places the incoming task; it never restructures the target.** No
+  collector is ever created automatically and no task already in the note is moved
+  under one. Grouping is the user's gesture (`toggleCollectorTask`) — a loose task
+  next to a group may be loose deliberately. Insertion only *joins* what is already
+  there.
+- **Nothing is written into a sub-section.** Placement — the collector lookup and the
+  prefixed append alike — is scoped to the target heading's own body
+  (`findSectionBodyRange`), the slice above its first `###`. Sub-headings under a Todo
+  section are the user's organisation (days of the week, priority buckets); arriving
+  tasks belong to none of them and wait in the body. Dedup is the deliberate
+  exception: it scans the whole section, because merging into an existing copy moves
+  nothing and a duplicate is worse than a distant match.
 - A **selected collector line is decomposed, not moved verbatim**:
   `detectCollectorContext` + `getCollectorChildGroups` split it into individual project
   tasks carrying the collector's link, each routed through
@@ -118,30 +128,25 @@ Rules that must survive any change here:
   `Push [[Project]]`-shaped line has no collector meaning.
 
 **Toggling the shape by hand.** `toggleCollectorTask` (`src/utils/collectorToggle.ts`)
-is the manual override for the grouping flag's guess, and it is the one place
-that *removes* a collector. It reuses the same primitives rather than a second
-set of rules: grouping folds prefixed tasks through `findCollector` (reuse an
-existing collector) or `groupUnderNewCollector` (create one), exactly as
-insertion cases 2 and 3 do. What differs is scope, and all of it follows from
-this being a manual reshape *within* one note rather than an automatic
-transfer between two.
+is the *only* place a collector is created or removed. Grouping folds prefixed
+tasks through `findCollector` (reuse an existing collector) or
+`groupUnderNewCollector` (create one), reusing the same primitives insertion
+joins with rather than a second set of rules.
 
-**Grouping acts on the selection, not the section.** Insertion-time
-consolidation may sweep up every matching task it finds — it is converging the
-section as a side effect of a transfer the user asked for. The toggle is the
-gesture itself, so it obeys the gesture's extent: `selectedRoots` maps each
-selected line to its top-level root (so selecting a task's note child selects
-that task), and only matches in that set fold. A task for the same project
-elsewhere in the section may be loose deliberately; sweeping it in would be the
-command deciding something the user did not ask for. Ungrouping is the
-exception — its unit is the whole collector, because its children are one group
-by definition and hoisting half of them leaves the note in neither shape.
+**Grouping acts on the selection, not the section.** The toggle is the gesture
+itself, so it obeys the gesture's extent: `selectedRoots` maps each selected
+line to its top-level root (so selecting a task's note child selects that
+task), and only matches in that set fold. A task for the same project elsewhere
+in the section may be loose deliberately; sweeping it in would be the command
+deciding something the user did not ask for. Ungrouping is the exception — its
+unit is the whole collector, because its children are one group by definition
+and hoisting half of them leaves the note in neither shape.
 
 Two further rules differ from insertion. Terminal tasks participate: a
 completed task is history the source keeps during a transfer, but leaving it
 behind while its siblings regroup would split the group, so
-`findPrefixedProjectTasks({ includeTerminal: true })` gathers it and ungrouping
-hoists it. And the search range is the innermost heading-delimited slice around
+`findPrefixedProjectTasks` gathers terminal copies too and ungrouping hoists
+them. And the search range is the innermost heading-delimited slice around
 the **target** (`findSliceRange` over the whole document), not a configured
 target heading — the toggle works in any section of any note, including project
 notes. Ungrouping keeps the non-task children where they are, under a collector

@@ -263,7 +263,7 @@ function groupProjectTasks(
 ): Transformed {
 	const { slice, roots } = scope;
 	const keywords = parseProjectKeywords(ctx.settings.projectKeywords);
-	const matches = findPrefixedProjectTasks(lines, slice, target.projectName, { includeTerminal: true })
+	const matches = findPrefixedProjectTasks(lines, slice, target.projectName)
 		.filter(m => roots.has(m.line));
 	if (matches.length === 0) return { reason: 'no-matching-tasks' };
 

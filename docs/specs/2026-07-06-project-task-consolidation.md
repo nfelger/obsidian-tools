@@ -5,7 +5,9 @@ collectors — daily tasks are completed out of order and carry different
 priorities, so they stay individually prefixed; revised 2026-07-10 after a
 field report: selecting the collector line itself for push/pull/migrate
 decomposes its task children into individual project tasks instead of
-transferring the collector as an opaque blob)
+transferring the collector as an opaque blob; **revised 2026-08-10** — see
+"Revision: insertion places, it does not restructure" below, which supersedes
+cases 3 and 4's placement and the multi-select rule)
 Status: Proposed
 
 ## Problem
@@ -412,3 +414,54 @@ Integration (`tests/integration/`, markdown-first), per command:
   addresses for push/pull/migrate. Not fixed here since their targets
   (project note Todo / Log) have no collector concept — worth a dedicated
   look if it comes up in practice.
+
+## Revision: insertion places, it does not restructure (2026-08-10)
+
+A field report on the weekly note: migrating one project task into it gathered
+every other task for that project under a fresh collector, and once the Todo
+section was organised into `### Monday` / `### Tuesday` buckets, arriving tasks
+dropped into whichever bucket came last. Both are the same mistake in two
+places — a transfer deciding how the *target* note should be arranged.
+
+The convergence goal ("within a Todo section, each project converges toward a
+single shape") was wrong in one respect: it treated an unconsolidated section
+as a state to fix. In a weekly note it is a working surface. Tasks arrive
+loose, get prioritised into day sections or grouped by hand, and a transfer
+that reshuffles that work destroys the arrangement it was placed into.
+
+**Two rules replace cases 3 and 4's placement and the multi-select rule:**
+
+1. **Never create a collector, never move a task that is already in the
+   target.** Case 1 (dedup) and case 2 (an existing collector takes the task,
+   prefix stripped) stand. Case 3 — creating a collector over prefixed
+   siblings — is dropped, as is the multi-select rule that created one for two
+   or more incoming tasks, and case 2 no longer folds stray prefixed siblings
+   under the collector it found. Every new task that does not join a collector
+   is appended prefixed, whatever the target's type.
+
+   Grouping becomes exclusively `toggleCollectorTask`'s job — which is also
+   what the toggle's own design already argued about the section it works in:
+   "A task for the same project elsewhere in the section may be loose
+   deliberately; sweeping it in would be the command deciding something the
+   user did not ask for." That reasoning was never actually specific to the
+   toggle. The grouping flag survives as `joinExistingCollector`: still
+   derived from the target note's type, still off for daily notes, but now it
+   only decides whether an *existing* collector may absorb the task.
+
+2. **Placement is scoped to the target heading's own body.** The body is the
+   slice from the heading down to its first nested heading
+   (`findSectionBodyRange`, `src/utils/tasks.ts`) — sub-headings inside a Todo
+   section are the user's own organisation and an arriving task belongs to
+   none of them, so it waits in the body to be placed. This scopes the
+   collector lookup (a collector inside `### Monday` is not joined from
+   outside it) and the prefixed append alike, and it applies to *all* content
+   inserted under a target heading by the transfer commands, not just project
+   tasks: `insertUnderTargetHeading` is the single place it is enforced.
+
+   **Dedup stays section-wide** and is the deliberate exception. It moves
+   nothing — it merges into a copy where that copy already lives — and a
+   duplicate task is a worse outcome than a merge into a distant sub-section.
+
+Log insertion is untouched: `insertBlockAfterHeading` and
+`insertUnderSubheading` (extract log, complete project task, auto-move) place
+entries under sub-headings on purpose.

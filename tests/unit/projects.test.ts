@@ -239,10 +239,24 @@ describe('findCollector / findPrefixedProjectTasks', () => {
 		expect(findCollector(dup, { start: 0, end: 3 }, 'P', ['Push', 'Finish'])?.line).toBe(1);
 	});
 
-	it('lists top-level live prefixed tasks only', () => {
+	it('lists top-level prefixed tasks only, nested ones excluded', () => {
 		expect(findPrefixedProjectTasks(lines, range, 'P')).toEqual([
 			{ line: 1, alias: 'x' },
 			{ line: 4, alias: null }
+		]);
+	});
+
+	it('includes terminal copies, so a regroup keeps the project whole', () => {
+		const withHistory = `
+## Todo
+- [x] [[P]] done task
+- [>] [[P]] migrated task
+- [ ] [[P]] live task
+`.trim().split('\n');
+		expect(findPrefixedProjectTasks(withHistory, { start: 0, end: 4 }, 'P')).toEqual([
+			{ line: 1, alias: null },
+			{ line: 2, alias: null },
+			{ line: 3, alias: null }
 		]);
 	});
 });
@@ -284,8 +298,8 @@ describe('findProjectTaskMatch', () => {
 	});
 });
 
-describe('insertProjectTasksInSection — grouping disabled', () => {
-	const opts = { targetHeading: '## Todo', keywords: ['Push'], groupUnderCollector: false };
+describe('insertProjectTasksInSection — collector joining disabled', () => {
+	const opts = { targetHeading: '## Todo', keywords: ['Push'], joinExistingCollector: false };
 	const item = (taskText: string, linkText: string, childrenContent = '') => ({
 		taskText,
 		taskContent: childrenContent ? `- [ ] ${taskText}\n${childrenContent}` : `- [ ] ${taskText}`,
@@ -337,8 +351,8 @@ describe('insertProjectTasksInSection — grouping disabled', () => {
 	});
 });
 
-describe('insertProjectTasksInSection — existing collector (case 2)', () => {
-	const opts = { targetHeading: '## Todo', keywords: ['Push'], groupUnderCollector: true };
+describe('insertProjectTasksInSection — joining an existing collector', () => {
+	const opts = { targetHeading: '## Todo', keywords: ['Push'], joinExistingCollector: true };
 	const item = (taskText: string, linkText: string, childrenContent = '') => ({
 		taskText,
 		taskContent: childrenContent ? `- [ ] ${taskText}\n${childrenContent}` : `- [ ] ${taskText}`,
@@ -363,6 +377,27 @@ describe('insertProjectTasksInSection — existing collector (case 2)', () => {
 		]);
 	});
 
+	it('appends several tasks under the collector in order', () => {
+		const content = `
+## Todo
+- [ ] Push [[P]]
+	- [ ] existing child
+`.trim();
+		const result = insertProjectTasksInSection(
+			content, 'P',
+			[item('first', '[[P]]'), item('second', '[[P]]')],
+			opts
+		);
+		expect(result.newCount).toBe(2);
+		expect(result.content.split('\n')).toEqual([
+			'## Todo',
+			'- [ ] Push [[P]]',
+			'\t- [ ] existing child',
+			'\t- [ ] first',
+			'\t- [ ] second'
+		]);
+	});
+
 	it('recognizes a plain-bullet collector', () => {
 		const content = `
 ## Todo
@@ -372,34 +407,40 @@ describe('insertProjectTasksInSection — existing collector (case 2)', () => {
 		expect(result.content).toContain('- Push [[P]]\n\t- [ ] New task');
 	});
 
-	it('folds a stray prefixed sibling in the collector slice under it', () => {
+	it('leaves a loose prefixed sibling where it is', () => {
 		const content = `
 ## Todo
-- [ ] [[P|x]] stray task
-	- stray child
+- [ ] [[P|x]] loose task
+	- loose child
 - [ ] Push [[P]]
 	- [ ] existing child
 `.trim();
 		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
 		expect(result.content.split('\n')).toEqual([
 			'## Todo',
+			'- [ ] [[P|x]] loose task',
+			'\t- loose child',
 			'- [ ] Push [[P]]',
 			'\t- [ ] existing child',
-			'\t- [ ] stray task',
-			'\t\t- stray child',
 			'\t- [ ] New task'
 		]);
 	});
 
-	it('leaves a stray in another sub-section alone', () => {
+	it('ignores a collector inside a sub-section and appends to the body', () => {
 		const content = `
 ## Todo
-- [ ] Push [[P]]
 ### Someday
-- [ ] [[P]] stray elsewhere
+- [ ] Push [[P]]
+	- [ ] someday task
 `.trim();
 		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
-		expect(result.content).toContain('### Someday\n- [ ] [[P]] stray elsewhere');
+		expect(result.content.split('\n')).toEqual([
+			'## Todo',
+			'- [ ] [[P]] New task',
+			'### Someday',
+			'- [ ] Push [[P]]',
+			'\t- [ ] someday task'
+		]);
 	});
 
 	it('dedup beats the collector: a matching copy under it merges instead of appending', () => {
@@ -428,8 +469,8 @@ describe('insertProjectTasksInSection — existing collector (case 2)', () => {
 	});
 });
 
-describe('insertProjectTasksInSection — consolidation (case 3)', () => {
-	const opts = { targetHeading: '## Todo', keywords: ['Push'], groupUnderCollector: true };
+describe('insertProjectTasksInSection — never creates a collector', () => {
+	const opts = { targetHeading: '## Todo', keywords: ['Push'], joinExistingCollector: true };
 	const item = (taskText: string, linkText: string, childrenContent = '') => ({
 		taskText,
 		taskContent: childrenContent ? `- [ ] ${taskText}\n${childrenContent}` : `- [ ] ${taskText}`,
@@ -437,7 +478,7 @@ describe('insertProjectTasksInSection — consolidation (case 3)', () => {
 		linkText
 	});
 
-	it('consolidates a single prefixed sibling with the incoming task', () => {
+	it('leaves a prefixed sibling loose and appends the incoming task next to it', () => {
 		const content = `
 ## Todo
 - [ ] unrelated
@@ -448,32 +489,13 @@ describe('insertProjectTasksInSection — consolidation (case 3)', () => {
 		expect(result.content.split('\n')).toEqual([
 			'## Todo',
 			'- [ ] unrelated',
-			'- [ ] Push [[P]]',
-			'\t- [ ] existing task',
-			'\t\t- child',
-			'\t- [ ] New task'
+			'- [ ] [[P]] existing task',
+			'\t- child',
+			'- [ ] [[P]] New task'
 		]);
 	});
 
-	it('prefers the target alias over the incoming alias', () => {
-		const content = `
-## Todo
-- [ ] [[P|target]] existing task
-`.trim();
-		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P|incoming]]')], opts);
-		expect(result.content).toContain('- [ ] Push [[P|target]]');
-	});
-
-	it('uses the incoming alias when no target task has one', () => {
-		const content = `
-## Todo
-- [ ] [[P]] existing task
-`.trim();
-		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P|incoming]]')], opts);
-		expect(result.content).toContain('- [ ] Push [[P|incoming]]');
-	});
-
-	it('consolidates multiple same-slice siblings in order', () => {
+	it('keeps several siblings loose rather than gathering them', () => {
 		const content = `
 ## Todo
 - [ ] [[P]] first
@@ -481,51 +503,17 @@ describe('insertProjectTasksInSection — consolidation (case 3)', () => {
 - [ ] [[P]] second
 `.trim();
 		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
+		expect(result.content).not.toContain('Push [[P');
 		expect(result.content.split('\n')).toEqual([
 			'## Todo',
-			'- [ ] Push [[P]]',
-			'\t- [ ] first',
-			'\t- [ ] second',
-			'\t- [ ] New task',
-			'- [ ] between'
+			'- [ ] [[P]] first',
+			'- [ ] between',
+			'- [ ] [[P]] second',
+			'- [ ] [[P]] New task'
 		]);
 	});
 
-	it('does not consolidate across sub-section boundaries', () => {
-		const content = `
-## Todo
-- [ ] [[P]] this week
-### Someday
-- [ ] [[P]] someday task
-`.trim();
-		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P|EU]]')], opts);
-		expect(result.content).not.toContain('Push [[P');
-		expect(result.content).toContain('- [ ] [[P|EU]] New task');
-	});
-
-	it('does not consolidate a nested prefixed task', () => {
-		const content = `
-## Todo
-- [ ] some parent
-	- [ ] [[P]] nested elsewhere
-`.trim();
-		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
-		expect(result.content).not.toContain('Push [[P');
-		expect(result.content).toContain('\t- [ ] [[P]] nested elsewhere');
-		expect(result.content).toContain('- [ ] [[P]] New task');
-	});
-});
-
-describe('insertProjectTasksInSection — multi-select collector creation', () => {
-	const opts = { targetHeading: '## Todo', keywords: ['Push'], groupUnderCollector: true };
-	const item = (taskText: string, linkText: string, childrenContent = '') => ({
-		taskText,
-		taskContent: childrenContent ? `- [ ] ${taskText}\n${childrenContent}` : `- [ ] ${taskText}`,
-		childrenContent,
-		linkText
-	});
-
-	it('creates a collector for two new tasks', () => {
+	it('appends multi-select tasks as prefixed siblings', () => {
 		const content = `
 ## Todo
 - [ ] unrelated
@@ -539,30 +527,67 @@ describe('insertProjectTasksInSection — multi-select collector creation', () =
 		expect(result.content.split('\n')).toEqual([
 			'## Todo',
 			'- [ ] unrelated',
-			'- [ ] Push [[P|EU]]',
-			'\t- [ ] first',
-			'\t- [ ] second'
+			'- [ ] [[P|EU]] first',
+			'- [ ] [[P]] second'
 		]);
 	});
 
-	it('creates heading and collector when the section is missing', () => {
+	it('creates the heading without a collector when the section is missing', () => {
 		const result = insertProjectTasksInSection('# Note', 'P', [item('a', '[[P]]'), item('b', '[[P]]')], opts);
 		expect(result.content).toContain('## Todo');
-		expect(result.content).toContain('- [ ] Push [[P]]');
-	});
-
-	it('keeps a single new task as a prefixed append', () => {
-		const result = insertProjectTasksInSection('## Todo', 'P', [item('only', '[[P]]')], opts);
-		expect(result.content).toContain('- [ ] [[P]] only');
 		expect(result.content).not.toContain('Push');
-	});
-
-	it('never creates a collector with grouping disabled', () => {
-		const off = { ...opts, groupUnderCollector: false };
-		const result = insertProjectTasksInSection('## Todo', 'P', [item('a', '[[P]]'), item('b', '[[P]]')], off);
 		expect(result.content).toContain('- [ ] [[P]] a');
 		expect(result.content).toContain('- [ ] [[P]] b');
-		expect(result.content).not.toContain('Push');
+	});
+});
+
+describe('insertProjectTasksInSection — sub-section boundaries', () => {
+	const opts = { targetHeading: '## Todo', keywords: ['Push'], joinExistingCollector: true };
+	const item = (taskText: string, linkText: string) => ({
+		taskText,
+		taskContent: `- [ ] ${taskText}`,
+		childrenContent: '',
+		linkText
+	});
+
+	it('appends into the section body, not the last sub-section', () => {
+		const content = `
+## Todo
+
+### Monday
+- [ ] [[P]] monday task
+
+### Tuesday
+- [ ] [[P]] tuesday task
+
+## Log
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('New task', '[[P]]')], opts);
+		expect(result.content).toBe(`
+## Todo
+- [ ] [[P]] New task
+
+### Monday
+- [ ] [[P]] monday task
+
+### Tuesday
+- [ ] [[P]] tuesday task
+
+## Log
+`.trim());
+	});
+
+	it('still dedups against a copy inside a sub-section', () => {
+		const content = `
+## Todo
+
+### Monday
+- [<] [[P]] Review PR
+`.trim();
+		const result = insertProjectTasksInSection(content, 'P', [item('Review PR', '[[P]]')], opts);
+		expect(result.mergedCount).toBe(1);
+		expect(result.newCount).toBe(0);
+		expect(result.content).toContain('### Monday\n- [ ] [[P]] Review PR');
 	});
 });
 
