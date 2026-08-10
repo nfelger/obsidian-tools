@@ -1,4 +1,5 @@
 import { Notice, Editor } from 'obsidian';
+import type { EditorPosition, EditorSelection } from 'obsidian';
 import type BulletFlowPlugin from '../main';
 import { getActiveMarkdownFile } from '../adapters/commandSetup';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
@@ -34,6 +35,30 @@ function applyToggle(editor: Editor, before: string, result: ToggleSuccess): voi
 }
 
 /**
+ * Move a position recorded before the rewrite into the note as it now is. The
+ * toggle changes both the line count and the lengths of the lines it touched,
+ * so a position kept verbatim can point past the end of the note.
+ */
+function clampToEditor(editor: Editor, pos: EditorPosition): EditorPosition {
+	const line = Math.min(Math.max(pos.line, 0), editor.lineCount() - 1);
+	return { line, ch: Math.min(Math.max(pos.ch, 0), editor.getLine(line).length) };
+}
+
+/**
+ * Put the cursor and any selection back where the user had them. Writing the
+ * rewritten slice back as one range leaves the editor with that whole range
+ * selected, which is not a selection the user made.
+ */
+function restoreSelections(editor: Editor, selections: EditorSelection[]): void {
+	if (selections.length === 0) return;
+
+	editor.setSelections(selections.map(({ anchor, head }) => ({
+		anchor: clampToEditor(editor, anchor),
+		head: clampToEditor(editor, head)
+	})));
+}
+
+/**
  * Toggle a project's tasks between grouped and flattened shape, in place.
  *
  * With the cursor on a prefixed project task, that task folds under a
@@ -59,6 +84,7 @@ export function toggleCollectorTask(plugin: BulletFlowPlugin): void {
 
 		const from = editor.getCursor('from');
 		const to = editor.getCursor('to');
+		const selections = editor.listSelections();
 
 		const result = toggleProjectGrouping(content, { start: from.line, end: to.line }, {
 			sourcePath: file.path,
@@ -72,6 +98,7 @@ export function toggleCollectorTask(plugin: BulletFlowPlugin): void {
 		}
 
 		applyToggle(editor, content, result);
+		restoreSelections(editor, selections);
 		new Notice(formatToggleNotice(COMMAND_LABEL, result.direction, result.projectName, result.taskCount));
 	} catch (e: any) {
 		new Notice(`${COMMAND_LABEL} error: ${e.message}`, NOTICE_TIMEOUT_ERROR);

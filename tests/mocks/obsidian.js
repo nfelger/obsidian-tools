@@ -57,6 +57,7 @@ export function createMockEditor({
         head: to
       }];
     }),
+    setSelections: vi.fn(),
     setLine: vi.fn(),
     replaceRange: vi.fn(),
     replaceSelection: vi.fn(),

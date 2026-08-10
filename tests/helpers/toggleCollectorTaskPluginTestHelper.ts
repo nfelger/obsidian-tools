@@ -16,6 +16,8 @@ interface TestToggleCollectorTaskOptions {
 	source: string;
 	/** Line the cursor sits on, zero-based, counting from the trimmed source */
 	cursorLine: number;
+	/** Column the cursor sits at */
+	cursorCh?: number;
 	/** Selected line range; omit for a bare cursor at cursorLine */
 	selectionStartLine?: number | null;
 	selectionEndLine?: number | null;
@@ -26,15 +28,23 @@ interface TestToggleCollectorTaskOptions {
 	projectKeywords?: string;
 }
 
+interface EditorPos {
+	line: number;
+	ch: number;
+}
+
 interface TestToggleCollectorTaskResult {
 	source: string;
 	notice: string | null;
 	notices: string[];
+	/** Where the cursor and selection sit once the command has run */
+	selection: { anchor: EditorPos; head: EditorPos };
 }
 
 export async function testToggleCollectorTaskPlugin({
 	source,
 	cursorLine,
+	cursorCh = 0,
 	selectionStartLine = null,
 	selectionEndLine = null,
 	sourcePath = '+Diary/2026/08/2026-08-07 Fri.md',
@@ -51,11 +61,19 @@ export async function testToggleCollectorTaskPlugin({
 	};
 
 	const hasSelection = selectionStartLine !== null && selectionEndLine !== null;
+	const cursor: EditorPos = { line: cursorLine, ch: cursorCh };
+	const anchor: EditorPos = hasSelection ? { line: selectionStartLine, ch: 0 } : cursor;
+	const head: EditorPos = hasSelection ? { line: selectionEndLine, ch: 0 } : cursor;
 	const mockEditor = createMockEditor({
 		content: sourceContent,
-		cursor: { line: cursorLine, ch: 0 },
-		selectionStart: hasSelection ? { line: selectionStartLine, ch: 0 } : null,
-		selectionEnd: hasSelection ? { line: selectionEndLine, ch: 0 } : null
+		cursor,
+		selectionStart: hasSelection ? anchor : null,
+		selectionEnd: hasSelection ? head : null
+	});
+
+	let selection = { anchor, head };
+	mockEditor.setSelections = vi.fn((ranges: Array<{ anchor: EditorPos; head: EditorPos }>) => {
+		selection = ranges[0];
 	});
 
 	// The editor mocks are re-derived from the live content on every call, so
@@ -63,11 +81,26 @@ export async function testToggleCollectorTaskPlugin({
 	// rewrite of the note.
 	mockEditor.getValue = vi.fn(() => sourceContent);
 	mockEditor.getLine = vi.fn((n: number) => sourceContent.split('\n')[n] ?? '');
-	mockEditor.replaceRange = vi.fn((text: string, from: any, to: any) => {
+	mockEditor.lineCount = vi.fn(() => sourceContent.split('\n').length);
+	mockEditor.replaceRange = vi.fn((text: string, from: EditorPos, to: EditorPos) => {
 		const lines = sourceContent.split('\n');
-		const head = [...lines.slice(0, from.line), lines[from.line].slice(0, from.ch)].join('\n');
-		const tail = [lines[to.line].slice(to.ch), ...lines.slice(to.line + 1)].join('\n');
-		sourceContent = head + text + tail;
+		const before = [...lines.slice(0, from.line), lines[from.line].slice(0, from.ch)].join('\n');
+		const after = [lines[to.line].slice(to.ch), ...lines.slice(to.line + 1)].join('\n');
+		sourceContent = before + text + after;
+
+		// Obsidian leaves the text it just wrote selected, which is what makes
+		// the whole rewritten section light up unless the command puts the
+		// user's own selection back.
+		const inserted = text.split('\n');
+		selection = {
+			anchor: from,
+			head: {
+				line: from.line + inserted.length - 1,
+				ch: inserted.length > 1
+					? inserted[inserted.length - 1].length
+					: from.ch + text.length
+			}
+		};
 	});
 
 	const sourceFile = createMockFile({
@@ -114,6 +147,7 @@ export async function testToggleCollectorTaskPlugin({
 	return {
 		source: sourceContent,
 		notice: notices[0] || null,
-		notices
+		notices,
+		selection
 	};
 }

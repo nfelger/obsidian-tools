@@ -247,6 +247,70 @@ describe('toggleCollectorTask — round trip', () => {
 	});
 });
 
+describe('toggleCollectorTask — selection', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('leaves the selection the user made where it was', async () => {
+		const result = await testToggleCollectorTaskPlugin({
+			source: `
+## Todo
+
+- [ ] [[Migration Initiative]] Ask Samir for cost estimates
+- [ ] [[Migration Initiative]] Draft the rollback plan
+- [ ] Book the retro
+`,
+			cursorLine: 2,
+			selectionStartLine: 2,
+			selectionEndLine: 3
+		});
+
+		expect(result.selection).toEqual({
+			anchor: { line: 2, ch: 0 },
+			head: { line: 3, ch: 0 }
+		});
+	});
+
+	it('keeps the cursor in the note when the toggle removes lines', async () => {
+		const result = await testToggleCollectorTaskPlugin({
+			source: `
+- [ ] Push [[Migration Initiative]]
+	- [ ] Ask Samir for cost estimates
+	- [ ] Draft the rollback plan
+`,
+			cursorLine: 2
+		});
+
+		// Three lines became two, so the cursor lands on the last line there is.
+		expect(result.source).toBe(`- [ ] [[Migration Initiative]] Ask Samir for cost estimates
+- [ ] [[Migration Initiative]] Draft the rollback plan`);
+		expect(result.selection).toEqual({
+			anchor: { line: 1, ch: 0 },
+			head: { line: 1, ch: 0 }
+		});
+	});
+
+	it('keeps the cursor in a line the toggle shortened', async () => {
+		const result = await testToggleCollectorTaskPlugin({
+			source: `
+- [ ] [[Migration Initiative]] Ask Samir for cost estimates
+- [ ] Book the retro
+`,
+			cursorLine: 0,
+			cursorCh: 58
+		});
+
+		expect(result.source).toBe(`- [ ] Push [[Migration Initiative]]
+	- [ ] Ask Samir for cost estimates
+- [ ] Book the retro`);
+		expect(result.selection).toEqual({
+			anchor: { line: 0, ch: 35 },
+			head: { line: 0, ch: 35 }
+		});
+	});
+});
+
 describe('toggleCollectorTask — nothing to toggle', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
