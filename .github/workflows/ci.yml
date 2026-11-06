@@ -27,7 +27,7 @@ jobs:
         run: npm run check
         env:
           # A main push compares with the preceding main commit, not itself.
-          FALLOW_AUDIT_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+          FALLOW_AUDIT_BASE: ${{ github.event.pull_request.base.sha || (github.ref == 'refs/heads/main' && github.event.before) || 'origin/main' }}
       - uses: actions/upload-artifact@v4
         with:
           name: checked-build-${{ github.run_attempt }}
