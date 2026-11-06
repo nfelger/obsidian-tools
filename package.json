@@ -24,7 +24,9 @@
     "test:mutation": "stryker run --incremental",
     "test:mutation:full": "stryker run --force",
     "posttest": "node .claude/hooks/quality-gate.mjs --stamp-tests-green",
-    "posttest:coverage": "node .claude/hooks/quality-gate.mjs --stamp-tests-green"
+    "posttest:coverage": "node .claude/hooks/quality-gate.mjs --stamp-tests-green",
+    "check": "node quality-check.mjs",
+    "package:candidate": "node candidate-package.mjs"
   },
   "keywords": [
     "obsidian",

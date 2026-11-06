@@ -2,41 +2,64 @@ name: CI
 
 on:
   push:
-    branches:
-      - 'claude/**'
+    branches: ['claude/**', 'factory/**']
   pull_request:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          # fallow audit compares against the merge-base, which a shallow
-          # clone does not contain.
           fetch-depth: 0
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - name: Install dependencies
-        run: npm ci
-      - name: Lint
-        run: npm run lint
-      # Runs the suite and enforces the coverage floor in vitest.config.js.
-      - name: Run tests
-        run: npm run test:coverage
-      - name: Build
-        run: npm run build
-
-      # Coverage feeds the audit's CRAP scores; without it complexity risk is
-      # estimated from export references and ranks badly.
-      - name: Coverage for complexity scoring
-        run: npm run test:crap
-
-      # Gates on findings this change introduced, not the inherited baseline.
-      - name: Code audit
-        run: npm run audit:code
+          node-version: '22.x'
+          cache: npm
+      - run: npm ci
+      - name: Check and build
+        run: npm run check
         env:
-          FALLOW_AUDIT_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
+          # A main push compares with the preceding main commit, not itself.
+          FALLOW_AUDIT_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: checked-build-${{ github.run_attempt }}
+          path: build/checked/
+          if-no-files-found: error
+          retention-days: 14
+
+  e2e:
+    needs: test
+    uses: ./.github/workflows/e2e.yml
+
+  candidate:
+    needs: [test, e2e]
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      - uses: actions/download-artifact@v4
+        with:
+          name: checked-build-${{ github.run_attempt }}
+          path: build/checked
+      - name: Package checked candidate
+        id: package
+        run: node candidate-package.mjs
+        env:
+          E2E_RESULT: ${{ needs.e2e.result }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: build/candidate/
+          if-no-files-found: error
+          retention-days: 90

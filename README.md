@@ -288,12 +288,15 @@ obsidian-tools/
 └── docs/              # Documentation
 ```
 
-### Auto-Deploy
+### Checked Candidates and Stable Releases
 
-Every push to `main` or `claude/**` branches triggers:
-1. Version bump in manifest.json
-2. Build and bundle via esbuild
-3. GitHub release creation
-4. BRAT auto-update for all users
+Push a `factory/**` or `claude/**` branch, or open a PR, to build a candidate.
+After lint, coverage, code audit, build, and desktop Obsidian E2E pass, download the
+commit-specific candidate bundle from the CI run's Artifacts section. It includes
+installation and rollback instructions; candidates never enter BRAT's update feed.
 
-See [docs/AUTO-DEPLOY.md](docs/AUTO-DEPLOY.md) for details.
+Pushes to `main` run the same checks and publish a stable GitHub release when the
+manifest version has no existing tag. Stable versioning conventions are unchanged.
+
+See [docs/AUTO-DEPLOY.md](docs/AUTO-DEPLOY.md) for exact-build installation,
+return-to-stable, and the caveat for historical development releases in BRAT.

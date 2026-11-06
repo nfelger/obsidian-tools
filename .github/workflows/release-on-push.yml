@@ -1,134 +1,82 @@
-name: Build and Release on Push
+name: Stable Release
 
 on:
   push:
-    branches:
-      - main
-      - 'claude/**'  # Enable auto-deploy for all claude branches during development
+    branches: [main]
 
 permissions:
-  contents: write  # Required for creating releases
+  contents: read
+
+# Do not let an older main build publish after a newer stable release.
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
 
 jobs:
-  build:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: checks
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/download-artifact@v4
         with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npm test
-
-      - name: Extract base version and commit info
-        id: version
+          name: checked-build-${{ github.run_attempt }}
+          path: build/checked
+      - name: Verify build identity and assets
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
-          BASE_VERSION=$(node -p "require('./manifest.json').version")
-          MAJOR_MINOR=$(echo $BASE_VERSION | cut -d. -f1-2)
-          PATCH=$(echo $BASE_VERSION | cut -d. -f3)
-          NEXT_PATCH=$((PATCH + 1))
-          DEV_VERSION="${MAJOR_MINOR}.${NEXT_PATCH}-dev.${{ github.run_number }}"
-          echo "base_version=${BASE_VERSION}" >> $GITHUB_OUTPUT
-          echo "dev_version=${DEV_VERSION}" >> $GITHUB_OUTPUT
-          echo "commit_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Check if stable release tag exists
-        id: tag_check
-        if: github.ref == 'refs/heads/main'
+          node --input-type=module <<'JS'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          import { createHash } from 'node:crypto';
+          const dir = 'build/checked/';
+          const report = JSON.parse(readFileSync(dir + 'quality.json'));
+          if (report.sourceSha !== process.env.EXPECTED_SHA) throw new Error('Wrong build commit');
+          for (const name of ['main.js', 'manifest.json', 'styles.css']) {
+            const hash = createHash('sha256').update(readFileSync(dir + name)).digest('hex');
+            if (hash !== report.assets[name]) throw new Error(`Changed asset: ${name}`);
+          }
+          const manifest = JSON.parse(readFileSync(dir + 'manifest.json'));
+          if (!/^\d+\.\d+\.\d+$/.test(manifest.version)) throw new Error('Expected stable version');
+          appendFileSync(process.env.GITHUB_ENV, `RELEASE_VERSION=${manifest.version}\n`);
+          JS
+      - name: Check whether stable tag already exists
+        id: tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          TAG="${{ steps.version.outputs.base_version }}"
-          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "${TAG}"; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+          # Distinguish a missing tag from authentication/network failures.
+          status=$(gh api -i "repos/$GH_REPO/git/ref/tags/$RELEASE_VERSION" > response.txt 2>&1 && echo found || echo failed)
+          if [ "$status" = found ]; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          elif grep -q 'HTTP.* 404' response.txt; then
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            cat response.txt
+            exit 1
           fi
-
-      - name: Build plugin (stable)
-        if: github.ref == 'refs/heads/main' && steps.tag_check.outputs.exists == 'false'
-        run: npm run build
-
-      - name: Update manifest.json with dev version
-        if: github.ref != 'refs/heads/main'
-        run: |
-          node -e "const fs = require('fs'); const manifest = JSON.parse(fs.readFileSync('manifest.json')); manifest.version = '${{ steps.version.outputs.dev_version }}'; fs.writeFileSync('manifest.json', JSON.stringify(manifest, null, '\t'));"
-
-      - name: Build plugin (dev)
-        if: github.ref != 'refs/heads/main'
-        run: npm run build
-
-      - name: Create Stable Release
-        if: github.ref == 'refs/heads/main' && steps.tag_check.outputs.exists == 'false'
+      - name: Publish stable release
+        if: steps.tag.outputs.exists == 'false'
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "main.js,manifest.json,styles.css"
-          # This repo enforces immutable releases: assets cannot be attached
-          # after publishing. Create a draft, upload, then publish.
+          artifacts: build/checked/main.js,build/checked/manifest.json,build/checked/styles.css,build/checked/quality.json
+          artifactErrorsFailBuild: true
           immutableCreate: true
-          tag: ${{ steps.version.outputs.base_version }}
-          name: "v${{ steps.version.outputs.base_version }}"
+          commit: ${{ github.sha }}
+          tag: ${{ env.RELEASE_VERSION }}
+          name: v${{ env.RELEASE_VERSION }}
           body: |
-            ## Bullet Flow v${{ steps.version.outputs.base_version }}
+            Stable Bullet Flow build from ${{ github.sha }}.
 
-            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+            Lint, coverage, code audit, build, and desktop Obsidian E2E passed.
+            Checks: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-            ### Installation
-
-            **Via BRAT (recommended):**
-            1. Install BRAT plugin in Obsidian
-            2. Settings → BRAT → Add Beta Plugin
-            3. Enter: `nfelger/obsidian-tools`
-            4. Enable plugin in Community Plugins
-
-            **Manual:**
-            1. Download `main.js`, `manifest.json`, and `styles.css`
-            2. Create folder: `.obsidian/plugins/bullet-flow/`
-            3. Copy files into folder
-            4. Enable plugin in Community Plugins
+            See CHANGELOG.md for changes and docs/AUTO-DEPLOY.md for installation.
           prerelease: false
           makeLatest: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Development Release
-        if: github.ref != 'refs/heads/main'
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "main.js,manifest.json,styles.css"
-          # This repo enforces immutable releases: assets cannot be attached
-          # after publishing. Create a draft, upload, then publish.
-          immutableCreate: true
-          tag: ${{ steps.version.outputs.dev_version }}
-          name: "Development Build (v${{ steps.version.outputs.dev_version }})"
-          body: |
-            🚀 **Auto-deployed from latest commit**
-
-            - **Version:** ${{ steps.version.outputs.dev_version }}
-            - **Base Version:** ${{ steps.version.outputs.base_version }}
-            - **Build:** #${{ github.run_number }}
-            - **Commit:** [${{ steps.version.outputs.commit_short }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
-            - **Branch:** ${{ github.ref_name }}
-            - **Built:** ${{ github.event.head_commit.timestamp }}
-
-            This is an automatically generated development build.
-            Install via BRAT for auto-updates on mobile and desktop.
-
-            ## How to Install via BRAT
-
-            1. Install BRAT plugin in Obsidian
-            2. Settings → BRAT → Add Beta Plugin
-            3. Enter: `nfelger/obsidian-tools`
-            4. Enable plugin in Community Plugins
-
-            ## What's in this build
-
-            ${{ github.event.head_commit.message }}
-          prerelease: true
-          makeLatest: false
           token: ${{ secrets.GITHUB_TOKEN }}
