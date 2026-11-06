@@ -9,6 +9,7 @@ permissions:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -40,14 +41,15 @@ jobs:
           key: apt-herbstluftwm-${{ runner.os }}
 
       - name: Set up virtual display
+        timeout-minutes: 5
         run: |
           sudo apt-get install -y herbstluftwm
 
           export DISPLAY=:99
           echo "DISPLAY=$DISPLAY" >> "$GITHUB_ENV"
-          Xvfb :99 -screen 0 1280x1024x24 -ac +extension GLX -noreset &
+          Xvfb :99 -screen 0 1280x1024x24 -ac +extension GLX -noreset > /tmp/bullet-flow-xvfb.log 2>&1 &
           sleep 2
-          herbstluftwm &
+          herbstluftwm > /tmp/bullet-flow-wm.log 2>&1 &
           sleep 1
 
       - name: Run E2E tests
