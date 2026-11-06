@@ -37,7 +37,7 @@ The candidate distribution mechanism and release-version scheme, based on a prac
 
 ## Sequence
 
-Status: proposed. Segment 1 of 6.
+Status: implementation prepared; hosted CI and user-device installation trial pending. Segment 1 of 6.
 
 1. [CI and releases](2026-11-06-factory-01-ci-and-releases.md) — this segment
 2. [Issue controller](2026-11-06-factory-02-issue-controller.md)
@@ -47,3 +47,13 @@ Status: proposed. Segment 1 of 6.
 6. [Merge and recovery](2026-11-06-factory-06-merge-and-recovery.md)
 
 No dependency on later segments. The first implementation batch is segments 1–3. Use that working loop to develop the later segments, retaining explicit review of factory-control changes.
+
+## Implementation Decision
+
+Candidates use immutable Actions artifacts with exact commit/run/attempt identity,
+check evidence, asset hashes, and manual install/rollback instructions. They do not
+enter GitHub Releases or BRAT's latest selection. BRAT's documented inclusion of
+prereleases makes same-repository prereleases unsuitable for channel isolation.
+See [the operational guide](../AUTO-DEPLOY.md) for the workflow and the outstanding
+desktop/mobile installation trial. Existing development releases are retained;
+users may need to freeze their stable BRAT installation to an explicit stable tag.

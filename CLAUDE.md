@@ -103,6 +103,7 @@ For periodic note edge cases (ISO weeks, wikilink parsing, list hierarchy): @doc
 ## Testing and Linting
 
 ```bash
+npm run check         # Noninteractive CI gate and checked build (no session hooks required)
 npm test              # Run all tests
 npm run test:watch    # Watch mode (TDD)
 npm run test:coverage # Coverage report (fails below the floor in vitest.config.js)
