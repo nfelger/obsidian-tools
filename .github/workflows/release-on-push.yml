@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 
-# Do not let an older main build publish after a newer stable release.
+# Serialize stable publication; candidate builds run independently.
 concurrency:
   group: stable-release
   cancel-in-progress: false
