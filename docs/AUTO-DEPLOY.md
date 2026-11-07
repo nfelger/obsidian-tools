@@ -34,7 +34,13 @@ may impose a shorter limit); download builds you need to keep. The intermediate
 `checked-build-*` artifact is for job handoff and is **not** an approved candidate:
 E2E may still fail after it is uploaded.
 
-## Install an exact candidate
+## Preview in your browser
+
+Use the [Codespaces preview](PREVIEW.md) for the normal review loop. It installs
+the checked branch candidate automatically in real Obsidian with synthetic notes.
+Manual installation below remains available for testing on your own device.
+
+## Install an exact candidate (optional)
 
 Use a disposable test vault first.
 

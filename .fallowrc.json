@@ -9,6 +9,8 @@
     "lint-guided.mjs",
     "quality-check.mjs",
     "candidate-package.mjs",
+    "preview-launch.mjs",
+    "preview-verify.mjs",
     "mutation-report.mjs",
     ".claude/hooks/*.mjs"
   ],

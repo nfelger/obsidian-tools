@@ -300,3 +300,7 @@ manifest version has no existing tag. Stable versioning conventions are unchange
 
 See [docs/AUTO-DEPLOY.md](docs/AUTO-DEPLOY.md) for exact-build installation,
 return-to-stable, and the caveat for historical development releases in BRAT.
+
+## Browser test previews
+
+[Open real Obsidian in Codespaces](docs/PREVIEW.md) with a checked candidate and a disposable test vault.

@@ -1,0 +1,1 @@
+{"main": {"id": "main", "type": "split", "children": [{"id": "tabs", "type": "tabs", "children": [{"id": "start", "type": "leaf", "state": {"type": "markdown", "state": {"file": "Start here.md", "mode": "preview"}}}]}], "direction": "vertical"}, "active": "start"}

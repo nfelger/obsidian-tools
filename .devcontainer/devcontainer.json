@@ -1,0 +1,15 @@
+{
+  "name": "Bullet Flow — Obsidian preview",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "features": {
+    "ghcr.io/devcontainers/features/desktop-lite:1": {},
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" }
+  },
+  "forwardPorts": [6080],
+  "portsAttributes": {
+    "6080": { "label": "Obsidian preview", "onAutoForward": "openBrowser" }
+  },
+  "postCreateCommand": "npm ci",
+  "postStartCommand": "bash .devcontainer/start.sh",
+  "remoteUser": "codespace"
+}

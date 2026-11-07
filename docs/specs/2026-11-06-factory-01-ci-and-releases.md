@@ -57,3 +57,13 @@ prereleases makes same-repository prereleases unsuitable for channel isolation.
 See [the operational guide](../AUTO-DEPLOY.md) for the workflow and the outstanding
 desktop/mobile installation trial. Existing development releases are retained;
 users may need to freeze their stable BRAT installation to an explicit stable tag.
+
+### Browser preview delivery
+
+The normal human trial uses a Codespace on the candidate branch, with real
+Obsidian over a private forwarded desktop port and a synthetic vault. First launch
+selects the successful push-CI artifact for the checked-out SHA and verifies its
+identity and hashes. Resumes retain that candidate; resetting restores only the
+test vault. Manual installation remains an optional device-compatibility path.
+See [preview operations](../PREVIEW.md). Hosted provisioning and browser interaction
+remain acceptance checks until the first Codespaces trial succeeds.

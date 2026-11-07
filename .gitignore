@@ -35,3 +35,6 @@ Thumbs.db
 # Mutation testing output
 reports/
 .stryker-tmp/
+
+# Disposable Codespaces preview
+.preview/
