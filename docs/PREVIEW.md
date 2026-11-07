@@ -33,6 +33,14 @@ Do not add production secrets or personal notes to this test environment.
 
 ## Troubleshooting
 
+If container creation reports **recovery mode** with `no space left on device`,
+the container image could not be unpacked. The preview now uses the smaller
+Ubuntu base image with explicit desktop, Node and GitHub CLI features. Delete the
+failed preview Codespace and create a fresh one from the current candidate branch;
+this avoids keeping partially downloaded layers from the old universal image.
+Save any notes you want to keep before deleting the old Codespace.
+
+
 Setup and application output is in `.preview/session.log`. After resolving a CI
 or authentication failure, run `bash .devcontainer/start.sh` in the Codespaces
 terminal. Repeating it while a session runs does not launch another Obsidian.
