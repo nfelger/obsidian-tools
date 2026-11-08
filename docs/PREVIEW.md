@@ -17,7 +17,7 @@ Other branch patterns, expired artifacts, failed CI and main are not supported b
 this preview bootstrap. Re-run successful branch CI if its artifact has expired.
 
 Resuming keeps the same candidate and test notes, even if the branch advances.
-Create a new Codespace for a new candidate. Close Obsidian and right-click the desktop and choose
+Create a new Codespace for a new candidate. Close Obsidian, right-click the desktop and choose
 **Reset preview** to restore fixture notes without changing builds.
 The installed Obsidian application uses the launcher's current stable version;
 this is not a pinned Obsidian-version compatibility environment.
@@ -33,19 +33,6 @@ Do not add production secrets or personal notes to this test environment.
 
 ## Troubleshooting
 
-If container creation reports **recovery mode** with `no space left on device`,
-the container image could not be unpacked. The preview now uses the smaller
-Ubuntu base image with explicit desktop, Node and GitHub CLI features. Delete the
-failed preview Codespace and create a fresh one from the current candidate branch;
-this avoids keeping partially downloaded layers from the old universal image.
-Save any notes you want to keep before deleting the old Codespace.
-
-
-If the session log says `flock: failed to execute node`, update this branch and
-run `bash .devcontainer/start.sh` again. The launcher explicitly loads nvm for
-both automatic startup and the desktop reset action; neither requires an
-interactive terminal profile.
-
 Setup and application output is in `.preview/session.log`. After resolving a CI
 or authentication failure, run `bash .devcontainer/start.sh` in the Codespaces
 terminal. Repeating it while a session runs does not launch another Obsidian.
@@ -53,6 +40,10 @@ The bootstrap needs the Codespace's repository token to read Actions artifacts.
 Application child processes receive only desktop environment variables, though
 this is a development container, not a security boundary for untrusted plugins.
 
-The preview code has automated integrity tests. Actual Codespaces provisioning,
-private-port browser access, desktop reset and visual interaction still require
-a first hosted trial; local unit tests cannot establish those behaviors.
+If the log is waiting for an old commit whose CI failed, let that launch exit,
+then run `git pull --ff-only` and restart the preview. A running launch keeps the
+commit it started with. Once a candidate has been installed, it stays pinned;
+create a new Codespace to trial a different candidate.
+
+Container startup, browser access and an Extract log trial have been confirmed.
+Reset behavior and device-specific installation remain separate acceptance checks.
