@@ -1,35 +1,37 @@
 import { expect } from '@wdio/globals';
-import { describe, it, before } from 'mocha';
+import { describe, it } from 'mocha';
 import {
     createVaultFile, waitForCacheReady, readVaultFile, openFileAtLine, runCommand
 } from '../helpers/vault';
-import { todayDailyPath, tomorrowDailyPath } from '../helpers/paths';
 
 describe('migrateTask', () => {
-    before(async () => {
-        await createVaultFile(todayDailyPath(), [
-            '## Todo',
-            '',
-            '- [ ] Task to migrate',
-        ].join('\n'));
+    const cases = [
+        {
+            name: 'copies a Monday task to Tuesday and marks the source as migrated',
+            source: '+Diary/2026/11/2026-11-09 Mon.md',
+            target: '+Diary/2026/11/2026-11-10 Tue.md',
+        },
+        {
+            name: 'copies a Sunday task to the next weekly note and marks the source as migrated',
+            source: '+Diary/2026/11/2026-11-08 Sun.md',
+            target: '+Diary/2026/11/2026-11-W46.md',
+        },
+    ];
 
-        await createVaultFile(tomorrowDailyPath(), [
-            '## Todo',
-        ].join('\n'));
+    for (const scenario of cases) {
+        it(scenario.name, async () => {
+            await createVaultFile(scenario.source, `## Todo
 
-        // migrateTask resolves the target note via PeriodicNoteService — wait for both
-        await waitForCacheReady(todayDailyPath());
-        await waitForCacheReady(tomorrowDailyPath());
-    });
+- [ ] Task to migrate`);
+            await createVaultFile(scenario.target, '## Todo');
+            await waitForCacheReady(scenario.source);
+            await waitForCacheReady(scenario.target);
 
-    it('copies task to next daily note and marks source as migrated', async () => {
-        await openFileAtLine(todayDailyPath(), 2);
-        await runCommand('migrate-task');
+            await openFileAtLine(scenario.source, 2);
+            await runCommand('migrate-task');
 
-        const today = await readVaultFile(todayDailyPath());
-        expect(today).toContain('- [>] Task to migrate');
-
-        const tomorrow = await readVaultFile(tomorrowDailyPath());
-        expect(tomorrow).toContain('- [ ] Task to migrate');
-    });
+            expect(await readVaultFile(scenario.source)).toContain('- [>] Task to migrate');
+            expect(await readVaultFile(scenario.target)).toContain('- [ ] Task to migrate');
+        });
+    }
 });
