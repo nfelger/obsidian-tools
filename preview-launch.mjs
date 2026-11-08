@@ -42,7 +42,7 @@ const env = Object.fromEntries(['HOME', 'PATH', 'DISPLAY', 'USER', 'LANG', 'XDG_
 const launcher = new ObsidianLauncher();
 const { proc } = await launcher.launch({
     appVersion: 'latest', vault, plugins: [candidateDir],
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    args: ['--disable-dev-shm-usage'],
     spawnOptions: { env, stdio: 'inherit' },
 });
 proc.on('exit', code => { process.exitCode = code ?? 1; });

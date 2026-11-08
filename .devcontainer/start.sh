@@ -9,4 +9,4 @@ cat > "$HOME/.fluxbox/menu" <<MENU
 [end]
 MENU
 # A lock prevents duplicate desktops on reconnect or manual restart.
-nohup bash .devcontainer/run-preview.sh > .preview/session.log 2>&1 < /dev/null &
+nohup bash .devcontainer/run-preview.sh >> .preview/session.log 2>&1 < /dev/null &

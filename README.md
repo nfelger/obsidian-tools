@@ -291,16 +291,13 @@ obsidian-tools/
 ### Checked Candidates and Stable Releases
 
 Push a `factory/**` or `claude/**` branch, or open a PR, to build a candidate.
-After lint, coverage, code audit, build, and desktop Obsidian E2E pass, download the
-commit-specific candidate bundle from the CI run's Artifacts section. It includes
-installation and rollback instructions; candidates never enter BRAT's update feed.
+After lint, coverage, code audit, build, and desktop Obsidian E2E pass, use the
+[Codespaces preview](docs/PREVIEW.md) to try the checked build in a disposable vault.
+Candidates never enter BRAT's update feed. Manual installation is available for
+checks on your own devices.
 
 Pushes to `main` run the same checks and publish a stable GitHub release when the
 manifest version has no existing tag. Stable versioning conventions are unchanged.
 
 See [docs/AUTO-DEPLOY.md](docs/AUTO-DEPLOY.md) for exact-build installation,
 return-to-stable, and the caveat for historical development releases in BRAT.
-
-## Browser test previews
-
-[Open real Obsidian in Codespaces](docs/PREVIEW.md) with a checked candidate and a disposable test vault.

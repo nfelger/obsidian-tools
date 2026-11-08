@@ -27,7 +27,7 @@ For PR runs the SHA identifies GitHub's tested merge commit, not merely the bran
 head. Find the bundle under the workflow run's **Artifacts** section; GitHub
 requires sign-in to download Actions artifacts.
 
-Download the complete ZIP. It contains the plugin files, `quality.json` with the
+The candidate artifact contains the plugin files, `quality.json` with the
 commands and asset hashes, `candidate.json` with the exact commit/run identity,
 and `INSTALL.md`. Candidate retention is requested for 90 days (repository policy
 may impose a shorter limit); download builds you need to keep. The intermediate
@@ -80,9 +80,8 @@ Restoring plugin binaries does not undo changes already made to notes.
 describes latest tracking as including prereleases and frozen tracking as selecting
 an exact tag. `prerelease: true` and `makeLatest: false` therefore do not isolate
 stable users. Actions artifacts provide isolation without a second repository or
-relying on undocumented tag ordering. This deliberately chooses manual installation
-for the first factory segment; BRAT's frozen-version UI/downgrade path is not a
-prerequisite and has not been tested here on the user's devices.
+relying on undocumented tag ordering. The browser preview downloads these artifacts automatically. Manual installation
+is an optional path for device-specific checks.
 
 ## Gate and publication contract
 
@@ -103,7 +102,7 @@ prerequisite and has not been tested here on the user's devices.
 - Artifact names include the run attempt. Use **Re-run all jobs** when retrying a
   failed run, so every job shares an artifact from that attempt.
 
-## Manual acceptance still required
+## Optional device acceptance
 
 Try a real candidate in a desktop test vault, install a later candidate deliberately,
 and return to the saved stable files. Repeat on the mobile device if it is part of

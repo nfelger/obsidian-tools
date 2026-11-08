@@ -37,7 +37,7 @@ The candidate distribution mechanism and release-version scheme, based on a prac
 
 ## Sequence
 
-Status: implementation prepared; hosted CI and user-device installation trial pending. Segment 1 of 6.
+Status: implemented in PR #42; hosted CI and browser Extract log trial passed. Segment 1 of 6.
 
 1. [CI and releases](2026-11-06-factory-01-ci-and-releases.md) — this segment
 2. [Issue controller](2026-11-06-factory-02-issue-controller.md)
@@ -65,5 +65,5 @@ Obsidian over a private forwarded desktop port and a synthetic vault. First laun
 selects the successful push-CI artifact for the checked-out SHA and verifies its
 identity and hashes. Resumes retain that candidate; resetting restores only the
 test vault. Manual installation remains an optional device-compatibility path.
-See [preview operations](../PREVIEW.md). Hosted provisioning and browser interaction
-remain acceptance checks until the first Codespaces trial succeeds.
+See [preview operations](../PREVIEW.md). Hosted provisioning, browser access and
+an Extract log trial are confirmed. Reset and optional device trials remain.
