@@ -1,0 +1,35 @@
+name: Issue factory
+on:
+  issue_comment:
+    types: [created]
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  issues: write
+concurrency:
+  group: issue-factory-controller
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    if: github.event_name != 'issue_comment' || (github.event.comment.user.login == github.repository_owner && !github.event.issue.pull_request)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+          cache-dependency-path: factory/package-lock.json
+      - run: npm ci
+        working-directory: factory
+      - run: node --import tsx controller.ts
+        working-directory: factory
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

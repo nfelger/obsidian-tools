@@ -15,7 +15,7 @@
     ".claude/hooks/*.mjs"
   ],
 
-  "ignorePatterns": ["main.js", "coverage/**", "coverage-istanbul/**"],
+  "ignorePatterns": ["factory/**", "main.js", "coverage/**", "coverage-istanbul/**"],
 
   // Driven by the wdio CLI (`npm run test:e2e`), which loads
   // tests/e2e/wdio.conf.ts itself. Nothing imports these, so static analysis

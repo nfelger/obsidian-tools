@@ -35,7 +35,7 @@ Multiple concurrent candidates, persistent agent conversations, and a hosted orc
 
 ## Sequence
 
-Status: proposed. Segment 2 of 6.
+Status: controller implemented; merged-workflow and model-backed issue trial pending. Segment 2 of 6.
 
 1. [CI and releases](2026-11-06-factory-01-ci-and-releases.md)
 2. [Issue controller](2026-11-06-factory-02-issue-controller.md) — this segment
@@ -45,3 +45,10 @@ Status: proposed. Segment 2 of 6.
 6. [Merge and recovery](2026-11-06-factory-06-merge-and-recovery.md)
 
 Depends on segment 1; build on its completed path rather than introducing a parallel workflow. The first implementation batch is segments 1–3. Use that working loop to develop the later segments, retaining explicit review of factory-control changes.
+
+## Implementation decisions
+
+A versioned state file on `factory-state` is authoritative; one bot status comment
+per issue displays state without requiring label setup. Preview-ready transitions
+are added with segment 3, when previews exist. The first Flue agent only produces a
+handoff; it has no sandbox tools. See [controller operations](../../factory/README.md).
