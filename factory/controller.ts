@@ -75,7 +75,8 @@ if (work) {
         JSON.stringify({ agreement: work.agreement, revision: work.revision, guidance })], {
         encoding: 'utf8', timeout: 120000, maxBuffer: 1024 * 1024,
         env: { PATH: process.env.PATH, HOME: process.env.RUNNER_TEMP,
-            ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY },
+            OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+            OPENROUTER_MODEL: process.env.OPENROUTER_MODEL },
     });
     await reconcile();
     settle(work, attempt, (result.stdout || result.stderr || String(result.error)).slice(0, 12000), result.status !== 0);

@@ -1,6 +1,8 @@
 # Issue controller
 
-After this workflow is merged, add the `ANTHROPIC_API_KEY` repository secret.
+After this workflow is merged, add the `OPENROUTER_API_KEY` repository secret.
+Optionally set the `OPENROUTER_MODEL` Actions variable to an OpenRouter model ID
+(default: `openai/gpt-5.4`). All model calls go through OpenRouter.
 Comment `/factory start` on an issue as the repository owner. The issue body is
 the agreement. The first agent returns a concise handoff and acceptance cases;
 product-code changes and preview creation are segment 3.
