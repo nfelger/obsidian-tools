@@ -8,10 +8,6 @@ export function todayDailyPath(): string {
     return `+Diary/${moment().format('YYYY/MM/YYYY-MM-DD ddd')}.md`;
 }
 
-export function tomorrowDailyPath(): string {
-    return `+Diary/${moment().add(1, 'day').format('YYYY/MM/YYYY-MM-DD ddd')}.md`;
-}
-
 export function thisWeeklyPath(): string {
     // Named after the week's Thursday, as the plugin names it — that decides
     // the month for a week spanning two of them
