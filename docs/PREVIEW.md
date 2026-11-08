@@ -41,6 +41,11 @@ this avoids keeping partially downloaded layers from the old universal image.
 Save any notes you want to keep before deleting the old Codespace.
 
 
+If the session log says `flock: failed to execute node`, update this branch and
+run `bash .devcontainer/start.sh` again. The launcher explicitly loads nvm for
+both automatic startup and the desktop reset action; neither requires an
+interactive terminal profile.
+
 Setup and application output is in `.preview/session.log`. After resolving a CI
 or authentication failure, run `bash .devcontainer/start.sh` in the Codespaces
 terminal. Repeating it while a session runs does not launch another Obsidian.
