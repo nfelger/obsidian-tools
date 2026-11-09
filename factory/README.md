@@ -85,3 +85,23 @@ steps make paid model calls and require the workflow on main.
 The controller consumes `flue run --json`: only a completed envelope with a
 nonempty handoff and successful process exit becomes a successful result. Failure,
 abort, setup errors, timeouts and malformed output produce a blocked status.
+
+## Coding executor trial
+
+The manual **Factory coding trial** Actions workflow is the first segment 3
+building block. Only the owner can dispatch it on main. Supply the issue number
+whose current discussion contains the approved requirements. Dispatch is explicit
+authorization to spend model tokens on an implementation attempt.
+
+It clones a disposable checkout, runs the standard Flue coding tools in a Docker
+container, verifies with `npm run check`, and permits two MiniMax repairs followed
+by one Opus escalation. The trusted runner and runtime are separate from candidate
+files. The container receives the OpenRouter key but no GitHub credential or Docker
+socket. Results and a patch are preserved in an Actions artifact, including on
+failure. This artifact is development evidence, not the user preview path.
+
+Issue-command authorization snapshots, branch/PR publication, candidate CI dispatch
+and browser-preview feedback are the remaining segment 3 integration. This trial
+does not publish a branch or PR, and `/factory implement` is not active yet. Each
+coding invocation currently starts a fresh Flue conversation with accumulated
+repair evidence; persisted conversation handoff is not required for this trial.
