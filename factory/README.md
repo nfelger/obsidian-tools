@@ -48,8 +48,9 @@ fail the workflow instead of overwriting unreadable state. State writes use the
 GitHub content SHA to reject concurrent changes.
 
 The controller always checks out main. Flue runs as a separate process with only
-model credentials, and the handoff agent mounts no shell or repository-writing
-tools. GitHub credentials stay in the controller. This is a bounded handoff agent,
+model credentials, and the planner can list, search and read tracked files at the checked-out commit.
+These bounded tools do not follow working-tree symlinks or expose untracked files.
+The planner has no shell or repository-writing tools. GitHub credentials stay in the controller. This is a bounded handoff agent,
 not an isolation scheme for future code-executing agents.
 
 Run `npm ci && npm run check` in this directory. Dependencies and lockfile are
