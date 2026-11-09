@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { readFileSync, writeFileSync, lstatSync } from 'node:fs';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { codingLoop } from './coding-loop.ts';
 import { agentResult } from './result.ts';
 import { modelFor } from './models.ts';
@@ -22,5 +22,21 @@ const result = await codingLoop(async (role, feedback) => {
     });
     return { failed: run.status !== 0, message: (run.stdout + run.stderr + (run.error?.message ?? '')).slice(-24000) };
 });
-writeFileSync('/output/result.json', JSON.stringify(result));
+let changes: { path: string; content: string | null }[] = [];
+if (!result.failed) {
+    const git = (args: string[]) => execFileSync('git', ['-C', '/workspace', ...args], { encoding: 'utf8' });
+    git(['add', '-N', '.']);
+    changes = git(['diff', '--name-only', '-z', 'HEAD']).split('\0').filter(Boolean).map(path => {
+        let content: string | null;
+        try {
+            if (!lstatSync(`/workspace/${path}`).isFile()) throw new Error('Only regular files may be published.');
+            content = readFileSync(`/workspace/${path}`, 'utf8');
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            content = null;
+        }
+        return { path, content };
+    });
+}
+writeFileSync('/output/result.json', JSON.stringify({ ...result, changes }));
 process.exitCode = result.failed ? 1 : 0;

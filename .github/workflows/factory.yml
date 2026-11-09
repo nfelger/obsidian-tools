@@ -8,6 +8,8 @@ on:
 permissions:
   contents: write
   issues: write
+  pull-requests: write
+  actions: write
 concurrency:
   group: issue-factory-controller
   cancel-in-progress: false
@@ -15,7 +17,7 @@ jobs:
   reconcile:
     if: github.event_name != 'issue_comment' || (github.event.comment.user.login == github.repository_owner && !github.event.issue.pull_request)
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,4 +35,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          IMPLEMENTER_MODEL: ${{ vars.IMPLEMENTER_MODEL }}
+          ESCALATION_MODEL: ${{ vars.ESCALATION_MODEL }}
           PLANNER_MODEL: ${{ vars.PLANNER_MODEL }}

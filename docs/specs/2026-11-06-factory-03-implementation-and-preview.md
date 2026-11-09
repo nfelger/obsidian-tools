@@ -9,7 +9,7 @@ The user can request and test a small, well-specified change entirely through Gi
 - Start from an issue containing desired behavior, representative Markdown input/output, and exclusions supplied by the user.
 - Have the implementer read the relevant repository guidance, architecture, and tests; identify existing extension points before editing.
 - Implement on an issue branch and open or update a linked draft PR.
-- Write behavior tests and run the segment 1 gates. Repair failures within the controller's bounded attempt budget; never weaken gates to pass.
+- Write behavior tests and run the segment 1 gates. Repair failures within the bounded coding repair budget; never weaken gates to pass.
 - Publish an eligible candidate and post a concise preview report with its SHA, installation/return instructions, what changed, what ran, and what needs manual testing.
 - Supply starting Markdown or a disposable fixture vault so manual checks are quick to reproduce.
 - Route feedback to a new attempt on the same issue. Retain candidate history and make the current candidate obvious.
@@ -34,7 +34,7 @@ Automatic refinement of rough requests, a separate verification agent, post-acce
 
 ## Sequence
 
-Status: coding executor trial implemented; issue-to-PR and preview integration pending. Segment 3 of 7.
+Status: implementation wired; hosted container and issue-to-preview trial pending. Segment 3 of 7.
 
 1. [CI and releases](2026-11-06-factory-01-ci-and-releases.md)
 2. [Issue controller](2026-11-06-factory-02-issue-controller.md)

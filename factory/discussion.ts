@@ -13,7 +13,7 @@ export function reconcileDiscussion(
         comment.user.login === owner && comment.user.type !== 'Bot');
     const lastCommand = ownerComments.filter(comment =>
         state.processed.includes(String(comment.id)) &&
-        /^\/factory (start|pause|resume|stop|retry)$/.test(comment.body.trim())).at(-1);
+        /^\/factory (start|pause|resume|stop|retry|implement)$/.test(comment.body.trim())).at(-1);
     const work = state.work[issue];
     if (work?.stage === 'waiting' && lastCommand?.body.trim() === '/factory pause') {
         work.stage = 'paused';

@@ -1,12 +1,14 @@
-export type Stage = 'queued' | 'running' | 'waiting' | 'paused' | 'blocked' | 'stopped';
+export type Stage = 'queued' | 'running' | 'waiting' | 'paused' | 'verifying' | 'preview' | 'blocked' | 'stopped';
 export interface Work {
     issue: number; stage: Stage; revision: number; attempt: number; failures: number;
     agreement: string; result: string; runUrl: string;
+    phase?: 'planning' | 'coding'; approvedHandoff?: string;
+    publicationPending?: boolean; branch?: string; head?: string; pr?: string; candidate?: string;
 }
 export interface Ledger { version: 1; processed: string[]; work: Record<string, Work> }
 export const empty = (): Ledger => ({ version: 1, processed: [], work: {} });
 export function command(state: Ledger, issue: number, id: string, body: string, agreement: string) {
-    const match = body.trim().match(/^\/factory (start|pause|resume|stop|retry)$/);
+    const match = body.trim().match(/^\/factory (start|pause|resume|stop|retry|implement)$/);
     if (!match || state.processed.includes(id)) return;
     state.processed.push(id);
     let work = state.work[issue];
@@ -17,11 +19,15 @@ export function command(state: Ledger, issue: number, id: string, body: string, 
         return;
     }
     switch (match[1]) {
+        case 'implement':
+            if (work.stage !== 'waiting' || !work.result.trim() || work.agreement !== agreement) break;
+            work.phase = 'coding'; work.approvedHandoff = work.result; work.stage = 'queued';
+            break;
         case 'stop':
             if (work.stage !== 'stopped') { work.stage = 'stopped'; work.attempt++; }
             break;
         case 'pause':
-            if (work.stage === 'queued' || work.stage === 'running' || work.stage === 'waiting') {
+            if (work.stage === 'queued' || work.stage === 'running' || work.stage === 'waiting' || work.stage === 'verifying' || work.stage === 'preview') {
                 work.stage = 'paused'; work.attempt++;
             }
             break;
@@ -51,7 +57,7 @@ export function feedback(state: Ledger, issue: number, id: string, agreement: st
     if (state.processed.includes(id)) return;
     state.processed.push(id);
     const work = state.work[issue];
-    if (!work || !['waiting', 'queued', 'running'].includes(work.stage)) return;
+    if (!work || !['waiting', 'queued', 'running', 'verifying', 'preview'].includes(work.stage)) return;
     if (work.agreement !== agreement) { work.agreement = agreement; work.revision++; }
     if (work.stage === 'running') work.attempt++;
     work.stage = 'queued';

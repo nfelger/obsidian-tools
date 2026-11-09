@@ -86,22 +86,29 @@ The controller consumes `flue run --json`: only a completed envelope with a
 nonempty handoff and successful process exit becomes a successful result. Failure,
 abort, setup errors, timeouts and malformed output produce a blocked status.
 
-## Coding executor trial
+## Implementation and previews
 
-The manual **Factory coding trial** Actions workflow is the first segment 3
-building block. Only the owner can dispatch it on main. Supply the issue number
-whose current discussion contains the approved requirements. Dispatch is explicit
-authorization to spend model tokens on an implementation attempt.
+After a planner handoff, post `/factory implement` to approve that exact requirements
+snapshot and start coding. If you have since changed requirements, wait for the
+updated planner handoff before approving. Implementation remains opt-in.
 
-It clones a disposable checkout, runs the standard Flue coding tools in a Docker
-container, verifies with `npm run check`, and permits two MiniMax repairs followed
-by one Opus escalation. The trusted runner and runtime are separate from candidate
-files. The container receives the OpenRouter key but no GitHub credential or Docker
-socket. Results and a patch are preserved in an Actions artifact, including on
-failure. This artifact is development evidence, not the user preview path.
+MiniMax runs in a Docker container with Flue's standard coding tools, two repair
+cycles and one Opus escalation. The container has the OpenRouter key but no GitHub
+token or Docker socket. Trusted runtime code and the candidate workspace are separate.
+The controller accepts only text changes under `src/`, `tests/`, or `styles.css`,
+with a bounded output size. Workflow, dependency, guidance and gate changes need
+separate human-reviewed work. CI independently verifies the published commit.
 
-Issue-command authorization snapshots, branch/PR publication, candidate CI dispatch
-and browser-preview feedback are the remaining segment 3 integration. This trial
-does not publish a branch or PR, and `/factory implement` is not active yet. Each
-coding invocation currently starts a fresh Flue conversation with accumulated
-repair evidence; persisted conversation handoff is not required for this trial.
+The controller opens a draft PR on `factory/issue-<number>` and explicitly dispatches
+CI. On success it posts the exact candidate, CI evidence, and a browser Codespaces
+preview link. Open the new Codespace on that issue branch; an existing Codespace
+remains pinned to its prior build. Owner feedback automatically requests another
+coding attempt on the same branch. Superseded coding and CI results cannot become
+the current preview. Pause, stop and bounded retry controls remain available.
+
+Enable Actions permission to create pull requests in repository settings if GitHub
+rejects PR creation. The workflow requires contents, issues, pull-requests and
+actions write permissions; publishing tokens remain outside the coding container.
+Merge stays manual. Candidate history lives in issue comments.
+
+The container/model and issue-to-preview loop need a hosted trial after merge.

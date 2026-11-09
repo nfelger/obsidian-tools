@@ -66,3 +66,30 @@ test('pause cannot revive stopped work or bypass an exhausted retry budget', () 
     assert.equal(work.stage, 'stopped');
     assert.equal(claim(state), undefined);
 });
+test('implementation requires the current completed handoff and fixes the coding phase', () => {
+    const state = empty();
+    command(state, 1, 'start', '/factory start', 'agreement');
+    command(state, 1, 'early', '/factory implement', 'agreement');
+    assert.equal(state.work[1].phase, undefined);
+    const work = claim(state)!;
+    settle(work, work.attempt, 'Approved acceptance cases', false);
+    command(state, 1, 'changed', '/factory implement', 'new agreement');
+    assert.equal(work.phase, undefined);
+    command(state, 1, 'implement', '/factory implement', 'agreement');
+    assert.equal(work.phase, 'coding');
+    assert.equal(work.approvedHandoff, 'Approved acceptance cases');
+    assert.equal(claim(state)?.stage, 'running');
+});
+test('owner feedback supersedes CI without allowing an old candidate to become current', async () => {
+    const { feedback } = await import('./state.ts');
+    const state = empty();
+    command(state, 1, 'start', '/factory start', 'agreement');
+    const work = state.work[1];
+    work.phase = 'coding'; work.stage = 'verifying'; work.head = 'old';
+    feedback(state, 1, 'reply', 'revised');
+    assert.equal(work.stage, 'queued');
+    assert.equal(work.phase, 'coding');
+    assert.equal(work.agreement, 'revised');
+    command(state, 1, 'stop', '/factory stop', 'revised');
+    assert.equal(claim(state), undefined);
+});
