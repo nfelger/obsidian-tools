@@ -55,9 +55,9 @@ and their branch/candidate/acceptance fields are added with segment 3, when prev
 exist. The first Flue agent only produces a handoff; it has no sandbox tools. See [controller operations](../../factory/README.md).
 
 The initial handoff uses the planner role (Claude Opus 5.5 by default), with the
-previous handoff supplied on resume. Owner discussion replies preceding a start
-or resume command are included in its requirements snapshot; ordinary comments
-do not authorize model calls. Role configuration also defines MiniMax M3.1
+previous handoff supplied on resume. New owner discussion replies automatically queue a turn and update its
+requirements snapshot. Other users and bots cannot trigger model work. Explicit
+pause, stop and failure states require their corresponding owner commands. Role configuration also defines MiniMax M3.1
 Flash for implementation, Opus for escalation, and GPT-6 Luna for utility work;
 only planning is activated here. Segment 7 adds cost lines in issue comments,
 without a separate cost ledger.

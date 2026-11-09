@@ -17,14 +17,18 @@ Comment `/factory start` on an issue as the repository owner. The issue body and
 your preceding discussion comments form the requirements snapshot. The first agent returns a concise handoff and acceptance cases;
 product-code changes and preview creation are segment 3.
 
+Answer planner questions in ordinary issue comments. A new comment from the
+repository owner automatically queues the next planner turn with the issue body,
+owner discussion and previous handoff. Other users and bots cannot trigger it.
+Several replies received before the next run are included together. Replayed
+comments do not trigger another call. Edits to old comments do not trigger work;
+post a new comment to continue.
+
 Use `/factory pause`, `/factory resume`, `/factory stop`, or `/factory retry` as
-standalone comments. Answer planner questions in ordinary issue comments, then
-post `/factory resume`. Resume snapshots the current issue body and your replies
-preceding that command, and advances the specification revision if they changed.
-Ordinary replies do not trigger model calls. Bot and other users' comments are
-excluded. The previous handoff is supplied alongside the revised agreement. Retry preserves evidence and permits at most
-three failed attempts; opening another issue is the explicit fresh budget. Pause
-only applies to queued/running work; stopped work cannot be resumed.
+standalone comments. Pause holds work even when you add replies; resume explicitly
+releases that hold. Stopped work cannot be resumed. Failed work requires retry,
+with at most three failed attempts; another issue is the explicit fresh budget.
+Replies arriving during a call invalidate its result and queue the revised context.
 
 A versioned `state.json` on `factory-state` is authoritative. The workflow creates
 it on first use. One bot status comment mirrors each record. Do not delete the
@@ -60,8 +64,8 @@ CLI startup is included in the checks so dependency drift cannot silently pass.
 
 The ten-minute schedule reconciles commands and repairs status deterministically.
 With no queued work it makes no model calls. It may run one queued item authorized
-by an owner start/resume/retry command. Waiting, blocked and stopped items do not
-retry themselves. Each successful handoff waits for further owner input.
+by an owner command or new discussion reply. Waiting work needs a new owner
+reply; paused, blocked and stopped items do not restart from discussion comments.
 The scheduled job still starts an Actions runner and installs dependencies.
 
 Cost reporting is planned in segment 7: per-turn issue comments are the sole cost
@@ -71,6 +75,6 @@ record, and the merge summary sums them. No separate cost ledger or usage artifa
 
 Configure the API key, create a small issue, and post `/factory start`. Confirm a
 requirements handoff and acceptance cases arrive, then answer its questions in a comment and
-post `/factory resume` as a separate comment. Check the revised handoff. Exercise
+check that a revised handoff arrives automatically. Exercise
 pause/resume and stop during a run to verify stale replies are withheld. These
 steps make paid model calls and require the workflow on main.
