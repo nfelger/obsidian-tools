@@ -81,3 +81,7 @@ requirements handoff and acceptance cases arrive, then answer its questions in a
 check that a revised handoff arrives automatically. Exercise
 pause/resume and stop during a run to verify stale replies are withheld. These
 steps make paid model calls and require the workflow on main.
+
+The controller consumes `flue run --json`: only a completed envelope with a
+nonempty handoff and successful process exit becomes a successful result. Failure,
+abort, setup errors, timeouts and malformed output produce a blocked status.

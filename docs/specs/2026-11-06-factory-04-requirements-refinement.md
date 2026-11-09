@@ -45,3 +45,7 @@ Status: proposed. Segment 4 of 7.
 7. [Cost reporting](2026-11-09-factory-07-cost-reporting.md)
 
 Depends on segment 3; build on its completed path rather than introducing a parallel workflow. The first implementation batch is segments 1–3. Use that working loop to develop the later segments, retaining explicit review of factory-control changes.
+
+## Runtime reuse hint
+
+Reuse Flue skills for substantial reusable guidance. Consider its message-delivery APIs for in-flight owner feedback only if discarding superseded work becomes costly; a fresh-runner controller cannot gain live steering just by enabling a flag.

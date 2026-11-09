@@ -65,3 +65,7 @@ authorization, branch publication, candidate selection and merge decisions in th
 controller. Avoid custom file, edit, shell or context-management implementations.
 The local adapter is not an isolation boundary: use the Actions job/container for
 execution isolation and keep publishing credentials outside the coding agent.
+
+## Runtime reuse hint
+
+Use Flue's CLI result envelope for outcomes and its existing compaction within coding runs. Evaluate conversation continuation and model changes for escalation within one run; cross-run continuation requires durable storage. Configure reasoning effort alongside model roles when useful.
