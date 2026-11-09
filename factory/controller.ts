@@ -99,15 +99,15 @@ if (work?.phase === 'coding') {
             await ensurePull(api, repo, work, work.result);
             work.stage = 'verifying';
         } else {
-        const base = work.head ?? (await api('git/ref/heads/main')).object.sha;
-        const output = runCoding(repo, base, work);
-        await reconcile();
-        if (work.stage === 'running' && work.attempt === attempt) {
-            work.result = output.message;
-            await publish(api, repo, work, base, output.changes, output.message);
-            work.stage = 'verifying';
-            work.candidate = undefined;
-        }
+            const base = work.head ?? (await api('git/ref/heads/main')).object.sha;
+            const output = runCoding(repo, base, work);
+            await reconcile();
+            if (work.stage === 'running' && work.attempt === attempt) {
+                work.result = output.message;
+                await publish(api, repo, work, base, output.changes, output.message);
+                work.stage = 'verifying';
+                work.candidate = undefined;
+            }
         }
     } catch (error) {
         settle(work, attempt, `${String(error)}\n\n${work.result}`.slice(0, 12000), true);

@@ -38,3 +38,10 @@ jobs:
           IMPLEMENTER_MODEL: ${{ vars.IMPLEMENTER_MODEL }}
           ESCALATION_MODEL: ${{ vars.ESCALATION_MODEL }}
           PLANNER_MODEL: ${{ vars.PLANNER_MODEL }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coding-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/factory-code-*/output/result.json
+          if-no-files-found: ignore
+          retention-days: 14

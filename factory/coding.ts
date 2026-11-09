@@ -6,7 +6,7 @@ import { validateChanges } from './changes.ts';
 import type { Work } from './state.ts';
 
 export function runCoding(repo: string, base: string, work: Work) {
-    const root = mkdtempSync(join(tmpdir(), 'factory-code-'));
+    const root = mkdtempSync(join(process.env.RUNNER_TEMP || tmpdir(), 'factory-code-'));
     const workspace = join(root, 'workspace');
     const input = join(root, 'input');
     const output = join(root, 'output');
@@ -17,7 +17,7 @@ export function runCoding(repo: string, base: string, work: Work) {
     const result = spawnSync('docker', ['run', '--rm', '--init', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
         '--cpus', '2', '--memory', '6g', '-e', 'OPENROUTER_API_KEY', '-e', 'IMPLEMENTER_MODEL', '-e', 'ESCALATION_MODEL',
         '-v', `${resolve('.')}:/runtime:ro`, '-v', `${workspace}:/workspace`, '-v', `${input}:/input:ro`, '-v', `${output}:/output`,
-        'node:22-bookworm', 'bash', '-c', `cp -a /runtime /tmp/factory && export HOME=/tmp &&
+        'node:22-bookworm', 'bash', '-c', `cp -a --no-preserve=ownership /runtime /tmp/factory && export HOME=/tmp &&
         git config --global --add safe.directory /workspace && cd /workspace && npm ci --ignore-scripts &&
         cd /tmp/factory && node --import tsx code-run.ts`], {
         encoding: 'utf8', timeout: 60 * 60 * 1000, maxBuffer: 8 * 1024 * 1024,
