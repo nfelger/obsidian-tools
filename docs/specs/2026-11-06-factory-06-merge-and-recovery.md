@@ -46,3 +46,7 @@ Status: proposed. Segment 6 of 7.
 7. [Cost reporting](2026-11-09-factory-07-cost-reporting.md)
 
 Depends on segment 5; build on its completed path rather than introducing a parallel workflow. The first implementation batch is segments 1–3. Use that working loop to develop the later segments, retaining explicit review of factory-control changes.
+
+## Runtime reuse hint
+
+Keep GitHub authorization and merge authority in the controller. Evaluate Flue durable conversation recovery only if needed: it requires persistent conversation storage and does not restore workspace files or replace workflow-level idempotency.

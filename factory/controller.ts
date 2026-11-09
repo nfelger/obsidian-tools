@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { reconcileDiscussion } from './discussion.ts';
+import { agentResult } from './result.ts';
 import { modelFor } from './models.ts';
 import { claim, empty, settle, type Ledger } from './state.ts';
 
@@ -71,7 +72,7 @@ if (work) {
     const attempt = work.attempt;
     const guidance = ['CLAUDE.md', 'WORKFLOW.md'].map(path =>
         `# ${path}\n${readFileSync(`../${path}`, 'utf8')}`).join('\n\n');
-    const result = spawnSync('node_modules/.bin/flue', ['run', 'agent.ts', '--message',
+    const result = spawnSync('node_modules/.bin/flue', ['run', 'agent.ts', '--json', '--message',
         JSON.stringify({ agreement: work.agreement, revision: work.revision, priorHandoff: work.result, guidance })], {
         encoding: 'utf8', timeout: 120000, maxBuffer: 1024 * 1024,
         env: { PATH: process.env.PATH, HOME: process.env.RUNNER_TEMP,
@@ -79,7 +80,9 @@ if (work) {
             PLANNER_MODEL: modelFor('planner') },
     });
     await reconcile();
-    settle(work, attempt, (result.stdout || result.stderr || String(result.error)).slice(0, 12000), result.status !== 0);
+    const outcome = agentResult(result);
+    if (outcome.failed && result.stderr) process.stderr.write(result.stderr);
+    settle(work, attempt, outcome.message, outcome.failed);
     await save();
 }
 // One stable status comment per issue; replay repairs publication after a crash.

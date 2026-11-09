@@ -51,3 +51,10 @@ Status: proposed. Segment 7 of 7.
 7. [Cost reporting](2026-11-09-factory-07-cost-reporting.md) — this segment
 
 Build on the controller and merge lifecycle from segments 2 and 6.
+
+## Runtime reuse hint
+
+Use Flue's per-call usage events to aggregate each turn in memory and publish its
+cost comment. Runtime catalog costs are estimates; prefer OpenRouter actual costs
+when available. Count one event level to avoid double counting roll-ups. This adds
+no separate persistent ledger or background reconciliation.

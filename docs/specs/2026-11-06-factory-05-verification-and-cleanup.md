@@ -45,3 +45,7 @@ Status: proposed. Segment 5 of 7.
 7. [Cost reporting](2026-11-09-factory-07-cost-reporting.md)
 
 Depends on segment 4; build on its completed path rather than introducing a parallel workflow. The first implementation batch is segments 1–3. Use that working loop to develop the later segments, retaining explicit review of factory-control changes.
+
+## Runtime reuse hint
+
+Use Flue lifecycle hooks where they simplify bounded verification before finishing. Add small opt-in live-model evals through its public agent APIs, checking tool use and observable behavior separately from deterministic tests; no dedicated eval framework is required.
