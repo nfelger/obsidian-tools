@@ -1,18 +1,19 @@
 {
   "version": 1,
   "processed": [
-    "6742864093"
+    "6742864093",
+    "6746270152"
   ],
   "work": {
     "44": {
       "issue": 44,
-      "stage": "waiting",
-      "revision": 1,
-      "attempt": 1,
+      "stage": "running",
+      "revision": 2,
+      "attempt": 2,
       "failures": 0,
-      "agreement": "Improve the Extract log confirmation so it tells me where the content went.",
+      "agreement": "{\"request\":\"Improve the Extract log confirmation so it tells me where the content went.\",\"replies\":[{\"id\":6746270152,\"body\":\"Inspect Extract log’s current notification behavior and cite the relevant source\"}]}",
       "result": "# Requirements handoff: Extract log confirmation should say where content went\n\n**Revision:** 1 (no prior handoff)\n**Source agreement:** \"Improve the Extract log confirmation so it tells me where the content went.\"\n\nI couldn't read the repository: no subagents are available and I have no file access. Everything about the current notice text and how `extractLog` behaves is unverified. Those points are listed under Assumptions so the implementer can check them first.\n\n## Intended outcome\nAfter running **Extract log**, the confirmation notice tells you where the extracted content landed. You shouldn't have to open the target note to check.\n\n## Requirements (from the agreement)\n1. The confirmation names the destination of the extracted content.\n2. This only changes the confirmation message. The text transformation itself stays the same: what gets moved, the link left in the daily note, and where content is inserted.\n3. Following repo guidance:\n   - Notice text is built in domain code with no Obsidian imports. `src/utils/notices.ts` is the likely home.\n   - The notice is shown through the adapter (`src/adapters/commandSetup.ts`).\n   - Tests are written first.\n   - There's a user-facing CHANGELOG entry.\n\n## Assumptions (to verify, not decided)\n- **A1.** Today's notice doesn't show the destination, or shows too little of it. The implementer should record the current text in the plan.\n- **A2.** The destination is one Project or Area note, under the heading set by `logExtractionTargetHeading` (default `## Log`).\n- **A3.** The notice still uses the existing timeout from `src/config.ts`.\n- **A4.** Other commands that share `notices.ts` (the transfer commands) keep their current text unless we decide otherwise (see Q3).\n\n## Open decisions\n**Q1 (blocks progress). How much location detail should the notice show?**\n- a) Note name only: \"Extracted to Migration Initiative\"\n- b) Note and heading: \"Extracted to Migration Initiative › Log\"\n- c) Full vault path: \"Extracted to 1 Projekte/Migration Initiative.md › Log\"\n\nIf you don't mind, I'd propose **(b)**, but that's your call.\n\n**Q2 (non-blocking). Should clicking the notice open the target note?**\nNothing in the agreement asks for this. The default is no, and it can be a follow-up.\n\n**Q3 (non-blocking). Should the other transfer commands' notices change the same way for consistency?**\nThe default is no: only Extract log changes.\n\n**Q4 (non-blocking, depends on A2). What should the notice say when the target heading didn't exist?**\nThat applies if the command creates the heading or falls back to appending elsewhere. The default is to name wherever the content actually went, not the setting's value.\n\n## Acceptance cases\nExamples use option (b) and are placeholders until Q1 is answered.\n\n1. Extract a bullet to `Migration Initiative` with `## Log` present → notice: \"Extracted to Migration Initiative › Log\".\n2. Extract a bullet with children → the notice names the same destination; the content result is unchanged.\n3. `logExtractionTargetHeading` set to `## Notes` → the notice says \"› Notes\".\n4. Target is an Area note (`2 Areas/Team Development`) → the notice names `Team Development`.\n5. Target heading missing → the notice names wherever the content actually went (depends on Q4).\n6. Extraction fails or is cancelled → no success notice claiming a destination; existing error behaviour is unchanged.\n7. Other commands (migrate, push down, pull up, and so on) → notice text unchanged (unless Q3 says otherwise).\n\n## High-level plan\n1. Read `src/commands/extractLog.ts` and `src/utils/notices.ts`. Confirm A1, A2 and A4, and note the current text and how the destination is resolved.\n2. Write unit tests for a pure function that builds the notice text from the target note name and heading. Also update the extractLog integration tests to assert the notice text (cases 1–6).\n3. Add the function to `src/utils/notices.ts`. Pass in the resolved target, including the heading actually used, from `extractLog`.\n4. Run `npm run check`, then add a CHANGELOG entry, e.g. \"Extract log confirmation now shows which note and section the content went to.\"\n\nThe one question I need answered before work starts is **Q1**. The others have defaults that can be overridden later.\n",
-      "runUrl": "https://github.com/nfelger/obsidian-tools/actions/runs/42637390479"
+      "runUrl": "https://github.com/nfelger/obsidian-tools/actions/runs/42661255603"
     }
   }
 }
