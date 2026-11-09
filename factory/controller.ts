@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
+import { modelFor } from './models.ts';
 import { command, claim, empty, settle, type Ledger } from './state.ts';
 
 const repo = process.env.GITHUB_REPOSITORY!;
@@ -72,11 +74,14 @@ if (work) {
     const attempt = work.attempt;
     const guidance = readFileSync('../CLAUDE.md', 'utf8');
     const result = spawnSync('node_modules/.bin/flue', ['run', 'agent.ts', '--message',
-        JSON.stringify({ agreement: work.agreement, revision: work.revision, guidance })], {
+        JSON.stringify({ agreement: work.agreement, revision: work.revision, priorHandoff: work.result, guidance })], {
         encoding: 'utf8', timeout: 120000, maxBuffer: 1024 * 1024,
         env: { PATH: process.env.PATH, HOME: process.env.RUNNER_TEMP,
             OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
-            OPENROUTER_MODEL: process.env.OPENROUTER_MODEL },
+            PLANNER_MODEL: modelFor('planner'),
+            FACTORY_USAGE_PATH: resolve('usage.jsonl'), FACTORY_ISSUE: String(work.issue),
+            FACTORY_REVISION: String(work.revision), FACTORY_ATTEMPT: String(attempt),
+            FACTORY_RUN_URL: work.runUrl },
     });
     await reconcile();
     settle(work, attempt, (result.stdout || result.stderr || String(result.error)).slice(0, 12000), result.status !== 0);

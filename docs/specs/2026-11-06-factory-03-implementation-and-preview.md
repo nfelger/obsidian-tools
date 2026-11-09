@@ -45,3 +45,13 @@ Status: proposed. Segment 3 of 7.
 7. [Cost reporting](2026-11-09-factory-07-cost-reporting.md)
 
 Depends on segment 2; build on its completed path rather than introducing a parallel workflow. The first implementation batch is segments 1–3. Use that working loop to develop the later segments, retaining explicit review of factory-control changes.
+
+## Model routing
+
+Use the configured implementer (initially MiniMax M3.1 Flash). After an initial
+attempt and two failed repair cycles, escalate to the configured stronger coder
+(initially Claude Opus 5.5), passing the agreement, diff, failed approaches and
+check output. Escalate earlier when an architectural problem is identified.
+Unresolved product requirements return to the planner. Keep this repair budget
+separate from controller/infrastructure retries. Activate the corresponding role
+variables in the workflow when implementing this segment.

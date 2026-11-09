@@ -53,3 +53,9 @@ A versioned state file on `factory-state` is authoritative; one bot status comme
 per issue displays state without requiring label setup. Preview-ready transitions
 are added with segment 3, when previews exist. The first Flue agent only produces a
 handoff; it has no sandbox tools. See [controller operations](../../factory/README.md).
+
+The initial handoff uses the planner role (Claude Opus 5.5 by default), with the
+previous handoff supplied on resume. Role configuration also defines MiniMax M3.1
+Flash for implementation, Opus for escalation, and GPT-6 Luna for utility work;
+only planning is activated here. Model-call metadata is retained in workflow
+artifacts for later cost reconciliation; catalog estimates are not actual charges.

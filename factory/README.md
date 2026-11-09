@@ -1,15 +1,28 @@
 # Issue controller
 
 After this workflow is merged, add the `OPENROUTER_API_KEY` repository secret.
-Optionally set the `OPENROUTER_MODEL` Actions variable to an OpenRouter model ID
-(default: `openai/gpt-5.4`). All model calls go through OpenRouter.
+All model calls go through OpenRouter. Role defaults live in `models.ts`:
+
+| Role | Default model | Actions variable |
+| --- | --- | --- |
+| Requirements and planning | `anthropic/claude-opus-5.5` | `PLANNER_MODEL` |
+| Implementation | `minimax/minimax-m3.1-flash` | `IMPLEMENTER_MODEL` |
+| Escalation and architecture review | `anthropic/claude-opus-5.5` | `ESCALATION_MODEL` |
+| Bounded clerical tasks | `openai/gpt-6-luna` | `UTILITY_MODEL` |
+
+Only the planner runs in this segment, and only `PLANNER_MODEL` is wired into the
+workflow. Empty values use the default. The old `OPENROUTER_MODEL` variable is no
+longer used; move a deliberate override to `PLANNER_MODEL`. Other roles are defined
+for their later segments, which will wire their variables when activated.
 Comment `/factory start` on an issue as the repository owner. The issue body is
 the agreement. The first agent returns a concise handoff and acceptance cases;
 product-code changes and preview creation are segment 3.
 
 Use `/factory pause`, `/factory resume`, `/factory stop`, or `/factory retry` as
 standalone comments. Resume snapshots the current issue body and advances the
-specification revision if it changed. Retry preserves evidence and permits at most
+specification revision if it changed. Edit the issue body to answer questions before
+resuming; free-form comments are not yet incorporated. The previous handoff is
+supplied alongside the revised agreement. Retry preserves evidence and permits at most
 three failed attempts; opening another issue is the explicit fresh budget.
 
 A versioned `state.json` on `factory-state` is authoritative. The workflow creates
@@ -41,3 +54,33 @@ Activation and a model-backed issue trial require the merged workflow and secret
 Flue 2.3.0 currently requires pi-ai/pi-agent-core 1.1.0; explicit overrides
 prevent a newer compatible-range release from removing a required runtime export.
 CLI startup is included in the checks so dependency drift cannot silently pass.
+
+## Escalation policy for the implementation segment
+
+The implementer gets an initial attempt and up to two unsuccessful repair cycles
+before handing the failure evidence to the escalation model. Escalate earlier for
+an identified architectural problem. Requirement ambiguity returns to planning,
+not to a coder making product decisions. This is separate from the controller's
+failure/retry budget; coding escalation is not active in this segment.
+
+## Usage evidence
+
+The agent records completed Flue model-call events, including provider response IDs
+when available, requested/returned models, token usage, issue/revision/attempt and
+run URL. The workflow uploads `factory-usage-<run>-<attempt>` even after failure,
+with 90-day retention. Only selected metadata is written; prompts, responses and
+credentials are excluded. Runtime cost fields are catalog estimates, not actual
+OpenRouter charges. Missing IDs/usage remain missing, not zero.
+
+These artifacts preserve evidence for segment 7; they are not a durable cost ledger
+or a complete bill. Abrupt runner loss and calls with no completion event can leave
+gaps. Segment 7 must reconcile provider charges and persist totals beyond artifact
+expiry. Provider ID identifies the gateway here, not necessarily its routed backend.
+
+## Live trial after merge
+
+Configure the API key, create a small issue, and post `/factory start`. Confirm a
+requirements handoff and acceptance cases arrive, then edit the issue body and
+post `/factory resume`. Check the revised handoff and usage artifact. Exercise
+pause/resume and stop during a run to verify stale replies are withheld. These
+steps make paid model calls and require the workflow on main.
