@@ -55,3 +55,13 @@ check output. Escalate earlier when an architectural problem is identified.
 Unresolved product requirements return to the planner. Keep this repair budget
 separate from controller/infrastructure retries. Activate the corresponding role
 variables in the workflow when implementing this segment.
+
+## Agent environment
+
+Reuse Flue's standard local environment and coding tools for implementation and
+escalation. Escalation changes the model and receives the existing workspace and
+failure evidence. The planner exposes only Flue's read/search tools. Keep GitHub
+authorization, branch publication, candidate selection and merge decisions in the
+controller. Avoid custom file, edit, shell or context-management implementations.
+The local adapter is not an isolation boundary: use the Actions job/container for
+execution isolation and keep publishing credentials outside the coding agent.
