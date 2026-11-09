@@ -68,6 +68,7 @@ async function reconcile() {
     }
 }
 // A prior runner died after persisting its claim. Preserve that attempt as failed.
+const failuresBefore = new Map(Object.values(state.work).map(work => [work.issue, work.failures]));
 for (const work of Object.values(state.work)) {
     if (work.stage === 'running') settle(work, work.attempt, `Interrupted run: ${work.runUrl}`, true);
 }
@@ -150,4 +151,10 @@ for (const current of Object.values(state.work)) {
     const previous = comments.find(item => item.user.type === 'Bot' && item.body.startsWith(marker));
     if (previous?.body === body) continue;
     await api(previous ? `issues/comments/${previous.id}` : `issues/${current.issue}/comments`, previous ? 'PATCH' : 'POST', { body });
+}
+// Report failure only after durable state and the user-facing status are saved.
+const failed = Object.values(state.work).filter(work => work.failures > (failuresBefore.get(work.issue) ?? 0));
+if (failed.length) {
+    console.error(`Factory work failed for issue(s): ${failed.map(work => `#${work.issue}`).join(', ')}. See issue status for details.`);
+    process.exitCode = 1;
 }
