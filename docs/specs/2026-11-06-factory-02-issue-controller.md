@@ -52,7 +52,8 @@ Depends on segment 1; build on its completed path rather than introducing a para
 A versioned state file on `factory-state` is authoritative; one bot status comment
 per issue displays state without requiring label setup. Preview-ready transitions
 and their branch/candidate/acceptance fields are added with segment 3, when previews
-exist. The first Flue agent only produces a handoff; it has no sandbox tools. See [controller operations](../../factory/README.md).
+exist. The first Flue agent produces a handoff using Flue's built-in read, grep and glob
+tools; it has no model-callable editing or shell tools. See [controller operations](../../factory/README.md).
 
 The initial handoff uses the planner role (Claude Opus 5.5 by default), with the
 previous handoff supplied on resume. New owner discussion replies automatically queue a turn and update its
