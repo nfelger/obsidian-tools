@@ -1,19 +1,5 @@
-import { appendFileSync } from 'node:fs';
-import { observe, useModel } from '@flue/runtime';
+import { useModel } from '@flue/runtime';
 import { modelFor } from './models.ts';
-
-observe(event => {
-    if (event.type !== 'turn' || !process.env.FACTORY_USAGE_PATH) return;
-    const { responseId, responseModel, usage } = event.response;
-    appendFileSync(process.env.FACTORY_USAGE_PATH, JSON.stringify({
-        version: 1, issue: process.env.FACTORY_ISSUE, revision: process.env.FACTORY_REVISION,
-        attempt: process.env.FACTORY_ATTEMPT, runUrl: process.env.FACTORY_RUN_URL,
-        role: 'planner', timestamp: event.timestamp, turnId: event.turnId,
-        purpose: event.purpose, requestedModel: event.request.requestedModel,
-        provider: event.request.providerId, responseId, responseModel,
-        usage, costSource: 'runtime-catalog-estimate', failed: event.isError,
-    }) + '\n');
-});
 
 export function Handoff() {
     useModel(`openrouter/${modelFor('planner')}`);

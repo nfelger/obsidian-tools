@@ -63,24 +63,21 @@ an identified architectural problem. Requirement ambiguity returns to planning,
 not to a coder making product decisions. This is separate from the controller's
 failure/retry budget; coding escalation is not active in this segment.
 
-## Usage evidence
+## Scheduled checks and costs
 
-The agent records completed Flue model-call events, including provider response IDs
-when available, requested/returned models, token usage, issue/revision/attempt and
-run URL. The workflow uploads `factory-usage-<run>-<attempt>` even after failure,
-with 90-day retention. Only selected metadata is written; prompts, responses and
-credentials are excluded. Runtime cost fields are catalog estimates, not actual
-OpenRouter charges. Missing IDs/usage remain missing, not zero.
+The ten-minute schedule reconciles commands and repairs status deterministically.
+With no queued work it makes no model calls. It may run one queued item authorized
+by an owner start/resume/retry command. Waiting, blocked and stopped items do not
+retry themselves. Each successful handoff waits for further owner input.
+The scheduled job still starts an Actions runner and installs dependencies.
 
-These artifacts preserve evidence for segment 7; they are not a durable cost ledger
-or a complete bill. Abrupt runner loss and calls with no completion event can leave
-gaps. Segment 7 must reconcile provider charges and persist totals beyond artifact
-expiry. Provider ID identifies the gateway here, not necessarily its routed backend.
+Cost reporting is planned in segment 7: per-turn issue comments are the sole cost
+record, and the merge summary sums them. No separate cost ledger or usage artifacts.
 
 ## Live trial after merge
 
 Configure the API key, create a small issue, and post `/factory start`. Confirm a
 requirements handoff and acceptance cases arrive, then edit the issue body and
-post `/factory resume`. Check the revised handoff and usage artifact. Exercise
+post `/factory resume`. Check the revised handoff. Exercise
 pause/resume and stop during a run to verify stale replies are withheld. These
 steps make paid model calls and require the workflow on main.
