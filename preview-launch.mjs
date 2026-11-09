@@ -14,10 +14,11 @@ const pinFile = resolve(root, 'commit');
 const sha = existsSync(pinFile) ? readFileSync(pinFile, 'utf8').trim() : run('git', ['rev-parse', 'HEAD']);
 
 async function downloadCandidate() {
-    const endpoint = `repos/${repo}/actions/workflows/ci.yml/runs?event=push&head_sha=${sha}&status=success`;
+    const endpoint = `repos/${repo}/actions/workflows/ci.yml/runs?head_sha=${sha}&status=success`;
     for (let attempt = 0; attempt < 60; attempt++) {
         const runs = api(endpoint).workflow_runs;
         for (const ci of runs) {
+            if (!['push', 'workflow_dispatch'].includes(ci.event) || ci.head_sha !== sha) continue;
             const name = `bullet-flow-${sha.slice(0, 12)}-${ci.id}-${ci.run_attempt}`;
             const artifacts = api(`repos/${repo}/actions/runs/${ci.id}/artifacts`).artifacts;
             if (!artifacts.some(item => item.name === name && !item.expired)) continue;

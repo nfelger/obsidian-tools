@@ -20,3 +20,8 @@ jobs:
         working-directory: factory
       - run: npm run check
         working-directory: factory
+      - name: Check runtime in coding container image
+        run: |
+          docker run --rm --cap-drop ALL --security-opt no-new-privileges \
+            -v "$GITHUB_WORKSPACE/factory:/runtime:ro" \
+            node:22-bookworm bash -c 'cp -a /runtime /tmp/factory && cd /tmp/factory && npm test'
