@@ -33,4 +33,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL }}
+          PLANNER_MODEL: ${{ vars.PLANNER_MODEL }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: factory-usage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: factory/usage.jsonl
+          if-no-files-found: ignore
+          retention-days: 90

@@ -11,7 +11,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --import tsx --test state.test.ts",
+    "test": "node --import tsx --test *.test.ts",
     "check": "tsc --noEmit && node node_modules/@flue/cli/bin/flue.mjs --help > /dev/null && npm test"
   },
   "overrides": {
