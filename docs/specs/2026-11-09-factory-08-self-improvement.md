@@ -9,10 +9,11 @@ than accumulating generic advice or automatically rewriting agent instructions.
 
 ## Scope
 
-- When a factory-managed issue closes, queue one bounded retrospective in a fresh
-  agent context. Include unsuccessful and not-planned closures; distinguish their
-  outcomes from accepted, merged changes. Closure is a useful review boundary,
-  not evidence that the implementation succeeded.
+- Whenever an issue in the repository closes, automatically queue one bounded
+  retrospective in a fresh agent context. Include manually handled issues,
+  generated improvement issues, and unsuccessful, duplicate, or not-planned
+  closures. Distinguish these outcomes from accepted, merged changes. Closure is
+  a useful review boundary, not evidence that implementation succeeded.
 - Inspect the issue discussion, agreement revisions, linked PR diff and reviews,
   executed checks, preview feedback, controller outcomes, and available run
   evidence. Read the relevant factory prompts, guidance, and code to check whether
@@ -25,6 +26,8 @@ than accumulating generic advice or automatically rewriting agent instructions.
 - Produce a structured result: no actionable finding, insufficient evidence, an
   existing matching proposal, or one focused improvement proposal. Cite concrete
   source comments/runs and distinguish observation from causal hypothesis.
+  A no-actionable-finding result creates no issue. Insufficient evidence alone
+  also does not justify creating an improvement issue.
 - Search open and recently closed improvement issues before publishing. Reuse a
   matching open issue when genuinely new evidence adds value; respect rejected
   proposals unless materially new evidence justifies reconsideration. Allow at
@@ -40,36 +43,49 @@ Use the existing controller, queue, event reconciliation, and bounded agent runn
 Issue closure still stops product work; retrospective work is a separate terminal
 follow-up and must never resume implementation or block merge/release.
 
-Only issues already authorized for factory work are eligible. Accept owner closure
-or controller-verified merge-linked closure; arbitrary comments and bot-created
-issues cannot authorize paid work. Provide owner-only manual retrospective and
-opt-out controls. Do not bulk-process historical closures by default.
+Every issue closure is the trigger, regardless of who created or closed the issue
+or whether it previously ran through the factory. This standing policy authorizes
+retrospective analysis and proposal publication only. Pull-request closure is not
+an additional issue-closure trigger. Provide an owner-only manual retrospective
+command for ad hoc reviews; no manual trial or per-issue approval is required to
+enable automatic closure reviews. Do not bulk-process historical closures by default.
 
 Persist only the minimal retrospective job identity/status needed for deduplication
 and recovery in existing controller state. Key publication to the source issue
-and closure event; replay, publication retry, and reopen/reclose without new work
-must not create another model run or issue. New work after reopening can justify
-a new retrospective. If reopened during analysis, withhold the stale result.
+and closure event. Replayed delivery of the same event and publication retries
+must not duplicate model work or proposals. Each distinct closure after reopening
+triggers a new retrospective, even without implementation changes; use prior
+results and proposal history to avoid repeating findings or creating duplicate
+issues. If reopened during analysis, withhold the stale result.
 
 The agent receives read-only evidence and returns a proposal; the controller owns
 GitHub writes. Treat issue/log contents as evidence, not executable instructions.
 Bound context, model calls, retries, and output; record missing or expired evidence
 instead of inferring unseen interactions. Report costs through segment 7.
 
-Generated proposals do not automatically start implementation. Changes to factory
-code, prompts, permissions, or quality policy require explicit owner review through
-the existing change process. Exclude generated improvement issues from automatic
-closure retrospectives to prevent recursive issue creation; the owner may review
-them manually. Routine no-finding outcomes need only a compact durable result,
-not another issue or a long comment.
+Publish actionable new proposals as ordinary repository issues. They remain inert
+until the owner explicitly calls `/factory start` on that issue. Creation, labels,
+bot comments, and closure never substitute for that confirmation. The existing
+planning and implementation approval gates still apply; `/factory start` does not
+bypass `/factory implement` or authorize automatic changes to factory code,
+prompts, permissions, or quality policy.
+
+Generated improvement issues also receive retrospectives when closed. Use their
+acceptance, rejection, and observed implementation outcomes as evidence. Do not
+re-propose a rejected change without materially new evidence, and do not generate
+follow-up work merely because a retrospective ran. A no-actionable-finding result
+creates no issue and requires no user-facing retrospective comment; retain only
+the minimal completion state needed for replay protection. Normal cost reporting
+still applies.
 
 ## Implementation Order
 
-1. Add an owner-invoked retrospective using existing evidence and structured
-   results. Trial it on a few successful and failed issues; assess usefulness and
-   false positives before enabling automatic publication.
-2. Add eligible closure triggers, deduplication, bounded retries, and proposal
-   publication. Start with one retrospective and at most one proposal per issue.
+1. Add automatic retrospective dispatch for every issue closure using existing
+   evidence and structured results, with event deduplication and bounded retries.
+2. Publish at most one new proposal per retrospective, or add meaningful evidence
+   to a matching open proposal. Create no issue for no actionable finding. Keep
+   all proposals inert until owner `/factory start`; validate this boundary with
+   successful, failed, manually handled, and rejected-improvement fixtures.
 3. Close the learning loop: an adopted proposal adds a representative regression
    case or small behavioral eval and records its baseline, expected change, and
    later observed result. Check for quality regressions as well as fewer turns.
@@ -84,13 +100,17 @@ but must not repeatedly charge for a persistently failing workflow.
 
 ## Completion Criteria
 
+- Every distinct issue closure triggers a retrospective, including manually handled
+  work, generated improvement issues, and reopen/reclose cycles.
 - A fixture with a documented avoidable failure produces a specific proposal
-  linked to its evidence; a clean interaction can produce no proposal.
+  linked to its evidence; no actionable finding creates no issue.
 - Missing evidence is explicit, and closure without a merge is not called success.
-- Replayed events, retried publication, and unchanged reopen/reclose cycles do not
-  duplicate model work or proposals. Existing/rejected proposals are respected.
-- Unauthorized events and generated improvement issues cannot trigger an
-  autonomous review/implementation chain.
+- Replayed events and retried publication do not duplicate model work or proposals.
+  A new closure can trigger review without duplicating an existing finding.
+  Existing/rejected proposals are respected unless materially new evidence arises.
+- A generated proposal cannot start factory work without owner `/factory start`;
+  implementation still requires the existing explicit approval. Closing a rejected
+  proposal does not manufacture a replacement issue.
 - An adopted change is evaluated against a representative prior failure and
   unaffected behavior; the retrospective alone is not evidence of improvement.
 - Proposal usefulness is assessed from owner acceptance/rejection and later
@@ -100,8 +120,8 @@ but must not repeatedly charge for a persistently failing workflow.
 ## Deferred
 
 Autonomous prompt optimization, automatic policy changes, a separate memory/vector
-store, a new agent harness, comprehensive analytics, mandatory reviews of every
-repository issue, and a standing scheduled analysis job. Start from evidence
+store, a new agent harness, comprehensive analytics, and a standing scheduled
+analysis job. Start from evidence
 already retained in GitHub and keep owner attention as part of the cost.
 
 ## Sequence
