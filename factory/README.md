@@ -112,3 +112,11 @@ actions write permissions; publishing tokens remain outside the coding container
 Merge stays manual. Candidate history lives in issue comments.
 
 The container/model and issue-to-preview loop need a hosted trial after merge.
+
+The coding container uses the runner's UID/GID so its workspace and output mounts
+remain writable with all Linux capabilities dropped. Container setup failures
+include the available process diagnostics even when no result file was produced.
+New planning, coding, interrupted-run, or candidate-CI failures make reconciliation
+exit unsuccessfully after saving state and publishing issue status. An idle run
+does not fail merely because an issue was already blocked. Retry blocked work with
+the owner command `/factory retry` after the underlying problem is fixed.

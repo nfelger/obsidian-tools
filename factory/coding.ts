@@ -15,6 +15,7 @@ export function runCoding(repo: string, base: string, work: Work) {
     execFileSync('git', ['-C', workspace, 'checkout', '--detach', base]);
     writeFileSync(join(input, 'agreement.json'), JSON.stringify({ agreement: work.agreement, approvedHandoff: work.approvedHandoff, priorResult: work.result, candidateHead: work.head }));
     const result = spawnSync('docker', ['run', '--rm', '--init', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
+        '--user', `${process.getuid!()}:${process.getgid!()}`,
         '--cpus', '2', '--memory', '6g', '-e', 'OPENROUTER_API_KEY', '-e', 'IMPLEMENTER_MODEL', '-e', 'ESCALATION_MODEL',
         '-v', `${resolve('.')}:/runtime:ro`, '-v', `${workspace}:/workspace`, '-v', `${input}:/input:ro`, '-v', `${output}:/output`,
         'node:22-bookworm', 'bash', '-c', `cp -a --no-preserve=ownership /runtime /tmp/factory && export HOME=/tmp &&
@@ -25,7 +26,11 @@ export function runCoding(repo: string, base: string, work: Work) {
             IMPLEMENTER_MODEL: process.env.IMPLEMENTER_MODEL, ESCALATION_MODEL: process.env.ESCALATION_MODEL },
     });
     if (result.stderr) process.stderr.write(result.stderr);
-    const report = JSON.parse(readFileSync(join(output, 'result.json'), 'utf8'));
+    let report;
+    try { report = JSON.parse(readFileSync(join(output, 'result.json'), 'utf8')); }
+    catch (error) {
+        throw new Error(`Coding container produced no readable result (exit ${result.status}, signal ${result.signal ?? 'none'}).\n${result.error?.message ?? ''}\n${result.stderr ?? ''}\n${result.stdout ?? ''}\n${String(error)}`.slice(-12000));
+    }
     if (result.status !== 0 || report.failed) throw new Error(String(report.message || result.error || 'Coding run failed'));
     return { message: String(report.message).slice(0, 12000), changes: validateChanges(report.changes) };
 }

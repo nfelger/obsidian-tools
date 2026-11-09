@@ -22,6 +22,20 @@ jobs:
         working-directory: factory
       - name: Check runtime in coding container image
         run: |
+          fixture=$(mktemp -d)
+          mkdir "$fixture/workspace" "$fixture/output"
+          cp package.json package-lock.json "$fixture/workspace/"
           docker run --rm --cap-drop ALL --security-opt no-new-privileges \
+            --user "$(id -u):$(id -g)" \
             -v "$GITHUB_WORKSPACE/factory:/runtime:ro" \
-            node:22-bookworm bash -c 'cp -a --no-preserve=ownership /runtime /tmp/factory && cd /tmp/factory && npm test'
+            -v "$fixture/workspace:/workspace" -v "$fixture/output:/output" \
+            node:22-bookworm bash -ec '
+              export HOME=/tmp
+              cp -a --no-preserve=ownership /runtime /tmp/factory
+              cd /workspace
+              npm ci --ignore-scripts
+              test -d node_modules
+              echo writable > /output/probe
+              cd /tmp/factory
+              npm test'
+          test "$(cat "$fixture/output/probe")" = writable
