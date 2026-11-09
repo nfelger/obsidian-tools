@@ -13,15 +13,16 @@ All model calls go through OpenRouter. Role defaults live in `models.ts`:
 Only the planner runs in this segment, and only `PLANNER_MODEL` is wired into the
 workflow. Empty values use the default. Other roles will be wired into their
 respective segments when activated.
-Comment `/factory start` on an issue as the repository owner. The issue body is
-the agreement. The first agent returns a concise handoff and acceptance cases;
+Comment `/factory start` on an issue as the repository owner. The issue body and
+your preceding discussion comments form the requirements snapshot. The first agent returns a concise handoff and acceptance cases;
 product-code changes and preview creation are segment 3.
 
 Use `/factory pause`, `/factory resume`, `/factory stop`, or `/factory retry` as
-standalone comments. Resume snapshots the current issue body and advances the
-specification revision if it changed. Edit the issue body to answer questions before
-resuming; free-form comments are not yet incorporated. The previous handoff is
-supplied alongside the revised agreement. Retry preserves evidence and permits at most
+standalone comments. Answer planner questions in ordinary issue comments, then
+post `/factory resume`. Resume snapshots the current issue body and your replies
+preceding that command, and advances the specification revision if they changed.
+Ordinary replies do not trigger model calls. Bot and other users' comments are
+excluded. The previous handoff is supplied alongside the revised agreement. Retry preserves evidence and permits at most
 three failed attempts; opening another issue is the explicit fresh budget. Pause
 only applies to queued/running work; stopped work cannot be resumed.
 
@@ -69,7 +70,7 @@ record, and the merge summary sums them. No separate cost ledger or usage artifa
 ## Live trial after merge
 
 Configure the API key, create a small issue, and post `/factory start`. Confirm a
-requirements handoff and acceptance cases arrive, then edit the issue body and
-post `/factory resume`. Check the revised handoff. Exercise
+requirements handoff and acceptance cases arrive, then answer its questions in a comment and
+post `/factory resume` as a separate comment. Check the revised handoff. Exercise
 pause/resume and stop during a run to verify stale replies are withheld. These
 steps make paid model calls and require the workflow on main.
