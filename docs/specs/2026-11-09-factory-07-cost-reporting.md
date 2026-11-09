@@ -40,7 +40,7 @@ cost reporting cannot be retrospectively treated as free.
 
 ## Sequence
 
-Status: proposed. Segment 7 of 8.
+Status: proposed. Segment 7 of 10.
 
 1. [CI and releases](2026-11-06-factory-01-ci-and-releases.md)
 2. [Issue controller](2026-11-06-factory-02-issue-controller.md)
@@ -50,6 +50,8 @@ Status: proposed. Segment 7 of 8.
 6. [Merge and recovery](2026-11-06-factory-06-merge-and-recovery.md)
 7. [Cost reporting](2026-11-09-factory-07-cost-reporting.md) — this segment
 8. [Self-improvement](2026-11-09-factory-08-self-improvement.md)
+9. [Automatic startup](2026-11-09-factory-09-automatic-startup.md)
+10. [Immediate turn responses](2026-11-09-factory-10-immediate-turn-responses.md)
 
 Build on the controller and merge lifecycle from segments 2 and 6.
 

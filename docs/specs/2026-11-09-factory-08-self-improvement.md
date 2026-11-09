@@ -126,7 +126,7 @@ already retained in GitHub and keep owner attention as part of the cost.
 
 ## Sequence
 
-Status: proposed. Segment 8 of 8.
+Status: proposed. Segment 8 of 10.
 
 1. [CI and releases](2026-11-06-factory-01-ci-and-releases.md)
 2. [Issue controller](2026-11-06-factory-02-issue-controller.md)
@@ -136,6 +136,8 @@ Status: proposed. Segment 8 of 8.
 6. [Merge and recovery](2026-11-06-factory-06-merge-and-recovery.md)
 7. [Cost reporting](2026-11-09-factory-07-cost-reporting.md)
 8. [Self-improvement](2026-11-09-factory-08-self-improvement.md) — this segment
+9. [Automatic startup](2026-11-09-factory-09-automatic-startup.md)
+10. [Immediate turn responses](2026-11-09-factory-10-immediate-turn-responses.md)
 
 Build on segment 2 controller state, segment 5 verification/evals, segment 6
 completion outcomes, and segment 7 cost reporting. A manual trial can use the
