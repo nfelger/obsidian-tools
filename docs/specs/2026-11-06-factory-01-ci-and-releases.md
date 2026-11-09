@@ -37,7 +37,7 @@ The candidate distribution mechanism and release-version scheme, based on a prac
 
 ## Sequence
 
-Status: implemented in PR #42; hosted CI and browser Extract log trial passed. Segment 1 of 6.
+Status: implemented in PR #42; hosted CI and browser Extract log trial passed. Segment 1 of 7.
 
 1. [CI and releases](2026-11-06-factory-01-ci-and-releases.md) — this segment
 2. [Issue controller](2026-11-06-factory-02-issue-controller.md)
@@ -45,6 +45,7 @@ Status: implemented in PR #42; hosted CI and browser Extract log trial passed. S
 4. [Requirements refinement](2026-11-06-factory-04-requirements-refinement.md)
 5. [Verification and cleanup](2026-11-06-factory-05-verification-and-cleanup.md)
 6. [Merge and recovery](2026-11-06-factory-06-merge-and-recovery.md)
+7. [Cost reporting](2026-11-09-factory-07-cost-reporting.md)
 
 No dependency on later segments. The first implementation batch is segments 1–3. Use that working loop to develop the later segments, retaining explicit review of factory-control changes.
 

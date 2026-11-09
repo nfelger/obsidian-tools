@@ -35,7 +35,7 @@ Multiple concurrent candidates, persistent agent conversations, and a hosted orc
 
 ## Sequence
 
-Status: controller implemented; merged-workflow and model-backed issue trial pending. Segment 2 of 6.
+Status: controller implemented; merged-workflow and model-backed issue trial pending. Segment 2 of 7.
 
 1. [CI and releases](2026-11-06-factory-01-ci-and-releases.md)
 2. [Issue controller](2026-11-06-factory-02-issue-controller.md) — this segment
@@ -43,6 +43,7 @@ Status: controller implemented; merged-workflow and model-backed issue trial pen
 4. [Requirements refinement](2026-11-06-factory-04-requirements-refinement.md)
 5. [Verification and cleanup](2026-11-06-factory-05-verification-and-cleanup.md)
 6. [Merge and recovery](2026-11-06-factory-06-merge-and-recovery.md)
+7. [Cost reporting](2026-11-09-factory-07-cost-reporting.md)
 
 Depends on segment 1; build on its completed path rather than introducing a parallel workflow. The first implementation batch is segments 1–3. Use that working loop to develop the later segments, retaining explicit review of factory-control changes.
 
