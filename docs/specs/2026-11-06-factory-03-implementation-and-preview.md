@@ -34,7 +34,7 @@ Automatic refinement of rough requests, a separate verification agent, post-acce
 
 ## Sequence
 
-Status: proposed. Segment 3 of 7.
+Status: coding executor trial implemented; issue-to-PR and preview integration pending. Segment 3 of 7.
 
 1. [CI and releases](2026-11-06-factory-01-ci-and-releases.md)
 2. [Issue controller](2026-11-06-factory-02-issue-controller.md)

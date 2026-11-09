@@ -1,0 +1,70 @@
+name: Factory coding trial
+on:
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: Issue number containing the approved requirements
+        required: true
+        type: number
+permissions:
+  contents: read
+  issues: read
+concurrency:
+  group: factory-coding-trial
+  cancel-in-progress: false
+jobs:
+  code:
+    if: github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+          cache-dependency-path: factory/package-lock.json
+      - run: npm ci
+        working-directory: factory
+      - name: Snapshot requirements and handoff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ inputs.issue }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/factory-input" "$RUNNER_TEMP/factory-output"
+          gh issue view "$ISSUE" --json number,title,body,comments > "$RUNNER_TEMP/factory-input/agreement.json"
+          git clone --no-hardlinks . "$RUNNER_TEMP/factory-workspace"
+      - name: Run isolated coding trial
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          IMPLEMENTER_MODEL: ${{ vars.IMPLEMENTER_MODEL }}
+          ESCALATION_MODEL: ${{ vars.ESCALATION_MODEL }}
+        run: |
+          docker run --rm --init --cap-drop ALL --security-opt no-new-privileges \
+            --cpus 2 --memory 6g \
+            -e OPENROUTER_API_KEY -e IMPLEMENTER_MODEL -e ESCALATION_MODEL \
+            -v "$GITHUB_WORKSPACE/factory:/runtime:ro" \
+            -v "$RUNNER_TEMP/factory-workspace:/workspace" \
+            -v "$RUNNER_TEMP/factory-input:/input:ro" \
+            -v "$RUNNER_TEMP/factory-output:/output" \
+            node:22-bookworm bash -c '
+              cp -a /runtime /tmp/factory
+              export HOME=/tmp
+              git config --global --add safe.directory /workspace
+              trap "git -C /workspace add -N .; git -C /workspace diff --binary HEAD > /output/change.patch" EXIT
+              cd /workspace
+              npm ci --ignore-scripts || exit 1
+              cd /tmp/factory
+              node --import tsx code-run.ts
+            '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coding-trial-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/factory-output/
+          if-no-files-found: warn
+          retention-days: 14
