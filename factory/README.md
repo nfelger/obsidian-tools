@@ -11,9 +11,8 @@ All model calls go through OpenRouter. Role defaults live in `models.ts`:
 | Bounded clerical tasks | `openai/gpt-6-luna` | `UTILITY_MODEL` |
 
 Only the planner runs in this segment, and only `PLANNER_MODEL` is wired into the
-workflow. Empty values use the default. The old `OPENROUTER_MODEL` variable is no
-longer used; move a deliberate override to `PLANNER_MODEL`. Other roles are defined
-for their later segments, which will wire their variables when activated.
+workflow. Empty values use the default. Other roles will be wired into their
+respective segments when activated.
 Comment `/factory start` on an issue as the repository owner. The issue body is
 the agreement. The first agent returns a concise handoff and acceptance cases;
 product-code changes and preview creation are segment 3.
@@ -23,7 +22,8 @@ standalone comments. Resume snapshots the current issue body and advances the
 specification revision if it changed. Edit the issue body to answer questions before
 resuming; free-form comments are not yet incorporated. The previous handoff is
 supplied alongside the revised agreement. Retry preserves evidence and permits at most
-three failed attempts; opening another issue is the explicit fresh budget.
+three failed attempts; opening another issue is the explicit fresh budget. Pause
+only applies to queued/running work; stopped work cannot be resumed.
 
 A versioned `state.json` on `factory-state` is authoritative. The workflow creates
 it on first use. One bot status comment mirrors each record. Do not delete the
@@ -54,14 +54,6 @@ Activation and a model-backed issue trial require the merged workflow and secret
 Flue 2.3.0 currently requires pi-ai/pi-agent-core 1.1.0; explicit overrides
 prevent a newer compatible-range release from removing a required runtime export.
 CLI startup is included in the checks so dependency drift cannot silently pass.
-
-## Escalation policy for the implementation segment
-
-The implementer gets an initial attempt and up to two unsuccessful repair cycles
-before handing the failure evidence to the escalation model. Escalate earlier for
-an identified architectural problem. Requirement ambiguity returns to planning,
-not to a coder making product decisions. This is separate from the controller's
-failure/retry budget; coding escalation is not active in this segment.
 
 ## Scheduled checks and costs
 
