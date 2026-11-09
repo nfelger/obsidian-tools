@@ -8,7 +8,7 @@ A GitHub issue can start work, pause, resume, and report failure reliably. GitHu
 
 - Run from GitHub Actions, with a pinned compatible Flue and Node runtime. No always-on service is needed initially.
 - Define explicit transitions for queued work, running work, waiting for input, preview ready, blocked, and stopped. Later segments extend this through verification and merge.
-- Persist a versioned record of the issue, stage, specification revision, branch/head SHA, candidate, acceptance, processed events, and retry budget. Labels display state; they are not the sole source of truth.
+- Persist a versioned record of the issue, stage, specification revision, branch/head SHA, candidate, acceptance, processed events, and retry budget. A bot status comment displays state; it is not the sole source of truth.
 - Reconstruct fresh agent contexts from the current agreement, repository guidance, and stage artifacts. Do not depend on local conversation storage surviving a runner.
 - Allow commands from the repository owner; ignore bot feedback loops and unauthorized instructions.
 - Serialize implementation work across the repository. Duplicate or delayed events must not create duplicate branches, previews, or transitions.
@@ -51,8 +51,8 @@ Depends on segment 1; build on its completed path rather than introducing a para
 
 A versioned state file on `factory-state` is authoritative; one bot status comment
 per issue displays state without requiring label setup. Preview-ready transitions
-are added with segment 3, when previews exist. The first Flue agent only produces a
-handoff; it has no sandbox tools. See [controller operations](../../factory/README.md).
+and their branch/candidate/acceptance fields are added with segment 3, when previews
+exist. The first Flue agent only produces a handoff; it has no sandbox tools. See [controller operations](../../factory/README.md).
 
 The initial handoff uses the planner role (Claude Opus 5.5 by default), with the
 previous handoff supplied on resume. Role configuration also defines MiniMax M3.1

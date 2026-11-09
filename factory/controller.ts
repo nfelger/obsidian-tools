@@ -61,17 +61,18 @@ async function reconcile() {
         }
     }
 }
-await reconcile();
 // A prior runner died after persisting its claim. Preserve that attempt as failed.
 for (const work of Object.values(state.work)) {
     if (work.stage === 'running') settle(work, work.attempt, `Interrupted run: ${work.runUrl}`, true);
 }
+await reconcile();
 const work = claim(state);
 if (work) work.runUrl = `${process.env.GITHUB_SERVER_URL}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 await save();
 if (work) {
     const attempt = work.attempt;
-    const guidance = readFileSync('../CLAUDE.md', 'utf8');
+    const guidance = ['CLAUDE.md', 'WORKFLOW.md'].map(path =>
+        `# ${path}\n${readFileSync(`../${path}`, 'utf8')}`).join('\n\n');
     const result = spawnSync('node_modules/.bin/flue', ['run', 'agent.ts', '--message',
         JSON.stringify({ agreement: work.agreement, revision: work.revision, priorHandoff: work.result, guidance })], {
         encoding: 'utf8', timeout: 120000, maxBuffer: 1024 * 1024,

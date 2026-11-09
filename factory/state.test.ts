@@ -50,3 +50,19 @@ test('idle reconciliation never claims waiting, blocked or stopped work', () => 
         assert.equal(claim(JSON.parse(JSON.stringify(state))), undefined);
     }
 });
+test('pause cannot revive stopped work or bypass an exhausted retry budget', () => {
+    const state = empty();
+    command(state, 1, 'start', '/factory start', 'first');
+    const work = claim(state)!;
+    settle(work, work.attempt, 'failed', true);
+    work.failures = 3;
+    command(state, 1, 'pause', '/factory pause', 'first');
+    command(state, 1, 'resume', '/factory resume', 'first');
+    assert.equal(work.stage, 'blocked');
+    assert.equal(claim(state), undefined);
+    command(state, 1, 'stop', '/factory stop', 'first');
+    command(state, 1, 'pause-again', '/factory pause', 'first');
+    command(state, 1, 'resume-again', '/factory resume', 'first');
+    assert.equal(work.stage, 'stopped');
+    assert.equal(claim(state), undefined);
+});
