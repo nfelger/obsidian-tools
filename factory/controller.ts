@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
 import { modelFor } from './models.ts';
 import { command, claim, empty, settle, type Ledger } from './state.ts';
 
@@ -78,10 +77,7 @@ if (work) {
         encoding: 'utf8', timeout: 120000, maxBuffer: 1024 * 1024,
         env: { PATH: process.env.PATH, HOME: process.env.RUNNER_TEMP,
             OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
-            PLANNER_MODEL: modelFor('planner'),
-            FACTORY_USAGE_PATH: resolve('usage.jsonl'), FACTORY_ISSUE: String(work.issue),
-            FACTORY_REVISION: String(work.revision), FACTORY_ATTEMPT: String(attempt),
-            FACTORY_RUN_URL: work.runUrl },
+            PLANNER_MODEL: modelFor('planner') },
     });
     await reconcile();
     settle(work, attempt, (result.stdout || result.stderr || String(result.error)).slice(0, 12000), result.status !== 0);

@@ -38,3 +38,15 @@ test('retries are bounded and evidence survives exhaustion', () => {
     assert.equal(claim(state), undefined);
     assert.equal(state.work[1].result, 'failure 2');
 });
+test('idle reconciliation never claims waiting, blocked or stopped work', () => {
+    const state = empty();
+    assert.equal(claim(state), undefined);
+    command(state, 1, 'start', '/factory start', 'first');
+    const work = claim(state)!;
+    settle(work, work.attempt, 'handoff', false);
+    for (const stage of ['waiting', 'blocked', 'stopped'] as const) {
+        work.stage = stage;
+        command(state, 1, 'start', '/factory start', 'first');
+        assert.equal(claim(JSON.parse(JSON.stringify(state))), undefined);
+    }
+});

@@ -57,5 +57,5 @@ handoff; it has no sandbox tools. See [controller operations](../../factory/READ
 The initial handoff uses the planner role (Claude Opus 5.5 by default), with the
 previous handoff supplied on resume. Role configuration also defines MiniMax M3.1
 Flash for implementation, Opus for escalation, and GPT-6 Luna for utility work;
-only planning is activated here. Model-call metadata is retained in workflow
-artifacts for later cost reconciliation; catalog estimates are not actual charges.
+only planning is activated here. Segment 7 adds cost lines in issue comments,
+without a separate cost ledger.
