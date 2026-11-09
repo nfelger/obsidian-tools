@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { reconcileDiscussion } from './discussion.ts';
 import { modelFor } from './models.ts';
-import { command, claim, empty, settle, type Ledger } from './state.ts';
+import { claim, empty, settle, type Ledger } from './state.ts';
 
 const repo = process.env.GITHUB_REPOSITORY!;
 const owner = repo.split('/')[0];
@@ -51,10 +52,7 @@ async function reconcile() {
     const issues = await pages('issues?state=all&sort=created&direction=asc');
     for (const issue of issues.filter(item => !item.pull_request)) {
         const comments = await pages(`issues/${issue.number}/comments`);
-        for (const comment of comments) {
-            if (comment.user.login !== owner || comment.user.type === 'Bot') continue;
-            command(state, issue.number, String(comment.id), comment.body, issue.body ?? '');
-        }
+        reconcileDiscussion(state, issue.number, issue.body ?? '', comments, owner);
         const work = state.work[issue.number];
         if (work && issue.state === 'closed' && work.stage !== 'stopped') {
             work.stage = 'stopped'; work.attempt++;
