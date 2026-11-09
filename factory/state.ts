@@ -1,4 +1,4 @@
-export type Stage = 'queued' | 'running' | 'waiting' | 'blocked' | 'stopped';
+export type Stage = 'queued' | 'running' | 'waiting' | 'paused' | 'blocked' | 'stopped';
 export interface Work {
     issue: number; stage: Stage; revision: number; attempt: number; failures: number;
     agreement: string; result: string; runUrl: string;
@@ -21,12 +21,12 @@ export function command(state: Ledger, issue: number, id: string, body: string, 
             if (work.stage !== 'stopped') { work.stage = 'stopped'; work.attempt++; }
             break;
         case 'pause':
-            if (work.stage === 'queued' || work.stage === 'running') {
-                work.stage = 'waiting'; work.attempt++;
+            if (work.stage === 'queued' || work.stage === 'running' || work.stage === 'waiting') {
+                work.stage = 'paused'; work.attempt++;
             }
             break;
         case 'resume':
-            if (work.stage !== 'waiting') break;
+            if (work.stage !== 'waiting' && work.stage !== 'paused') break;
             if (work.agreement !== agreement) { work.agreement = agreement; work.revision++; }
             work.stage = 'queued'; break;
         case 'retry':
@@ -45,4 +45,14 @@ export function settle(work: Work, attempt: number, result: string, failed: bool
     work.result = result;
     work.stage = failed ? 'blocked' : 'waiting';
     if (failed) work.failures++;
+}
+
+export function feedback(state: Ledger, issue: number, id: string, agreement: string) {
+    if (state.processed.includes(id)) return;
+    state.processed.push(id);
+    const work = state.work[issue];
+    if (!work || !['waiting', 'queued', 'running'].includes(work.stage)) return;
+    if (work.agreement !== agreement) { work.agreement = agreement; work.revision++; }
+    if (work.stage === 'running') work.attempt++;
+    work.stage = 'queued';
 }

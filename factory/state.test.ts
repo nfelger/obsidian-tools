@@ -44,7 +44,7 @@ test('idle reconciliation never claims waiting, blocked or stopped work', () => 
     command(state, 1, 'start', '/factory start', 'first');
     const work = claim(state)!;
     settle(work, work.attempt, 'handoff', false);
-    for (const stage of ['waiting', 'blocked', 'stopped'] as const) {
+    for (const stage of ['waiting', 'paused', 'blocked', 'stopped'] as const) {
         work.stage = stage;
         command(state, 1, 'start', '/factory start', 'first');
         assert.equal(claim(JSON.parse(JSON.stringify(state))), undefined);
