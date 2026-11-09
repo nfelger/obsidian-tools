@@ -1,3 +1,4 @@
+import { githubRead } from './github-read.ts';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { reconcileDiscussion } from './discussion.ts';
@@ -9,10 +10,14 @@ const repo = process.env.GITHUB_REPOSITORY!;
 const owner = repo.split('/')[0];
 const apiRoot = `https://api.github.com/repos/${repo}`;
 async function api(path: string, method = 'GET', body?: unknown): Promise<any> {
-    const response = await fetch(`${apiRoot}/${path}`, { method, headers: {
+    const headers = {
         Authorization: `Bearer ${process.env.GH_TOKEN}`, Accept: 'application/vnd.github+json',
         'Content-Type': 'application/json',
-    }, body: body === undefined ? undefined : JSON.stringify(body) });
+    };
+    const response = method === 'GET'
+        ? await githubRead(`${apiRoot}/${path}`, headers)
+        : await fetch(`${apiRoot}/${path}`, { method, headers,
+            body: body === undefined ? undefined : JSON.stringify(body) });
     if (!response.ok) throw new Error(`${method} ${path}: ${response.status} ${await response.text()}`);
     return response.status === 204 ? null : response.json();
 }
