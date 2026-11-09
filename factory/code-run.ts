@@ -23,7 +23,7 @@ const result = await codingLoop(async (role, feedback) => {
     return { failed: run.status !== 0, message: (run.stdout + run.stderr + (run.error?.message ?? '')).slice(-24000) };
 });
 let changes: { path: string; content: string | null }[] = [];
-if (!result.failed) {
+{
     const git = (args: string[]) => execFileSync('git', ['-C', '/workspace', ...args], { encoding: 'utf8' });
     git(['add', '-N', '.']);
     changes = git(['diff', '--name-only', '-z', 'HEAD']).split('\0').filter(Boolean).map(path => {
