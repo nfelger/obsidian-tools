@@ -1,3 +1,4 @@
+import './openrouter.ts';
 import { useModel, useSandbox } from '@flue/runtime';
 import { resolve } from 'node:path';
 import { plannerEnvironment } from './environment.ts';
