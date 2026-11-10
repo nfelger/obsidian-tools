@@ -8,12 +8,14 @@ import { modelFor } from './models.ts';
 const agreement = readFileSync('/input/agreement.json', 'utf8');
 const result = await codingLoop(async (role, feedback) => {
     const run = spawnSync('node_modules/.bin/flue', ['run', 'coder.ts', '--json', '--message',
-        JSON.stringify({ agreement, feedback })], {
+        JSON.stringify({ agreement, feedback, deadline: new Date(Date.now() + 9 * 60 * 1000).toISOString() })], {
         encoding: 'utf8', timeout: 10 * 60 * 1000, maxBuffer: 4 * 1024 * 1024,
         env: { PATH: process.env.PATH, HOME: '/tmp',
             OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY, CODING_MODEL: modelFor(role) },
     });
     if (run.stderr) process.stderr.write(run.stderr);
+    if ((run.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT') return { failed: true,
+        message: 'Coding exceeded its 10-minute deadline. Partial changes are saved in the coding-evidence artifact; no candidate was published. An owner /factory retry starts another bounded attempt.' };
     return agentResult(run);
 }, async () => {
     const run = spawnSync('npm', ['run', 'check'], {

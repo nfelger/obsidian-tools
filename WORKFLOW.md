@@ -206,3 +206,18 @@ This system works not because it's perfect, but because it stays usable when lif
 5. **Findability without maintenance** — Search, backlinks, and extracted notes
 
 The system evolves with changing needs without becoming heavier. It's a practical companion, not a rigid method — a way to stay oriented, think clearly, and move through complicated days with a little more ease.
+
+### Factory failure recovery
+
+A new owner `/factory retry` comment authorizes one more attempt on a blocked
+issue, including after three failures. Failure history and the approved handoff
+are retained; replaying the same comment cannot authorize another attempt.
+Scheduled reconciliation does not automatically retry blocked work. Each coding
+attempt still has at most three implementer passes and one escalation pass.
+
+Each coding pass has a nine-minute handoff deadline and a ten-minute process
+limit. Return once checks pass; the controller runs full verification. Timeout
+failures remain blocked and retain partial changes as evidence, without publishing
+a candidate. State writes retry transient failures with read-back confirmation;
+a conflicting writer is never overwritten. The run artifact also includes the
+latest local state checkpoint if GitHub state saving fails permanently.

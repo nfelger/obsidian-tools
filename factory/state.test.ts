@@ -27,16 +27,23 @@ test('fresh-runner pause/resume revises agreement and rejects stale completion',
     settle(state.work[1], state.work[1].attempt - 1, 'stale', false);
     assert.equal(state.work[1].stage, 'stopped');
 });
-test('retries are bounded and evidence survives exhaustion', () => {
+test('each fresh owner retry permits exactly one attempt without erasing failures', () => {
     const state = empty();
     command(state, 1, 'start', '/factory start', 'first');
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
         const work = claim(state)!;
         settle(work, work.attempt, `failure ${i}`, true);
+        assert.equal(claim(state), undefined);
         command(state, 1, `retry-${i}`, '/factory retry', 'first');
+        const retry = claim(state)!;
+        assert.ok(retry);
+        settle(retry, retry.attempt, 'retry failed', true);
+        command(state, 1, `retry-${i}`, '/factory retry', 'first');
+        assert.equal(claim(state), undefined);
+        command(state, 1, `next-${i}`, '/factory retry', 'first');
     }
-    assert.equal(claim(state), undefined);
-    assert.equal(state.work[1].result, 'failure 2');
+    assert.equal(state.work[1].failures, 10);
+    assert.equal(state.work[1].result, 'retry failed');
 });
 test('idle reconciliation never claims waiting, blocked or stopped work', () => {
     const state = empty();
