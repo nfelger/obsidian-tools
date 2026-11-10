@@ -635,3 +635,40 @@ export function insertMultipleTasksWithDeduplication(
 
 	return { content: result, mergedCount, newCount: newTaskContents.length };
 }
+
+/** Where a task landed in a note. */
+export interface TaskInsertResult {
+	content: string;
+	/** True when the note already held the task and the two were merged */
+	merged: boolean;
+	/** Line the task sits on in the returned content, -1 when unknown */
+	lineNumber: number;
+}
+
+/**
+ * Put a single task into a note, merging with a matching copy when the note
+ * already holds one.
+ *
+ * This is the push-down insert step: it runs the same
+ * `insertMultipleTasksWithDeduplication` merge/insert path the push-down
+ * command uses, and adds where the task landed, so a caller that keeps the
+ * task travelling (the periodic cascade) can pick it up again.
+ *
+ * @param content - The target note's content
+ * @param task - The task to put into the note
+ * @param targetHeading - The heading to insert under when the note doesn't hold the task
+ */
+export function insertTaskWithDedup(
+	content: string,
+	task: TaskInsertItem,
+	targetHeading: string
+): TaskInsertResult {
+	const result = insertMultipleTasksWithDeduplication(content, [task], targetHeading);
+	const landed = findTaskMatch(result.content, task.taskText);
+
+	return {
+		content: result.content,
+		merged: result.mergedCount > 0,
+		lineNumber: landed ? landed.lineNumber : -1
+	};
+}
