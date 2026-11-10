@@ -30,3 +30,18 @@ test('failed escalation exhausts the budget', async () => {
     assert.equal(calls, 4);
     assert.equal(result.failed, true);
 });
+test('unfinished requirements continue without treating passing checks as completion', async () => {
+    let calls = 0, checks = 0, guards = 0;
+    const result = await codingLoop(async (_role, feedback) => {
+        if (calls) assert.match(feedback, /project logging/);
+        return { failed: false, complete: ++calls === 2, message: 'project logging' };
+    }, async () => { checks++; return { failed: false, message: 'passed' }; }, async () => { guards++; });
+    assert.equal(result.failed, false);
+    assert.equal(calls, 2); assert.equal(checks, 1); assert.equal(guards, 2);
+});
+test('superseded attempt stops before another model call', async () => {
+    let calls = 0;
+    await assert.rejects(codingLoop(async () => { calls++; return { failed: false, complete: false, message: 'unfinished' }; },
+        async () => { throw new Error('unexpected check'); }, async () => { if (calls) throw new Error('superseded'); }), /superseded/);
+    assert.equal(calls, 1);
+});

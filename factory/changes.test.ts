@@ -9,3 +9,8 @@ test('publication accepts product text changes and deletion, rejecting control f
     assert.throws(() => validateChanges([]));
     assert.throws(() => validateChanges([{ path: 'src/a', content: 'x'.repeat(1024 * 1024 + 1) }]));
 });
+test('product docs are allowed but nested agent guidance remains protected with exact diagnostics', () => {
+    validateChanges([{ path: 'CHANGELOG.md', content: 'entry' }, { path: 'README.md', content: 'usage' }]);
+    for (const path of ['CLAUDE.md', 'tests/CLAUDE.md', 'src/AGENTS.md'])
+        assert.throws(() => validateChanges([{ path, content: 'instructions' }]), error => String(error).includes(path));
+});

@@ -215,9 +215,20 @@ are retained; replaying the same comment cannot authorize another attempt.
 Scheduled reconciliation does not automatically retry blocked work. Each coding
 attempt still has at most three implementer passes and one escalation pass.
 
-Each coding pass has a nine-minute handoff deadline and a ten-minute process
-limit. Return once checks pass; the controller runs full verification. Timeout
-failures remain blocked and retain partial changes as evidence, without publishing
-a candidate. State writes retry transient failures with read-back confirmation;
-a conflicting writer is never overwritten. The run artifact also includes the
-latest local state checkpoint if GitHub state saving fails permanently.
+Each attempt uses one fresh checkout at its recorded base commit. Up to three
+implementer passes and one escalation pass share that checkout, with a total
+45-minute budget (including setup/checks), at most 20 minutes per model call and
+five minutes reserved for verification. Between passes the controller re-reads
+issue instructions; a superseded attempt stops. Publication rechecks validity.
+A later retry always starts a fresh checkout; artifacts are evidence, not resume state.
+
+The coder reports acceptance-case evidence and remaining requirements in JSON.
+Unfinished work, malformed reports, prohibited edits and failed checks feed the
+next pass. A completed report must also pass fresh checks after its final edits.
+This is agent-reported coverage, not independent proof of requirement correctness;
+human preview remains required. Product docs CHANGELOG.md and README.md are
+publishable; agent guidance remains protected even when a handoff requests edits.
+
+State writes retry transient failures with read-back confirmation; a conflicting
+writer is never overwritten. Run artifacts include the latest local state checkpoint
+if saving fails permanently. Status reports show the current attempt's failure.
