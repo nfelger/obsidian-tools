@@ -1,3 +1,4 @@
+import './openrouter.ts';
 import { useModel, useSandbox } from '@flue/runtime';
 import { local } from '@flue/runtime/node';
 

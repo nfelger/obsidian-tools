@@ -74,6 +74,16 @@ The scheduled job still starts an Actions runner and installs dependencies.
 Cost reporting is planned in segment 7: per-turn issue comments are the sole cost
 record, and the merge summary sums them. No separate cost ledger or usage artifacts.
 
+Both agent entry points register the OpenRouter provider in `openrouter.ts`.
+It supplements the pinned Pi catalog with MiniMax M3.1 Flash, which OpenRouter
+serves but Pi 1.1.0 does not list. The supplement retains built-in authentication
+and protocol dispatch; a future catalog entry takes precedence. Metadata comes
+from [OpenRouter's model page](https://openrouter.ai/minimax/minimax-m3.1-flash)
+and [endpoints API](https://openrouter.ai/api/v1/models/minimax/minimax-m3.1-flash/endpoints).
+Its cost rates are list-price estimates; actual cost reporting still prefers
+OpenRouter usage. The checks resolve every role default and exercise `flue run`
+with a mocked OpenRouter response, without paid model calls.
+
 ## Live trial after merge
 
 Configure the API key, create a small issue, and post `/factory start`. Confirm a
