@@ -2,6 +2,10 @@ import { setProvider } from '@flue/runtime';
 import type { Model } from '@earendil-works/pi-ai';
 import { openrouterProvider } from '@earendil-works/pi-ai/providers/openrouter';
 
+// Temporary compatibility shim: before extending or adding model definitions here,
+// check the latest Flue and Pi releases and prefer a compatible dependency upgrade.
+// Pi 1.5.x includes this model but removes Type, which Flue 2.3.0 still imports.
+// Remove this shim once compatible releases supply the model in the built-in catalog.
 // The pinned Pi catalog predates this model. Metadata from OpenRouter's model
 // page and endpoints API; costs are list-price estimates in USD per million tokens.
 const flash: Model<'openai-completions'> = {
