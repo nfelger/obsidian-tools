@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // Exercise the real entry point with only external processes and GitHub replaced.
-function runController(stage: string, phase = 'planning', succeeds = false) {
+function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false) {
     const root = mkdtempSync(join(tmpdir(), 'controller-test-'));
     const trace = join(root, 'trace.json');
     const preload = join(root, 'external.mjs');
@@ -22,17 +22,22 @@ const work = { issue: 1, stage: ${JSON.stringify(stage)}, phase: ${JSON.stringif
     revision: 1, attempt: 1, failures: 0, agreement: '', result: 'Prior handoff', runUrl: '',
     head: 'candidate', branch: 'factory/issue-1' };
 let state = { version: 1, processed: [], work: { 1: work } };
+let storedContent = Buffer.from(JSON.stringify(state)).toString('base64');
 const comments = [];
+let lostResponse = false;
 function record() { writeFileSync(${JSON.stringify(trace)}, JSON.stringify({ state, comments })); }
 globalThis.fetch = async (url, options = {}) => {
     const path = new URL(url).pathname.replace('/repos/owner/repo/', '');
     const body = options.body && JSON.parse(options.body);
     let value;
     if (path === 'contents/state.json' && options.method === 'PUT') {
-        state = JSON.parse(Buffer.from(body.content, 'base64')); record();
+        storedContent = body.content; state = JSON.parse(Buffer.from(body.content, 'base64')); record();
+        if (${loseSaveResponse} && state.work[1].stage === 'blocked' && !lostResponse) {
+            lostResponse = true; throw new TypeError('fetch failed', { cause: new Error('write EPIPE') });
+        }
         value = { content: { sha: 'saved' } };
     } else if (path === 'contents/state.json') {
-        value = { sha: 'initial', content: Buffer.from(JSON.stringify(state)).toString('base64') };
+        value = { sha: 'initial', content: storedContent };
     } else if (path === 'issues') value = [{ number: 1, state: 'open', body: '' }];
     else if (path === 'issues/1/comments' && options.method === 'POST') {
         comments.push(body.body); record(); value = {};
@@ -95,4 +100,13 @@ test('recovering an interrupted attempt reports a failed run after publishing st
     assert.equal(result.status, 1);
     assert.equal(result.state.work[1].stage, 'blocked');
     assert.match(result.comments.at(-1), /Interrupted run/);
+});
+
+test('lost failure-save response still publishes the actual failure and exits red', () => {
+    const result = runController('queued', 'coding', false, true);
+    assert.equal(result.status, 1);
+    assert.equal(result.state.work[1].stage, 'blocked');
+    assert.equal(result.state.work[1].failures, 1);
+    assert.match(result.comments.at(-1), /EACCES/);
+    assert.doesNotMatch(result.comments.at(-1), /Interrupted run/);
 });

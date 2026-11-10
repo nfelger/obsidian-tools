@@ -1,7 +1,9 @@
 import { runCoding } from './coding.ts';
 import { publish, ensurePull } from './publication.ts';
 import { githubRead } from './github-read.ts';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { saveState } from './state-save.ts';
 import { spawnSync } from 'node:child_process';
 import { reconcileDiscussion } from './discussion.ts';
 import { agentResult } from './result.ts';
@@ -19,7 +21,7 @@ async function api(path: string, method = 'GET', body?: unknown): Promise<any> {
     const response = method === 'GET'
         ? await githubRead(`${apiRoot}/${path}`, headers)
         : await fetch(`${apiRoot}/${path}`, { method, headers,
-            body: body === undefined ? undefined : JSON.stringify(body) });
+            body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error(`${method} ${path}: ${response.status} ${await response.text()}`);
     return response.status === 204 ? null : response.json();
 }
@@ -49,11 +51,10 @@ if (state.version !== 1) throw new Error('Unsupported controller state version')
 let saved = JSON.stringify(state);
 async function save() {
     if (stored && JSON.stringify(state) === saved) return;
-    const response = await api('contents/state.json', 'PUT', {
-        branch: 'factory-state', sha: stored?.sha, message: 'Reconcile factory state',
-        content: Buffer.from(JSON.stringify(state, null, 2) + '\n').toString('base64'),
-    });
-    stored = { sha: response.content.sha };
+    const content = JSON.stringify(state, null, 2) + '\n';
+    // Keep the actual outcome as evidence even if GitHub remains unavailable.
+    writeFileSync(join(process.env.RUNNER_TEMP ?? '/tmp', 'factory-state-checkpoint.json'), content);
+    stored = { sha: await saveState(api, stored?.sha, Buffer.from(content).toString('base64')) };
     saved = JSON.stringify(state);
 }
 async function reconcile() {

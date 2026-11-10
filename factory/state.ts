@@ -36,7 +36,8 @@ export function command(state: Ledger, issue: number, id: string, body: string, 
             if (work.agreement !== agreement) { work.agreement = agreement; work.revision++; }
             work.stage = 'queued'; break;
         case 'retry':
-            if (work.stage === 'blocked' && work.failures < 3) work.stage = 'queued';
+            // A fresh owner command authorizes one bounded attempt; keep failure history.
+            if (work.stage === 'blocked') work.stage = 'queued';
             break;
     }
 }
