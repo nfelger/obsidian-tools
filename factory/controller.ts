@@ -102,7 +102,13 @@ if (work?.phase === 'coding') {
             work.stage = 'verifying';
         } else {
             const base = work.head ?? (await api('git/ref/heads/main')).object.sha;
-            const output = runCoding(repo, base, work);
+            const revision = work.revision;
+            const output = await runCoding(repo, base, work, async () => {
+                await reconcile();
+                await save();
+                if (work.stage !== 'running' || work.attempt !== attempt || work.revision !== revision)
+                    throw new Error('Coding attempt superseded by newer issue instructions.');
+            });
             await reconcile();
             if (work.stage === 'running' && work.attempt === attempt) {
                 work.result = output.message;
@@ -112,7 +118,7 @@ if (work?.phase === 'coding') {
             }
         }
     } catch (error) {
-        settle(work, attempt, `${String(error)}\n\n${work.result}`.slice(0, 12000), true);
+        settle(work, attempt, String(error).slice(0, 12000), true);
     }
     await save();
 }
