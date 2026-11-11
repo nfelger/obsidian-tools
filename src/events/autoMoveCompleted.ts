@@ -42,7 +42,7 @@ import { getOrCreateFile } from '../adapters/commandSetup';
 import { detectProjectContext } from '../utils/projects';
 import type { ProjectTaskContext } from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
-import { buildCompletionEntry, writeProjectCompletions } from '../adapters/projectCompletion';
+import { buildCompletionEntry, completionSubHeading, isCompletionLogged, writeProjectCompletions } from '../adapters/projectCompletion';
 import { NOTICE_TIMEOUT_ERROR } from '../config';
 import {
 	computeAutoMove,
@@ -191,7 +191,7 @@ export async function runAutoMove(
 	// A weekly, monthly or yearly note doesn't hold completed tasks: the
 	// tick cascades down to today's daily note instead.
 	if (noteInfo.type !== 'daily') {
-		await runPeriodicCascade(plugin, doc, noteInfo, completedLine);
+		await runPeriodicCascade(plugin, file, doc, noteInfo, completedLine);
 		return;
 	}
 
@@ -215,6 +215,8 @@ interface CascadeContext {
 	noteService: PeriodicNoteService;
 	noteInfo: NoteInfo;
 	today: Date;
+	/** Basename of the note the task was ticked in */
+	sourceBasename: string;
 	/** Line of the ticked task in the source note */
 	taskLine: number;
 	/** The ticked line as it was when the cascade started */
@@ -233,6 +235,7 @@ interface CascadeContext {
  */
 async function runPeriodicCascade(
 	plugin: BulletFlowPlugin,
+	file: TFile,
 	doc: AutoMoveDoc,
 	noteInfo: NoteInfo,
 	completedLine: string | null
@@ -260,6 +263,7 @@ async function runPeriodicCascade(
 		noteService,
 		noteInfo,
 		today,
+		sourceBasename: file.basename,
 		taskLine,
 		sourceLine: docText.split('\n')[taskLine],
 		payload
@@ -363,7 +367,7 @@ async function cascadeDown(ctx: CascadeContext): Promise<void> {
 
 	if (project) {
 		const projectFile = plugin.app.vault.getAbstractFileByPath(project.path) as TFile;
-		if (projectFile) {
+		if (projectFile && !(await completionAlreadyLogged(ctx, projectFile, dailyFile, project))) {
 			const { entry } = buildCompletionEntry(travelling.taskLine, travelling.children, project.strippedText);
 			await writeProjectCompletions(
 				plugin,
@@ -379,6 +383,27 @@ async function cascadeDown(ctx: CascadeContext): Promise<void> {
 			scheduleIntoNote(data, item.payload, todoHeading).content
 		);
 	}
+}
+
+/**
+ * Whether the project note's log already holds this completion.
+ *
+ * Two paths can file the same completion, and the second one must not add a
+ * second entry: the `Complete project task` command files it under the note
+ * it ran in, and the cascade files it under the daily note. Whichever ran
+ * first, the project note holds one entry.
+ */
+async function completionAlreadyLogged(
+	ctx: CascadeContext,
+	projectFile: TFile,
+	dailyFile: TFile,
+	project: ProjectTaskContext
+): Promise<boolean> {
+	const logHeading = ctx.plugin.settings.logExtractionTargetHeading;
+	const content = await ctx.plugin.app.vault.read(projectFile);
+	return [ctx.sourceBasename, dailyFile.basename].some(basename =>
+		isCompletionLogged(content, project.strippedText, logHeading, completionSubHeading(logHeading, basename))
+	);
 }
 
 /**

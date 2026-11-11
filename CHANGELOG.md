@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   today's log. Every note it passes through keeps it marked as scheduled, so
   your weekly, monthly and yearly notes no longer collect finished work.
 
+### Fixed
+
+- **A project task finished in a weekly, monthly or yearly note is logged once.**
+  When *Complete project task* files the completion and the cascade runs on the
+  same tick, the project note keeps a single log entry instead of two.
+
 ## [0.19.1] - 2026-08-10
 
 ### Fixed

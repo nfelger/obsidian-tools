@@ -250,6 +250,41 @@ describe('periodic cascade', () => {
 			expect(project).toContain('- [x] Draft rollout plan');
 			expect(project).toContain('agreed on a phased approach');
 		});
+
+		it('does not log the completion twice when the project note already holds it', async () => {
+			const result = await testCascade({
+				source: `
+## Todo
+
+- [x] [[Migration Initiative]] Draft rollout plan
+`,
+				sourcePath: CASCADE_NOTE_PATHS.weekly,
+				notes: {
+					[CASCADE_NOTE_PATHS.daily]: `
+## Log
+`
+				},
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+
+## Log
+
+### [[2026-W27]]
+
+- [x] Draft rollout plan
+`
+				}
+			});
+
+			// The task still reaches the daily log ...
+			expect(result.note(CASCADE_NOTE_PATHS.daily)).toContain('- [x] [[Migration Initiative]] Draft rollout plan');
+
+			// ... but the project note keeps a single entry
+			const project = result.project('Migration Initiative')!;
+			expect(project.match(/Draft rollout plan/g)?.length).toBe(1);
+			expect(project).not.toContain('[[2026-07-02 Thu]]');
+		});
 	});
 
 	describe('missing notes', () => {
