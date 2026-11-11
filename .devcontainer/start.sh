@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p .preview "$HOME/.fluxbox"
+printf '\n[%s] Preview startup requested (DISPLAY=%s)\n' "$(date -Is)" "${DISPLAY:-unset}" >> .preview/session.log
 cat > "$HOME/.fluxbox/menu" <<MENU
 [begin] (Bullet Flow preview)
 [exec] (Reset preview - close Obsidian first) {bash -c 'cd "$PWD" && bash .devcontainer/run-preview.sh --reset >> .preview/session.log 2>&1'}

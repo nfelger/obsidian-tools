@@ -22,6 +22,14 @@ return a checkpoint listing incomplete work so the next pass can continue.
 Return ONLY JSON: {"summary":"concise changes and uncertainty", "acceptanceCases":
 [{"id":"case identifier", "status":"complete or incomplete", "evidence":"implementation and test evidence or missing work"}],
 "remaining":["unfinished required behavior"]}. Cover EVERY approved acceptance case.
+Provide feature-specific Markdown fixture notes under .devcontainer/vault/ and
+link them from Start here.md with exact actions and expected results. Cover useful
+happy paths and edge cases without requiring the reviewer to invent test data.
+Use {{today}}, {{week}}, {{month}}, {{year}} in fixture paths/content for current
+periods; these are materialized when a fresh preview vault is seeded or reset.
+Treat missing preview fixtures as unfinished work. Never edit vault configuration
+or scripts. WORKFLOW.md is exclusively the user's Obsidian domain workflow;
+factory documentation belongs in factory/README.md (protected during product coding).
 Passing tests alone does not establish completion. Never omit unfinished cases. If repairing, use the check
 output and failed approaches supplied with this message.`;
 }

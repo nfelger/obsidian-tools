@@ -27,7 +27,7 @@ post a new comment to continue.
 Use `/factory pause`, `/factory resume`, `/factory stop`, or `/factory retry` as
 standalone comments. Pause holds work even when you add replies; resume explicitly
 releases that hold. Stopped work cannot be resumed. Failed work requires retry,
-with at most three failed attempts; another issue is the explicit fresh budget.
+with each fresh owner retry authorizing one bounded attempt.
 Replies arriving during a call invalidate its result and queue the revised context.
 
 A versioned `state.json` on `factory-state` is authoritative. The workflow creates
@@ -105,7 +105,7 @@ updated planner handoff before approving. Implementation remains opt-in.
 MiniMax runs in a Docker container with Flue's standard coding tools, two repair
 cycles and one Opus escalation. The container has the OpenRouter key but no GitHub
 token or Docker socket. Trusted runtime code and the candidate workspace are separate.
-The controller accepts only text changes under `src/`, `tests/`, or `styles.css`,
+The controller accepts only text changes under `src/`, `tests/`, `styles.css`, `CHANGELOG.md`, `README.md`, or Markdown preview fixtures,
 with a bounded output size. Workflow, dependency, guidance and gate changes need
 separate human-reviewed work. CI independently verifies the published commit.
 
@@ -130,3 +130,48 @@ New planning, coding, interrupted-run, or candidate-CI failures make reconciliat
 exit unsuccessfully after saving state and publishing issue status. An idle run
 does not fail merely because an issue was already blocked. Retry blocked work with
 the owner command `/factory retry` after the underlying problem is fixed.
+
+## Factory failure recovery
+
+A new owner `/factory retry` comment authorizes one more attempt on a blocked
+issue, including after three failures. Failure history and the approved handoff
+are retained; replaying the same comment cannot authorize another attempt.
+Scheduled reconciliation does not automatically retry blocked work. Each coding
+attempt still has at most three implementer passes and one escalation pass.
+
+Each attempt uses one fresh checkout at its recorded base commit. Up to three
+implementer passes and one escalation pass share that checkout, with a total
+45-minute budget (including setup/checks), at most 20 minutes per model call and
+five minutes reserved for verification. Between passes the controller re-reads
+issue instructions; a superseded attempt stops. Publication rechecks validity.
+A later retry always starts a fresh checkout; artifacts are evidence, not resume state.
+
+The coder reports acceptance-case evidence and remaining requirements in JSON.
+Unfinished work, malformed reports, prohibited edits and failed checks feed the
+next pass. A completed report must also pass fresh checks after its final edits.
+This is agent-reported coverage, not independent proof of requirement correctness;
+human preview remains required. Product docs CHANGELOG.md and README.md are
+publishable; agent guidance remains protected even when a handoff requests edits.
+
+State writes retry transient failures with read-back confirmation; a conflicting
+writer is never overwritten. Run artifacts include the latest local state checkpoint
+if saving fails permanently. Status reports show the current attempt's failure.
+
+## Preview fixtures and startup
+
+The disposable Codespace starts on container start and retries on editor attach.
+Startup requests and desktop readiness failures appear in `.preview/session.log`.
+A session lock prevents duplicate Obsidian processes. Periodic Notes 0.0.17 is
+installed and enabled through obsidian-launcher, with daily, ISO-weekly, monthly,
+quarterly and yearly folders/formats configured. Missing configuration is seeded
+for existing vaults; reset restores the full fixture vault. Existing user edits
+are retained until reset. Rebuild older Codespaces to pick up lifecycle changes.
+
+Feature implementations must supply Markdown fixtures in `.devcontainer/vault/`,
+linked from `Start here.md`, with actions and expected results. Date tokens
+`{{today}}`, `{{week}}`, `{{month}}`, `{{year}}` in note paths and content expand
+when a vault is first seeded or reset. Configuration and executable preview files
+remain protected. Use a fresh Codespace on the candidate branch to test new fixtures.
+
+`WORKFLOW.md` is exclusively the owner's domain-level Obsidian workflow.
+Factory implementation/operation documentation belongs here, or in `docs/specs/`.

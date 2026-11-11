@@ -4,10 +4,12 @@ This is real Obsidian with a disposable vault. Open [[Candidate]] for the exact 
 
 ## Try it
 
-1. Open [[Daily/2026-11-07]]. Put the cursor on the log bullet referencing Preview project.
+1. Open [[Daily/{{today}}]]. Put the cursor on the log bullet referencing Preview project.
 2. Open the command palette (Ctrl+P), search Bullet Flow and run Extract log.
 3. Open [[Preview project]]. Expect the log entry under Log and a visible reference left in the daily note.
 4. Undo and repeat; confirm the notes remain understandable as plain Markdown.
+
+Periodic Notes is installed and enabled: Daily (`YYYY-MM-DD`), Weekly (`GGGG-[W]WW`), Monthly (`YYYY-MM`), Quarterly (`YYYY-[Q]Q`) and Yearly (`YYYY`) folders.
 
 Use the issue's acceptance cases for feature-specific testing. These are only smoke checks.
 
