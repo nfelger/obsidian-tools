@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // Exercise the real entry point with only external processes and GitHub replaced.
-function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false) {
+function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, failureExists = false) {
     const root = mkdtempSync(join(tmpdir(), 'controller-test-'));
     const trace = join(root, 'trace.json');
     const preload = join(root, 'external.mjs');
@@ -41,7 +41,7 @@ globalThis.fetch = async (url, options = {}) => {
     } else if (path === 'issues') value = [{ number: 1, state: 'open', body: '' }];
     else if (path === 'issues/1/comments' && options.method === 'POST') {
         comments.push(body.body); record(); value = {};
-    } else if (path === 'issues/1/comments') value = [];
+    } else if (path === 'issues/1/comments') value = ${failureExists} ? [{ id: 99, user: { login: 'github-actions[bot]', type: 'Bot' }, body: '<!-- factory-failure:1:1:1 -->\\nExisting notification' }] : [];
     else if (path === 'actions/workflows/ci.yml/runs') {
         value = { workflow_runs: [{ head_branch: 'factory/issue-1', status: 'completed',
             conclusion: 'failure', html_url: 'https://example.test/ci' }] };
@@ -109,4 +109,14 @@ test('lost failure-save response still publishes the actual failure and exits re
     assert.equal(result.state.work[1].failures, 1);
     assert.match(result.comments.at(-1), /EACCES/);
     assert.doesNotMatch(result.comments.at(-1), /Interrupted run/);
+});
+
+test('blocked attempts get a new failure notification and replay does not duplicate it', () => {
+    const fresh = runController('blocked');
+    assert.equal(fresh.status, 0, fresh.stderr);
+    assert.equal(fresh.comments.filter((body: string) => body.startsWith('<!-- factory-failure:')).length, 1);
+    assert.match(fresh.comments[0], /Factory attempt 1 blocked/);
+    const replay = runController('blocked', 'planning', false, false, true);
+    assert.equal(replay.status, 0, replay.stderr);
+    assert.equal(replay.comments.filter((body: string) => body.startsWith('<!-- factory-failure:')).length, 0);
 });

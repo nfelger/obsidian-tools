@@ -175,3 +175,19 @@ remain protected. Use a fresh Codespace on the candidate branch to test new fixt
 
 `WORKFLOW.md` is exclusively the owner's domain-level Obsidian workflow.
 Factory implementation/operation documentation belongs here, or in `docs/specs/`.
+
+## Completion reports and failure notifications
+
+The controller parses a complete handoff (up to 1 MiB) before applying display
+limits. It accepts bare JSON or one fenced JSON object with surrounding prose;
+malformed or ambiguous reports remain incomplete. Acceptance cases marked
+incomplete always block publication. Legacy remaining-work strings also block.
+New remaining-work entries carry an explicit kind: `implementation` blocks,
+while `publication`, `accepted-assumption` and `protected-documentation` are notes.
+The latter describe controller-owned steps, defaults already approved in the
+handoff and edits forbidden by policy; they cannot excuse an incomplete case.
+
+The latest blocker is summarized when the pass budget is exhausted. Full raw
+handoff evidence remains in the coding artifact. Each blocked attempt gets one
+new concise issue notification with a run link, in addition to the stable status
+comment. Reconciliation repairs missing notifications without duplicating them.

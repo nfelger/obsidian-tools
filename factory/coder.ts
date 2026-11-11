@@ -21,7 +21,16 @@ repeat full checks or start another review/refactoring cycle. If time is short,
 return a checkpoint listing incomplete work so the next pass can continue.
 Return ONLY JSON: {"summary":"concise changes and uncertainty", "acceptanceCases":
 [{"id":"case identifier", "status":"complete or incomplete", "evidence":"implementation and test evidence or missing work"}],
-"remaining":["unfinished required behavior"]}. Cover EVERY approved acceptance case.
+"remaining":[{"kind":"implementation", "detail":"unfinished required behavior"}]}. Cover EVERY approved acceptance case.
+Use remaining.kind = implementation ONLY for required behavior or fixtures still
+missing. Other permitted kinds are publication (controller-owned commit/PR steps),
+accepted-assumption (an assumption explicitly authorized in the handoff), and
+protected-documentation (a requested edit forbidden by policy). These are notes,
+not implementation blockers. Uncommitted working-tree files are the expected output;
+the controller commits them. Do not list them as unfinished implementation.
+Use remaining: [] when nothing remains. Do not invent product decisions: unresolved
+required behavior stays incomplete. Keep summaries concise; evidence need not quote
+whole tests or source files.
 Provide feature-specific Markdown fixture notes under .devcontainer/vault/ and
 link them from Start here.md with exact actions and expected results. Cover useful
 happy paths and edge cases without requiring the reviewer to invent test data.

@@ -155,6 +155,12 @@ for (const current of Object.values(state.work)) {
     const marker = '<!-- bullet-flow-factory-status -->';
     const body = `${marker}\nFactory: **${current.stage}** · specification ${current.revision} · attempt ${current.attempt}\n\n${current.result}\n\n${current.runUrl}\n\nCommands: /factory pause, resume, stop, retry, implement (each as a separate comment).`;
     const comments = await pages(`issues/${current.issue}/comments`);
+    if (current.stage === 'blocked') {
+        const failureMarker = `<!-- factory-failure:${current.issue}:${current.revision}:${current.attempt} -->`;
+        if (!comments.some(item => item.user.type === 'Bot' && item.body.startsWith(failureMarker))) {
+            await api(`issues/${current.issue}/comments`, 'POST', { body: `${failureMarker}\nFactory attempt ${current.attempt} blocked.\n\n${current.result.slice(0, 2000)}\n\n[Run and evidence](${current.runUrl})\n\nAfter the blocker is fixed, post /factory retry.` });
+        }
+    }
     const previous = comments.find(item => item.user.type === 'Bot' && item.body.startsWith(marker));
     if (previous?.body === body) continue;
     await api(previous ? `issues/comments/${previous.id}` : `issues/${current.issue}/comments`, previous ? 'PATCH' : 'POST', { body });

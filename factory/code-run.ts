@@ -53,5 +53,5 @@ if (!result.failed) {
         result = { failed: false, complete: false, message: `${result.message}\n${String(error)} Revert protected-file edits before continuing.` };
     }
 }
-writeFileSync('/output/result.json', JSON.stringify({ ...result, changes }));
+writeFileSync('/output/result.json', JSON.stringify({ ...result, changes, handoff: outcome.message }));
 process.exitCode = result.failed ? 1 : 0;
