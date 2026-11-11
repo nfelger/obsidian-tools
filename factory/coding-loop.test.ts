@@ -45,3 +45,13 @@ test('superseded attempt stops before another model call', async () => {
         async () => { throw new Error('unexpected check'); }, async () => { if (calls) throw new Error('superseded'); }), /superseded/);
     assert.equal(calls, 1);
 });
+
+test('exhaustion reports the latest blocker concisely instead of the accumulated transcript', async () => {
+    let passes = 0;
+    const result = await codingLoop(async () => ({ failed: false, complete: false, message: `blocker ${++passes}: ` + 'x'.repeat(4000) }),
+        async () => { throw new Error('must not check incomplete work'); });
+    assert.equal(result.failed, true);
+    assert.ok(result.message.length < 2000);
+    assert.match(result.message, /blocker 4/);
+    assert.doesNotMatch(result.message, /blocker 1/);
+});

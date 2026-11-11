@@ -15,7 +15,8 @@ export function agentResult(result: ProcessResult): { failed: boolean; message: 
     if (envelope?.outcome === 'completed') {
         if (result.status !== 0) return fail(`Agent reported completion but exited with ${result.status ?? 'unknown status'}.`);
         if (typeof envelope.message !== 'string' || !envelope.message.trim()) return fail('Agent completed without a handoff.');
-        return { failed: false, message: envelope.message.slice(0, 12000) };
+        if (Buffer.byteLength(envelope.message) > 1024 * 1024) return fail('Agent handoff exceeds the 1 MiB limit.');
+        return { failed: false, message: envelope.message };
     }
     if (['failed', 'aborted', 'error'].includes(envelope?.outcome)) {
         const detail = typeof envelope.error?.message === 'string' ? envelope.error.message : 'See the workflow run.';
