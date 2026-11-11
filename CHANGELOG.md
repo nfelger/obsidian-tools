@@ -5,6 +5,16 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Ticking a task in a weekly, monthly or yearly note files it down to
+  today's daily log.** The task travels one level at a time — a tick in a
+  yearly note passes through the month and the week — and lands completed in
+  today's log. Every note it passes through keeps it marked as scheduled, so
+  your weekly, monthly and yearly notes no longer collect finished work.
+
 ## [0.19.1] - 2026-08-10
 
 ### Fixed
