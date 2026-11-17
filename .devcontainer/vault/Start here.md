@@ -50,6 +50,14 @@ Open the linked fixture notes below. Their paths resolve when the preview is see
 2. Expect `- [<] Renew the insurance` in the month, `- [<] Renew the insurance` under `## Todo` in [[{{weeklyPath}}]], and `- [x] Renew the insurance` in today's daily log.
 3. In [[{{yearlyPath}}]], tick `- [ ] Plan the roadmap`: expect `- [<]` in the year, the month and the week, and `- [x] Plan the roadmap` in today's daily log.
 
+### 4b. A copy the week already holds under an alias is merged, not duplicated
+
+1. In [[{{weeklyPath}}]], note the line `- [ ] [[Preview project|preview]] Order the badges` with its child `- [ ] Pick a badge design`.
+2. In [[{{monthlyPath}}]], tick `- [ ] [[Preview project]] Order the badges`.
+3. Expect `- [<] [[Preview project]] Order the badges` in the month.
+4. Expect the week to hold `Order the badges` exactly once: the existing line now reads `- [<] [[Preview project|preview]] Order the badges`, holding both `- [ ] Pick a badge design` and `- [ ] Attach the guest list`. No second copy appears.
+5. Expect today's daily log to hold `- [x] [[Preview project]] Order the badges` (task line only), and [[Preview project]] to hold a log entry under `### [[<today's date>]]` with `- [x] Order the badges` and both children.
+
 ### 5. Today is not in the note's period — nothing moves
 
 1. Open [[+Diary/2020/01/2020-01-W01]] and tick `- [ ] Task from a week that is long gone`.

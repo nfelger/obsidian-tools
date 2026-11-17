@@ -13,6 +13,8 @@
 	- [ ] Book the kickoff room
 		- [ ] Ask facilities for the big room
 	- [ ] Send the kickoff invite
+- [ ] [[Preview project|preview]] Order the badges
+	- [ ] Pick a badge design
 
 ## Notes
 

@@ -67,6 +67,51 @@ describe('cascade', () => {
 				'\t- Ask about pricing'
 			]);
 		});
+
+		const projectPayload = {
+			taskText: '[[Preview project]] Draft memo',
+			taskLine: '- [x] [[Preview project]] Draft memo',
+			children: ['\t- Outline']
+		};
+		const project = { projectName: 'Preview project', strippedText: 'Draft memo', keywords: ['Push'] };
+
+		it('merges a project task with a copy written with an alias', () => {
+			const note = ['## Todo', '', '- [ ] [[Preview project|preview]] Draft memo'].join('\n');
+
+			const result = scheduleIntoNote(note, projectPayload, '## Todo', { project });
+
+			expect(result.content.match(/Draft memo/g)?.length).toBe(1);
+			expect(result.content).toContain('- [<] [[Preview project|preview]] Draft memo');
+			expect(result.content).toContain('Outline');
+			expect(result.payload.taskText).toBe('[[Preview project]] Draft memo');
+			expect(result.payload.children).toEqual(['\t- Outline']);
+		});
+
+		it('merges a project task with a copy sitting under its collector', () => {
+			const note = [
+				'## Todo',
+				'',
+				'- [ ] Push [[Preview project]]',
+				'\t- [ ] Draft memo',
+				'\t\t- Check numbers'
+			].join('\n');
+
+			const result = scheduleIntoNote(note, projectPayload, '## Todo', { project });
+
+			expect(result.content.match(/Draft memo/g)?.length).toBe(1);
+			expect(result.content).toContain('\t- [<] Draft memo');
+			expect(result.content).toContain('- [ ] Push [[Preview project]]');
+			// It keeps travelling as a project task, with both sets of children
+			expect(result.payload.taskLine).toBe('- [<] [[Preview project]] Draft memo');
+			expect(result.payload.children).toEqual(['\t- Check numbers', '\t- Outline']);
+		});
+
+		it('inserts a project task the note does not hold, prefixed', () => {
+			const result = scheduleIntoNote('## Todo\n', projectPayload, '## Todo', { project });
+
+			expect(result.content).toContain('- [<] [[Preview project]] Draft memo');
+			expect(result.payload.taskText).toBe('[[Preview project]] Draft memo');
+		});
 	});
 
 	describe('insertCompletedIntoLog', () => {

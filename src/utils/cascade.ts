@@ -17,11 +17,22 @@ import {
 	findTaskBlockEnd,
 	findSectionRange,
 	insertTaskWithDedup,
+	mergeIntoMatchedTask,
 	selectTransferableChildLines,
 	TaskMarker,
 	TaskState
 } from './tasks';
 import { findLogInsertionLine } from './autoMove';
+import { findProjectTaskMatch } from './projects';
+
+/** The project a travelling task belongs to, for alias- and collector-aware merging. */
+export interface CascadeProject {
+	projectName: string;
+	/** Task text without the project prefix */
+	strippedText: string;
+	/** Collector keywords, so a copy under a collector is found */
+	keywords: string[];
+}
 
 /** A task travelling down the chain, with the children that travel with it. */
 export interface CascadePayload {
@@ -75,9 +86,21 @@ export function extractCascadePayload(docText: string, taskLine: number): Cascad
 export function scheduleIntoNote(
 	content: string,
 	payload: CascadePayload,
-	heading: string
+	heading: string,
+	options: { project?: CascadeProject } = {}
 ): { content: string; payload: CascadePayload } {
 	const scheduled = new TaskMarker(TaskState.Scheduled).applyToLine(payload.taskLine);
+
+	// A project task matches the way push down matches it: a copy written
+	// with an alias, or sitting under the project's collector, is the same task.
+	const project = options.project;
+	const projectMatch = project
+		? findProjectTaskMatch(content, project.strippedText, project.projectName, { heading, keywords: project.keywords })
+		: null;
+	if (projectMatch) {
+		const merged = mergeIntoMatchedTask(content, projectMatch, payload.children.join('\n'));
+		return landTask(merged, projectMatch.lineNumber, { ...payload, taskLine: scheduled });
+	}
 
 	// The same insert push down uses: a note that already holds the task
 	// merges with it (the incoming children nest under the existing copy).
@@ -91,24 +114,36 @@ export function scheduleIntoNote(
 		heading
 	);
 
-	const lines = result.content.split('\n');
-	if (result.lineNumber < 0 || result.lineNumber >= lines.length) {
+	if (result.lineNumber < 0 || result.lineNumber >= result.content.split('\n').length) {
 		return { content: result.content, payload: { ...payload, taskLine: scheduled } };
 	}
 
-	// The note keeps the task as scheduled, and it keeps travelling with the
-	// children it now holds — the ones it came with plus any it merged.
-	const landed = new TaskMarker(TaskState.Scheduled).applyToLine(lines[result.lineNumber]);
-	lines[result.lineNumber] = landed;
+	return landTask(result.content, result.lineNumber, null);
+}
 
-	const blockEnd = findTaskBlockEnd(lines, result.lineNumber);
+/**
+ * Mark the copy a note now holds as scheduled, and pick it up for the next
+ * hop with the children it now holds — the ones it came with plus any it
+ * merged. A project task keeps travelling under its own prefix (`keep`),
+ * whatever shape the note's copy has.
+ */
+function landTask(
+	content: string,
+	lineNumber: number,
+	keep: CascadePayload | null
+): { content: string; payload: CascadePayload } {
+	const lines = content.split('\n');
+	const landed = new TaskMarker(TaskState.Scheduled).applyToLine(lines[lineNumber]);
+	lines[lineNumber] = landed;
+
+	const blockEnd = findTaskBlockEnd(lines, lineNumber);
 	const indent = countIndent(landed);
-	const children = dedentLinesByAmount(lines.slice(result.lineNumber + 1, blockEnd), indent);
+	const children = dedentLinesByAmount(lines.slice(lineNumber + 1, blockEnd), indent);
 
-	return {
-		content: lines.join('\n'),
-		payload: { taskText: extractTaskText(landed), taskLine: landed, children }
-	};
+	const payload = keep
+		? { ...keep, children }
+		: { taskText: extractTaskText(landed), taskLine: landed, children };
+	return { content: lines.join('\n'), payload };
 }
 
 /**

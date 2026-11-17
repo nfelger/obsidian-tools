@@ -38,10 +38,11 @@ import {
 	insertCompletedIntoLog,
 	withCollectorPrefix,
 	scheduleIntoNote,
-	type CascadePayload
+	type CascadePayload,
+	type CascadeProject
 } from '../utils/cascade';
 import { getOrCreateFile } from '../adapters/commandSetup';
-import { detectProjectContext, findProjectLinkInAncestors } from '../utils/projects';
+import { detectProjectContext, findProjectLinkInAncestors, parseProjectKeywords } from '../utils/projects';
 import type { ProjectTaskContext } from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { buildCompletionEntry, completionSubHeading, isCompletionLogged, writeProjectCompletions } from '../adapters/projectCompletion';
@@ -377,7 +378,7 @@ async function cascadeDown(ctx: CascadeContext): Promise<void> {
 		if (!target) throw new Error(`Could not create ${path}`);
 		intermediates.push({ file: target, payload: travelling });
 		const content = await plugin.app.vault.read(target);
-		travelling = scheduleIntoNote(content, travelling, todoHeading).payload;
+		travelling = scheduleIntoNote(content, travelling, todoHeading, cascadeOptions(plugin, target, travelling)).payload;
 	}
 
 	// A project task's children belong in the project note; the daily log
@@ -403,7 +404,7 @@ async function cascadeDown(ctx: CascadeContext): Promise<void> {
 	// The notes in between, nearest the daily note first.
 	for (const item of [...intermediates].reverse()) {
 		await plugin.app.vault.process(item.file, (data: string) =>
-			scheduleIntoNote(data, item.payload, todoHeading).content
+			scheduleIntoNote(data, item.payload, todoHeading, cascadeOptions(plugin, item.file, item.payload)).content
 		);
 	}
 }
@@ -427,6 +428,26 @@ async function completionAlreadyLogged(
 	return [ctx.sourceBasename, dailyFile.basename].some(basename =>
 		isCompletionLogged(content, project.strippedText, logHeading, completionSubHeading(logHeading, basename))
 	);
+}
+
+/**
+ * How a note in between matches the travelling task: a project task matches
+ * a copy with an alias or under its collector, as push down does.
+ */
+function cascadeOptions(
+	plugin: BulletFlowPlugin,
+	file: TFile,
+	travelling: CascadePayload
+): { project?: CascadeProject } {
+	const project = projectContext(plugin, file, travelling);
+	if (!project) return {};
+	return {
+		project: {
+			projectName: project.projectName,
+			strippedText: project.strippedText,
+			keywords: parseProjectKeywords(plugin.settings.projectKeywords)
+		}
+	};
 }
 
 /**

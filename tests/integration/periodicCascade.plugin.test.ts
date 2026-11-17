@@ -297,6 +297,40 @@ describe('periodic cascade', () => {
 			expect(project).toContain('agreed on a phased approach');
 		});
 
+		it('merges with a copy the week holds under the project collector', async () => {
+			const result = await testCascade({
+				source: `
+## Todo
+
+- [x] [[Migration Initiative]] Draft rollout plan
+`,
+				sourcePath: CASCADE_NOTE_PATHS.monthly,
+				notes: {
+					[CASCADE_NOTE_PATHS.weekly]: `
+## Todo
+
+- [ ] Push [[Migration Initiative]]
+	- [ ] Draft rollout plan
+`,
+					[CASCADE_NOTE_PATHS.daily]: `
+## Log
+`
+				},
+				projectNotes: {
+					'Migration Initiative': `
+## Todo
+
+## Log
+`
+				}
+			});
+
+			const weekly = result.note(CASCADE_NOTE_PATHS.weekly)!;
+			expect(weekly.match(/Draft rollout plan/g)?.length).toBe(1);
+			expect(weekly).toContain('\t- [<] Draft rollout plan');
+			expect(result.note(CASCADE_NOTE_PATHS.daily)).toContain('- [x] [[Migration Initiative]] Draft rollout plan');
+		});
+
 		it('does not log the completion twice when the project note already holds it', async () => {
 			const result = await testCascade({
 				source: `
