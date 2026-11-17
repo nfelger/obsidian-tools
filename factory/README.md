@@ -163,8 +163,7 @@ The disposable Codespace starts on container start and retries on editor attach.
 Startup requests and desktop readiness failures appear in `.preview/session.log`.
 A session lock prevents duplicate Obsidian processes. Periodic Notes 0.0.17 is
 installed and enabled through obsidian-launcher, with daily, ISO-weekly, monthly,
-quarterly and yearly folders/formats configured. Missing configuration is seeded
-for existing vaults; reset restores the full fixture vault. Existing user edits
+quarterly and yearly folders/formats configured. Each launch applies the configured paths and disables core Daily Notes. Reset restores the fixture vault. Existing user edits
 are retained until reset. Rebuild older Codespaces to pick up lifecycle changes.
 
 Feature implementations must supply Markdown fixtures in `.devcontainer/vault/`,
@@ -191,3 +190,14 @@ The latest blocker is summarized when the pass budget is exhausted. Full raw
 handoff evidence remains in the coding artifact. Each blocked attempt gets one
 new concise issue notification with a run link, in addition to the stable status
 comment. Reconciliation repairs missing notifications without duplicating them.
+
+Preview fixture notes live in `.devcontainer/vault/`. For a current-period note,
+use a filename such as `{{weeklyPath}}.md` directly in that directory and link
+to `[[{{weeklyPath}}]]` from `Start here.md`. The launcher expands
+`{{dailyPath}}`, `{{weeklyPath}}`, `{{monthlyPath}}`, and `{{yearlyPath}}` into
+complete vault-relative paths under `+Diary/` on seed/reset, including nested
+folders. For 17 November 2026 the weekly link resolves to
+`+Diary/2026/11/2026-11-W47`. Use literal dates only for deliberately historical
+cases. Legacy tokens {{today}}, {{week}}, {{month}}, {{year}} produce short
+labels, not configured paths. Templates apply to filenames and Markdown contents.
+Keep Obsidian configuration and launch scripts out of product fixture changes.

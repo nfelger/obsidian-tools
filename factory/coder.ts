@@ -34,8 +34,16 @@ whole tests or source files.
 Provide feature-specific Markdown fixture notes under .devcontainer/vault/ and
 link them from Start here.md with exact actions and expected results. Cover useful
 happy paths and edge cases without requiring the reviewer to invent test data.
-Use {{today}}, {{week}}, {{month}}, {{year}} in fixture paths/content for current
-periods; these are materialized when a fresh preview vault is seeded or reset.
+Preview fixture notes live in .devcontainer/vault/. For a current-period note,
+use a filename such as {{weeklyPath}}.md directly in that directory and link
+to [[{{weeklyPath}}]] from Start here.md. The launcher expands
+{{dailyPath}}, {{weeklyPath}}, {{monthlyPath}}, and {{yearlyPath}} into
+complete vault-relative paths under +Diary/ on seed/reset, including nested
+folders. For 17 November 2026 the weekly link resolves to
++Diary/2026/11/2026-11-W47. Use literal dates only for deliberately historical
+cases. Legacy tokens {{today}}, {{week}}, {{month}}, {{year}} produce short
+labels, not configured paths. Templates apply to filenames and Markdown contents.
+Keep Obsidian configuration and launch scripts out of product fixture changes.
 Treat missing preview fixtures as unfinished work. Never edit vault configuration
 or scripts. WORKFLOW.md is exclusively the user's Obsidian domain workflow;
 factory documentation belongs in factory/README.md (protected during product coding).
