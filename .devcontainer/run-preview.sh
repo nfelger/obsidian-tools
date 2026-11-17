@@ -13,4 +13,9 @@ node_path="$(command -v node)" || {
     exit 1
 }
 mkdir -p .preview
-exec flock -n .preview/session.lock "$node_path" preview-launch.mjs "$@"
+exec 9>.preview/session.lock
+if ! flock -n 9; then
+    echo 'Preview session already running; leaving it in place.'
+    exit 0
+fi
+exec "$node_path" preview-launch.mjs "$@"

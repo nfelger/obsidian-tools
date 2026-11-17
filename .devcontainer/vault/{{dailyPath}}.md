@@ -2,8 +2,7 @@
 
 ## Todo
 
-- [ ] Review [[Preview project]]
+- [ ] Water the plants
 
 ## Log
-
 - [[Preview project]] Decided to test the hosted preview with synthetic notes.

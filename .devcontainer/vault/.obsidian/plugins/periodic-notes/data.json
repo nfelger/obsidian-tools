@@ -1,0 +1,35 @@
+{
+  "daily": {
+    "enabled": true,
+    "folder": "+Diary",
+    "format": "YYYY/MM/YYYY-MM-DD ddd",
+    "template": ""
+  },
+  "weekly": {
+    "enabled": true,
+    "folder": "+Diary",
+    "format": "GGGG/MM/GGGG-MM-[W]WW",
+    "template": ""
+  },
+  "monthly": {
+    "enabled": true,
+    "folder": "+Diary",
+    "format": "YYYY/YYYY-MM MMM",
+    "template": ""
+  },
+  "quarterly": {
+    "enabled": true,
+    "folder": "+Diary",
+    "format": "YYYY/YYYY-[Q]Q",
+    "template": ""
+  },
+  "yearly": {
+    "enabled": true,
+    "folder": "+Diary",
+    "format": "YYYY/YYYY",
+    "template": ""
+  },
+  "showGettingStartedBanner": false,
+  "hasMigratedDailyNoteSettings": true,
+  "hasMigratedWeeklyNoteSettings": true
+}
