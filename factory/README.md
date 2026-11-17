@@ -130,3 +130,18 @@ New planning, coding, interrupted-run, or candidate-CI failures make reconciliat
 exit unsuccessfully after saving state and publishing issue status. An idle run
 does not fail merely because an issue was already blocked. Retry blocked work with
 the owner command `/factory retry` after the underlying problem is fixed.
+
+## Preview fixtures
+
+Add feature-specific Markdown notes under `.devcontainer/vault/`. Link them from
+`Start here.md` with the action to take and the expected result for each scenario.
+For current periods, use `{{dailyPath}}`, `{{weeklyPath}}`, `{{monthlyPath}}`,
+or `{{yearlyPath}}`. These expand to the complete path configured in Periodic
+Notes, including its folders. For example, put `{{weeklyPath}}.md` at the fixture
+root and link to it as `[[{{weeklyPath}}]]`. A fresh seed or reset on 17 November
+2026 expands that link to `[[+Diary/2026/11/2026-11-W47]]`.
+
+Expansion applies to filenames and Markdown contents. Use `{{today}}`, `{{week}}`,
+`{{month}}` and `{{year}}` for short labels. Use literal dates for historical
+cases. Keep feature fixtures in Markdown and leave preview configuration and
+launch scripts to the factory.
