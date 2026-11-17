@@ -1,5 +1,5 @@
 {
-  "name": "Bullet Flow — Obsidian preview",
+  "name": "Bullet Flow \u2014 Obsidian preview",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
   "features": {
     "ghcr.io/devcontainers/features/desktop-lite:1": {},
@@ -19,5 +19,6 @@
   },
   "postCreateCommand": "npm ci",
   "postStartCommand": "bash .devcontainer/start.sh",
-  "remoteUser": "vscode"
+  "remoteUser": "vscode",
+  "postAttachCommand": "bash .devcontainer/start.sh"
 }
