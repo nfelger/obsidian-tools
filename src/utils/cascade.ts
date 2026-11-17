@@ -206,3 +206,37 @@ function lineToOffset(lines: string[], lineNum: number): number {
 	const before = lines.slice(0, lineNum).join('\n');
 	return before.length + (lineNum > 0 ? 1 : 0);
 }
+
+/**
+ * The lines a task is nested under, nearest parent first.
+ *
+ * @param docText - Full text of the note
+ * @param taskLine - Line number of the task
+ */
+export function findAncestorLines(docText: string, taskLine: number): string[] {
+	const lines = docText.split('\n');
+	const ancestors: string[] = [];
+	let indent = countIndent(lines[taskLine] ?? '');
+	for (let i = taskLine - 1; i >= 0 && indent > 0; i--) {
+		const line = lines[i];
+		if (line.trim() === '' || !/^\s*- /.test(line)) continue;
+		const lineIndent = countIndent(line);
+		if (lineIndent < indent) {
+			ancestors.push(line);
+			indent = lineIndent;
+		}
+	}
+	return ancestors;
+}
+
+/**
+ * Give a task grouped under a collector the collector's link as its own
+ * prefix, the way push down renders it in the note below.
+ *
+ * @param payload - The task leaving the collector
+ * @param linkText - The collector's wikilink as written, e.g. "[[Project]]"
+ */
+export function withCollectorPrefix(payload: CascadePayload, linkText: string): CascadePayload {
+	const taskText = `${linkText} ${payload.taskText}`;
+	return { ...payload, taskText, taskLine: TaskMarker.replaceContent(payload.taskLine, taskText) };
+}

@@ -37,6 +37,13 @@ Open the linked fixture notes below. Their paths resolve when the preview is see
 3. Expect today's daily log to hold `- [x] [[Preview project]] Draft the rollout plan`, without the child.
 4. Expect [[Preview project]] to hold one log entry under a heading that links today's daily note (`### [[<today's date>]]`), containing `- [x] Draft the rollout plan` and `- [ ] Agree on a phased approach`. The copy under `## Todo` is gone.
 
+### 3b. A task grouped under a collector keeps the project prefix
+
+1. In [[{{weeklyPath}}]], under the collector `- [[Preview project]]`, tick `- [ ] Book the kickoff room`.
+2. Expect the collector to stay in the week, holding `- [<] Book the kickoff room` and the still-open `- [ ] Send the kickoff invite`.
+3. Expect today's daily log to hold `- [x] [[Preview project]] Book the kickoff room` — with the collector's link as its prefix, as push task down would render it — without the child.
+4. Expect [[Preview project]] to hold a log entry under `### [[<today's date>]]` containing `- [x] Book the kickoff room` and `- [ ] Ask facilities for the big room`.
+
 ### 4. Monthly and yearly notes cascade one level at a time
 
 1. In [[{{monthlyPath}}]], tick `- [ ] Renew the insurance`.

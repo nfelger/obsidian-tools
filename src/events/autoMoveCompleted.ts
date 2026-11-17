@@ -34,12 +34,14 @@ import { TaskMarker, TaskState } from '../utils/tasks';
 import {
 	computeSourceSchedule,
 	extractCascadePayload,
+	findAncestorLines,
 	insertCompletedIntoLog,
+	withCollectorPrefix,
 	scheduleIntoNote,
 	type CascadePayload
 } from '../utils/cascade';
 import { getOrCreateFile } from '../adapters/commandSetup';
-import { detectProjectContext } from '../utils/projects';
+import { detectProjectContext, findProjectLinkInAncestors } from '../utils/projects';
 import type { ProjectTaskContext } from '../utils/projects';
 import { ObsidianLinkResolver } from '../utils/wikilinks';
 import { buildCompletionEntry, completionSubHeading, isCompletionLogged, writeProjectCompletions } from '../adapters/projectCompletion';
@@ -254,8 +256,9 @@ async function runPeriodicCascade(
 	const taskLine = findTickedLine(docText, completedLine);
 	if (taskLine === null) return;
 
-	const payload = extractCascadePayload(docText, taskLine);
-	if (!payload) return;
+	const extracted = extractCascadePayload(docText, taskLine);
+	if (!extracted) return;
+	const payload = carryCollectorPrefix(plugin, file, findAncestorLines(docText, taskLine), extracted);
 
 	const context: CascadeContext = {
 		plugin,
@@ -282,6 +285,26 @@ async function runPeriodicCascade(
 	if (freshText.split('\n')[taskLine] !== context.sourceLine) return;
 	const change = computeSourceSchedule(freshText, taskLine);
 	if (change) doc.dispatch([change]);
+}
+
+/**
+ * A task grouped under a project (a collector or any project-linked parent)
+ * leaves it the way push down moves it: carrying the project's link as its
+ * own prefix.
+ */
+function carryCollectorPrefix(
+	plugin: BulletFlowPlugin,
+	file: TFile,
+	ancestorLines: string[],
+	payload: CascadePayload
+): CascadePayload {
+	if (projectContext(plugin, file, payload)?.hasOwnPrefix) return payload;
+	const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
+	for (const line of ancestorLines) {
+		const ancestor = findProjectLinkInAncestors({ getLine: () => line }, [], 0, file.path, resolver, plugin.settings);
+		if (ancestor) return withCollectorPrefix(payload, ancestor.link.matchText);
+	}
+	return payload;
 }
 
 /**
@@ -412,7 +435,7 @@ async function completionAlreadyLogged(
  */
 function projectContext(
 	plugin: BulletFlowPlugin,
-	dailyFile: TFile,
+	file: TFile,
 	travelling: CascadePayload
 ): ProjectTaskContext | null {
 	const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
@@ -420,7 +443,7 @@ function projectContext(
 		{ getLine: () => travelling.taskLine },
 		[],
 		0,
-		dailyFile.path,
+		file.path,
 		resolver,
 		plugin.settings
 	);

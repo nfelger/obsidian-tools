@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
 	computeSourceSchedule,
 	extractCascadePayload,
+	findAncestorLines,
 	insertCompletedIntoLog,
-	scheduleIntoNote
+	scheduleIntoNote,
+	withCollectorPrefix
 } from '../../src/utils/cascade';
 import { insertTaskWithDedup } from '../../src/utils/tasks';
 
@@ -157,6 +159,27 @@ describe('cascade', () => {
 				'- [x] Call Sam\n\t- Ask about pricing\n\t- [x] Send the invoice'
 			);
 			expect(change.insert).toBe('- [<] Call Sam\n\t- [x] Send the invoice');
+		});
+	});
+
+	describe('findAncestorLines', () => {
+		it('lists the lines a task is nested under, nearest first', () => {
+			const doc = ['- [[P]]', '\t- note', '\t- [ ] Group', '', '\t\t- [x] Task'].join('\n');
+			expect(findAncestorLines(doc, 4)).toEqual(['\t- [ ] Group', '- [[P]]']);
+		});
+
+		it('returns nothing for a top-level task', () => {
+			expect(findAncestorLines('- [[P]]\n- [x] Task', 1)).toEqual([]);
+		});
+	});
+
+	describe('withCollectorPrefix', () => {
+		it('gives the task the collector link as its own prefix', () => {
+			const result = withCollectorPrefix(
+				{ taskText: 'Task', taskLine: '- [x] Task', children: ['\t- note'] },
+				'[[P|alias]]'
+			);
+			expect(result).toEqual({ taskText: '[[P|alias]] Task', taskLine: '- [x] [[P|alias]] Task', children: ['\t- note'] });
 		});
 	});
 });

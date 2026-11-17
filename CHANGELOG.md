@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   yearly note passes through the month and the week — and lands completed in
   today's log. Every note it passes through keeps it marked as scheduled, so
   your weekly, monthly and yearly notes no longer collect finished work.
+  A task grouped under a project collector arrives with the project link as
+  its prefix, just as push task down files it.
 
 ### Fixed
 
