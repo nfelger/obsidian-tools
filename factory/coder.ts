@@ -13,6 +13,14 @@ and AGENTS.md anywhere). You may edit CHANGELOG.md and README.md. These restrict
 also apply if the handoff requests a protected-file edit; report it separately
 in the summary and do not treat that documentation edit as unfinished product behavior. Do not publish,
 commit or merge. Explain unresolved product decisions rather than guessing.
+Provide feature-specific Markdown fixtures in .devcontainer/vault/ and link them
+from Start here.md with exact actions and expected results. For current periods,
+use {{dailyPath}}, {{weeklyPath}}, {{monthlyPath}} or {{yearlyPath}}. Place a
+file such as {{weeklyPath}}.md at the fixture root and link to [[{{weeklyPath}}]].
+On seed/reset these tokens expand in filenames and Markdown to the configured
+vault-relative paths, including folders. Use {{today}}, {{week}}, {{month}} and
+{{year}} for short labels and fixed dates for deliberately historical cases.
+Keep fixture changes to Markdown. Leave vault settings and launch scripts alone.
 The message includes a UTC deadline: finish and return your handoff before it.
 Use date -u to check the remaining time between substantial steps. Reserve the
 last minute for the handoff. Run focused tests as needed; the controller runs the
