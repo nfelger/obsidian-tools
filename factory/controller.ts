@@ -1,3 +1,4 @@
+import { loadCheckpoint, legacyCheckpoint, type Patch } from './checkpoint.ts';
 import { runCoding } from './coding.ts';
 import { publish, ensurePull } from './publication.ts';
 import { githubRead } from './github-read.ts';
@@ -74,6 +75,9 @@ for (const work of Object.values(state.work)) {
     if (work.stage === 'running') settle(work, work.attempt, `Interrupted run: ${work.runUrl}`, true);
 }
 await reconcile();
+for (const item of Object.values(state.work)) {
+    if (item.stage === 'queued' && item.phase === 'coding' && !item.checkpoint) item.checkpoint = legacyCheckpoint(item);
+}
 const work = claim(state);
 if (work) work.runUrl = `${process.env.GITHUB_SERVER_URL}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 await save();
@@ -101,20 +105,53 @@ if (work?.phase === 'coding') {
             await ensurePull(api, repo, work, work.result);
             work.stage = 'verifying';
         } else {
-            const base = work.head ?? (await api('git/ref/heads/main')).object.sha;
             const revision = work.revision;
-            const output = await runCoding(repo, base, work, async () => {
+            const guard = async () => {
                 await reconcile();
                 await save();
                 if (work.stage !== 'running' || work.attempt !== attempt || work.revision !== revision)
                     throw new Error('Coding attempt superseded by newer issue instructions.');
-            });
-            await reconcile();
-            if (work.stage === 'running' && work.attempt === attempt) {
+            };
+            const issueBranch = work.branch ?? `factory/issue-${work.issue}`;
+            const live = async (): Promise<string> => {
+                try {
+                    const ref = await api(`git/ref/heads/${issueBranch}`);
+                    work.branch = issueBranch;
+                    return ref.object.sha;
+                } catch (error) {
+                    if (work.branch || !String(error).includes(': 404 ')) throw error;
+                    return (await api('git/ref/heads/main')).object.sha;
+                }
+            };
+            const budget = { modelPasses: 0 };
+            const deadline = Date.now() + 45 * 60 * 1000;
+            const ref = work.checkpoint;
+            let recovery = ref?.revision === revision ? { base: ref.base, patch: loadCheckpoint(repo, work, ref) } : undefined;
+            for (;;) {
+                const base = await live();
+                const checkpoint = async (patch: Patch) => {
+                    writeFileSync(join(process.env.RUNNER_TEMP ?? '/tmp', 'factory-patch.json'),
+                        JSON.stringify({ ...patch, base, issue: work.issue, revision, attempt }));
+                    const run = process.env.GITHUB_RUN_ID!;
+                    work.checkpoint = { base, revision, attempt, run, artifact: `coding-evidence-${run}-${process.env.GITHUB_RUN_ATTEMPT}` };
+                    await save();
+                };
+                const output = await runCoding(repo, base, work, guard, { deadline, recovery, checkpoint, budget });
+                await guard();
+                try {
+                    await publish(api, repo, work, base, output.changes, output.message);
+                } catch (error) {
+                    if (work.publicationPending || await live() === base) throw error;
+                    // Another writer advanced the branch. Reapply our delta, then verify again.
+                    if (output.changes.length) recovery = { base, patch: { ...output, complete: true } };
+                    if (deadline - Date.now() <= 6 * 60 * 1000) throw new Error('Branch advanced at the coding deadline. Retry to integrate the saved checkpoint.');
+                    continue;
+                }
                 work.result = output.message;
-                await publish(api, repo, work, base, output.changes, output.message);
                 work.stage = 'verifying';
                 work.candidate = undefined;
+                work.checkpoint = undefined;
+                break;
             }
         }
     } catch (error) {
