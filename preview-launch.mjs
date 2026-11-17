@@ -62,6 +62,7 @@ const env = Object.fromEntries(['HOME', 'PATH', 'DISPLAY', 'USER', 'LANG', 'XDG_
 const launcher = new ObsidianLauncher();
 const { proc } = await launcher.launch({
     appVersion: 'latest', vault, plugins: [candidateDir, { repo: 'liamcain/obsidian-periodic-notes', version: '0.0.17', enabled: true }],
+    themes: [{ repo: 'kepano/obsidian-minimal', version: '9.1.4', enabled: true }],
     args: ['--disable-dev-shm-usage'],
     spawnOptions: { env, stdio: 'inherit' },
 });
