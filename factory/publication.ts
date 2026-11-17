@@ -7,23 +7,28 @@ export async function publish(api: Api, repo: string, work: Work, base: string, 
         const ref = await api(`git/ref/heads/${branch}`);
         if (ref.object.sha !== base) throw new Error('Issue branch changed during coding; refusing to overwrite it.');
     }
-    const parent = await api(`git/commits/${base}`);
-    const tree = await api('git/trees', 'POST', { base_tree: parent.tree.sha,
-        tree: changes.map(file => file.content === null
-            ? { path: file.path, mode: '100644', type: 'blob', sha: null }
-            : { path: file.path, mode: '100644', type: 'blob', content: file.content }) });
-    const commit = await api('git/commits', 'POST', { message: `Implement issue #${work.issue} (revision ${work.revision})`,
-        tree: tree.sha, parents: [base] });
-    if (work.branch) {
-        const ref = await api(`git/ref/heads/${branch}`);
-        if (ref.object.sha !== base) throw new Error('Issue branch changed during coding; refusing to overwrite it.');
-        await api(`git/refs/heads/${branch}`, 'PATCH', { sha: commit.sha, force: false });
-    } else {
-        await api('git/refs', 'POST', { ref: `refs/heads/${branch}`, sha: commit.sha });
+    let sha = base;
+    if (changes.length || !work.branch) {
+        const parent = await api(`git/commits/${base}`);
+        const tree = await api('git/trees', 'POST', { base_tree: parent.tree.sha,
+            tree: changes.map(file => file.content === null
+                ? { path: file.path, mode: '100644', type: 'blob', sha: null }
+                : { path: file.path, mode: '100644', type: 'blob', content: file.content }) });
+        const commit = await api('git/commits', 'POST', { message: `Implement issue #${work.issue} (revision ${work.revision})`,
+            tree: tree.sha, parents: [base] });
+        sha = commit.sha;
+        if (work.branch) {
+            const ref = await api(`git/ref/heads/${branch}`);
+            if (ref.object.sha !== base) throw new Error('Issue branch changed during coding; refusing to overwrite it.');
+            await api(`git/refs/heads/${branch}`, 'PATCH', { sha: commit.sha, force: false });
+        } else {
+            await api('git/refs', 'POST', { ref: `refs/heads/${branch}`, sha: commit.sha });
+        }
     }
     // Persist the branch identity in memory even if PR publication fails.
-    work.branch = branch; work.head = commit.sha;
+    work.branch = branch; work.head = sha;
     work.publicationPending = true;
+    work.result = summary;
     await ensurePull(api, repo, work, summary);
 }
 export async function ensurePull(api: Api, repo: string, work: Work, summary: string) {

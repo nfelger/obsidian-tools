@@ -139,12 +139,17 @@ are retained; replaying the same comment cannot authorize another attempt.
 Scheduled reconciliation does not automatically retry blocked work. Each coding
 attempt still has at most three implementer passes and one escalation pass.
 
-Each attempt uses one fresh checkout at its recorded base commit. Up to three
-implementer passes and one escalation pass share that checkout, with a total
-45-minute budget (including setup/checks), at most 20 minutes per model call and
-five minutes reserved for verification. Between passes the controller re-reads
-issue instructions; a superseded attempt stops. Publication rechecks validity.
-A later retry always starts a fresh checkout; artifacts are evidence, not resume state.
+Coding starts from the live issue branch, or main for a new branch. The controller
+records validated edits with their original base in the run's coding-evidence
+artifact (retained for 14 days). A retry of the same revision restores the patch
+by cherry-picking it into a fresh checkout. This also recovers completed artifacts
+from older runs blocked because their issue branch advanced.
+
+If the branch advances before publication, the controller repeats that integration
+within the same 45-minute budget. A clean, completed patch goes straight to
+verification. Conflicts, incomplete work and failed checks go to the coding agent
+for repair. Publication uses a non-forced update. New issue instructions supersede
+the old revision and its checkpoint.
 
 The coder reports acceptance-case evidence and remaining requirements in JSON.
 Unfinished work, malformed reports, prohibited edits and failed checks feed the

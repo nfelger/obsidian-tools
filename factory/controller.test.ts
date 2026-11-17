@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // Exercise the real entry point with only external processes and GitHub replaced.
-function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, failureExists = false) {
+function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, failureExists = false, branchMoves = false) {
     const root = mkdtempSync(join(tmpdir(), 'controller-test-'));
     const trace = join(root, 'trace.json');
     const preload = join(root, 'external.mjs');
@@ -17,7 +17,7 @@ function runController(stage: string, phase = 'planning', succeeds = false, lose
     writeFileSync(preload, `
 import cp from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync } from 'node:fs';
 const work = { issue: 1, stage: ${JSON.stringify(stage)}, phase: ${JSON.stringify(phase)},
     revision: 1, attempt: 1, failures: 0, agreement: '', result: 'Prior handoff', runUrl: '',
     head: 'candidate', branch: 'factory/issue-1' };
@@ -25,7 +25,9 @@ let state = { version: 1, processed: [], work: { 1: work } };
 let storedContent = Buffer.from(JSON.stringify(state)).toString('base64');
 const comments = [];
 let lostResponse = false;
-function record() { writeFileSync(${JSON.stringify(trace)}, JSON.stringify({ state, comments })); }
+let reads = 0;
+const passes = [];
+function record() { writeFileSync(${JSON.stringify(trace)}, JSON.stringify({ state, comments, passes })); }
 globalThis.fetch = async (url, options = {}) => {
     const path = new URL(url).pathname.replace('/repos/owner/repo/', '');
     const body = options.body && JSON.parse(options.body);
@@ -38,14 +40,21 @@ globalThis.fetch = async (url, options = {}) => {
         value = { content: { sha: 'saved' } };
     } else if (path === 'contents/state.json') {
         value = { sha: 'initial', content: storedContent };
-    } else if (path === 'issues') value = [{ number: 1, state: 'open', body: '' }];
+    } else if (path === 'git/ref/heads/factory/issue-1') value = { object: { sha: ++reads === 1 ? 'live-head' : 'advanced' } };
+    else if (path === 'git/commits/advanced') value = { tree: { sha: 'original-tree' } };
+    else if (path === 'git/trees') value = { sha: 'combined-tree' };
+    else if (path === 'git/commits' && body.parents[0] === 'advanced') value = { sha: 'combined' };
+    else if (path === 'git/refs/heads/factory/issue-1' && body.sha === 'combined' && body.force === false) value = {};
+    else if (path === 'pulls') value = [{ html_url: 'example/pr' }];
+    else if (path === 'issues') value = [{ number: 1, state: 'open', body: '' }];
     else if (path === 'issues/1/comments' && options.method === 'POST') {
         comments.push(body.body); record(); value = {};
     } else if (path === 'issues/1/comments') value = ${failureExists} ? [{ id: 99, user: { login: 'github-actions[bot]', type: 'Bot' }, body: '<!-- factory-failure:1:1:1 -->\\nExisting notification' }] : [];
     else if (path === 'actions/workflows/ci.yml/runs') {
-        value = { workflow_runs: [{ head_branch: 'factory/issue-1', status: 'completed',
-            conclusion: 'failure', html_url: 'https://example.test/ci' }] };
-    } else throw new Error('Unexpected GitHub call: ' + path);
+        value = { workflow_runs: [{ id: 7, head_branch: 'factory/issue-1', status: 'completed',
+            conclusion: ${branchMoves ? "'success'" : "'failure'"}, html_url: 'https://example.test/ci' }] };
+    } else if (path === 'actions/runs/7/artifacts') value = { artifacts: [] };
+    else throw new Error('Unexpected GitHub call: ' + path);
     return new Response(JSON.stringify(value), { status: 200 });
 };
 cp.execFileSync = () => '';
@@ -53,6 +62,16 @@ cp.spawnSync = (command, args) => {
     if (command === 'docker') {
         if (args[args.indexOf('--user') + 1] !== process.getuid() + ':' + process.getgid())
             throw new Error('Coding container must use the runner identity');
+        if (${branchMoves}) {
+            const input = args.find(v => v.endsWith(':/input:ro')).slice(0, -10);
+            const output = args.find(v => v.endsWith(':/output')).slice(0, -8);
+            const { verifyOnly } = JSON.parse(readFileSync(input + '/pass.json'));
+            const { candidateHead } = JSON.parse(readFileSync(input + '/agreement.json'));
+            passes.push({ verifyOnly, candidateHead });
+            writeFileSync(output + '/result.json', JSON.stringify({ complete: true, message: 'done',
+                changes: [{ path: 'src/update.ts', content: 'combined' }] }));
+            return { status: 0, stdout: '', stderr: '' };
+        }
         return { status: 1, stdout: '', stderr: 'npm error EACCES /workspace/node_modules' };
     }
     return { status: ${succeeds ? 0 : 1}, stdout: JSON.stringify(${succeeds ? "{ outcome: 'completed', message: 'New handoff' }" : "{ outcome: 'failed', error: { message: 'Provider unavailable' } }"}), stderr: '' };
@@ -119,4 +138,16 @@ test('blocked attempts get a new failure notification and replay does not duplic
     const replay = runController('blocked', 'planning', false, false, true);
     assert.equal(replay.status, 0, replay.stderr);
     assert.equal(replay.comments.filter((body: string) => body.startsWith('<!-- factory-failure:')).length, 0);
+});
+
+test('publication race recovers the completed change and verifies again without a second model call', () => {
+    const result = runController('queued', 'coding', true, false, false, true);
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(result.passes, [
+        { verifyOnly: false, candidateHead: 'live-head' },
+        { verifyOnly: true, candidateHead: 'advanced' },
+    ]);
+    assert.equal(result.state.work[1].head, 'combined');
+    assert.equal(result.state.work[1].stage, 'verifying');
+    assert.equal(result.state.work[1].checkpoint, undefined);
 });
