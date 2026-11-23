@@ -17,6 +17,8 @@ Use the issue's acceptance cases for feature-specific testing. These are only sm
 
 Open the linked fixture notes below. Their paths resolve when the preview is seeded or reset.
 
+[[Preview project]] lives in `1 Projekte/`, the default Projects folder in Bullet Flow's settings — only notes in that folder count as projects. If you changed that setting, reset it (or move the note) before trying scenarios 3, 3b and 4b.
+
 ### 1. Weekly task — happy path
 
 1. Open [[{{weeklyPath}}]] (switch to editing / live preview mode) and tick `- [ ] Call Sam`.
