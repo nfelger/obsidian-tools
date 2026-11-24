@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { reconcileDiscussion } from './discussion.ts';
 import { agentResult } from './result.ts';
 import { modelFor } from './models.ts';
-import { claim, empty, needsOwnerDecision, settle, type Ledger } from './state.ts';
+import { agreementBody, agreementMarker, applyTriage, claim, empty, needsOwnerDecision, reviseAgreement, settle, type Ledger } from './state.ts';
 
 const repo = process.env.GITHUB_REPOSITORY!;
 const owner = repo.split('/')[0];
@@ -102,13 +102,16 @@ const work = claim(state);
 if (work) work.runUrl = `${process.env.GITHUB_SERVER_URL}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 await save();
 if (work) await updateTurn(work);
-if (work && work.phase !== 'coding') {
+const triaging = work?.phase === 'coding' && work.triage === true;
+if (work && (work.phase !== 'coding' || triaging)) {
     const attempt = work.attempt;
     const guidance = ['CLAUDE.md', 'WORKFLOW.md'].map(path =>
         `# ${path}\n${readFileSync(`../${path}`, 'utf8')}`).join('\n\n');
     for (let pass = 1; pass <= 2; pass++) {
         const result = spawnSync('node_modules/.bin/flue', ['run', 'agent.ts', '--json', '--message',
-            JSON.stringify({ agreement: work.agreement, revision: work.revision, priorHandoff: work.result, guidance })], {
+            JSON.stringify(triaging
+                ? { mode: 'triage', agreement: work.agreement, approvedRevision: work.approvedRevision ?? 1, approvedHandoff: work.approvedHandoff, candidateReport: work.result, guidance }
+                : { agreement: work.agreement, revision: work.revision, agreementRevision: work.agreementRevision ?? 0, priorHandoff: work.result, guidance })], {
             encoding: 'utf8', timeout: 5 * 60 * 1000, maxBuffer: 1024 * 1024,
             env: { PATH: process.env.PATH, HOME: process.env.RUNNER_TEMP,
                 OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
@@ -126,14 +129,22 @@ if (work && work.phase !== 'coding') {
         const message = timedOut
             ? "Planning timed out twice before a plan was ready. Coding hasn’t started. Use `/factory retry` to try again."
             : outcome.message;
+        if (triaging && !outcome.failed && !timedOut) {
+            if (applyTriage(work, message)) break;
+            await save();
+            if ((work.stage as string) === 'waiting' && work.phase === 'planning') await upsertAgreement(work);
+            break;
+        }
         settle(work, attempt, message, outcome.failed);
+        if ((work.stage as string) === 'waiting') { reviseAgreement(work, message); await save(); await upsertAgreement(work); }
         break;
     }
     await save();
 }
-if (work?.phase === 'coding') {
+if (work?.phase === 'coding' && work.stage === 'running') {
     const attempt = work.attempt;
     try {
+        await upsertAgreement(work);
         if (work.publicationPending) {
             await ensurePull(api, repo, work, work.result);
             work.stage = 'verifying';
@@ -216,25 +227,38 @@ for (const current of Object.values(state.work)) {
     }
     if (current.factoryOnly) {
         current.stage = 'preview';
-        current.result = `Factory checks passed for ${current.head}. Review the [draft PR](${current.pr}) and [checks](${run.html_url}).\n\n${current.result}`;
+        current.result = `Factory checks passed · builds revision ${current.approvedRevision ?? 1}\n\nFactory checks passed for ${current.head}. Review the [draft PR](${current.pr}) and [checks](${run.html_url}).\n\n${current.result}`;
         continue;
     }
     const name = `bullet-flow-${current.head.slice(0, 12)}-${run.id}-${run.run_attempt}`;
     const artifacts = await api(`actions/runs/${run.id}/artifacts`);
     if (!artifacts.artifacts.some((item: any) => item.name === name && !item.expired)) continue;
-    current.stage = 'preview'; current.candidate = name;
+    current.stage = 'preview'; current.candidate = name; current.candidates = (current.candidates ?? 0) + 1;
     const preview = `https://codespaces.new/${repo}?ref=${encodeURIComponent(current.branch)}`;
-    const report = `Candidate: **${name}**\nCommit: ${current.head}\n\n[Open Obsidian preview](${preview}) · [Checks](${run.html_url}) · [Draft PR](${current.pr})\n\n${current.result}\n\nTry the acceptance cases above in Obsidian, then reply here with feedback. Merge remains manual.`;
+    const report = `Candidate ${current.candidates} · builds revision ${current.approvedRevision ?? 1}\n\nCandidate: **${name}**\nCommit: ${current.head}\n\n[Open Obsidian preview](${preview}) · [Checks](${run.html_url}) · [Draft PR](${current.pr})\n\n${current.result}\n\nTry the acceptance cases above in Obsidian, then reply here with feedback. Merge remains manual.`;
     current.result = report;
 }
 // State precedes publication so replay can repair a lost comment or response.
 await save();
 for (const current of Object.values(state.work)) await updateTurn(current);
 
+async function upsertAgreement(current: import('./state.ts').Work) {
+    if (!current.agreementText) return;
+    const body = agreementBody(current);
+    const comments = await pages(`issues/${current.issue}/comments`);
+    const existing = comments.find(item => item.user.type === 'Bot' && item.body.startsWith(agreementMarker));
+    if (existing?.body === body) return;
+    const saved = await api(existing ? `issues/comments/${existing.id}` : `issues/${current.issue}/comments`, existing ? 'PATCH' : 'POST', { body });
+    const id = existing?.id ?? saved?.id;
+    if (id && current.agreementComment !== id) { current.agreementComment = id; await save(); }
+}
 async function updateTurn(current: import('./state.ts').Work, acknowledgeOnly = false, progress?: string) {
     const marker = current.turn ? `<!-- factory-turn:${current.turn} -->` : '<!-- bullet-flow-factory-status -->';
     const starting = ['queued', 'running'].includes(current.stage);
-    const detail = progress ?? (starting ? (current.stage === 'queued' ? 'Queued to start.' : 'Starting work.') : current.result);
+    const agreementLink = current.agreementComment ? `[current agreement](#issuecomment-${current.agreementComment})` : 'current agreement';
+    const planned = current.phase !== 'coding' && current.stage === 'waiting' && current.agreementText === current.result;
+    const detail = progress ?? current.notice ?? (starting ? (current.stage === 'queued' ? 'Queued to start.' : 'Starting work.')
+        : planned ? `Revision ${current.agreementRevision} is ready in the ${agreementLink} and awaits your approval. Post /factory implement to approve it.` : current.result);
     const body = `${marker}\nFactory: **${current.stage}** · attempt ${current.attempt}\n\n${detail}\n\n${current.stage === 'queued' ? '' : current.runUrl}`.trimEnd();
     const comments = await pages(`issues/${current.issue}/comments`);
     if (!acknowledgeOnly && current.turn) {
