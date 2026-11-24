@@ -31,7 +31,7 @@ with each fresh owner retry authorizing one bounded attempt.
 Replies arriving during a call invalidate its result and queue the revised context.
 
 A versioned `state.json` on `factory-state` is authoritative. The workflow creates
-it on first use. One bot status comment mirrors each record. Do not delete the
+it on first use. Each accepted owner turn gets its own status comment. Do not delete the
 state branch: processed comment IDs prevent replay. Do not edit old command
 comments; post a new one. Closing an issue stops its work.
 
@@ -198,6 +198,5 @@ The latter describe controller-owned steps, defaults already approved in the
 handoff and edits forbidden by policy; they cannot excuse an incomplete case.
 
 The latest blocker is summarized when the pass budget is exhausted. Full raw
-handoff evidence remains in the coding artifact. Each blocked attempt gets one
-new concise issue notification with a run link, in addition to the stable status
-comment. Reconciliation repairs missing notifications without duplicating them.
+handoff evidence remains in the coding artifact. The factory updates the current turn’s acknowledgement with its result,
+preview link or failure. Reconciliation repairs missing notifications without duplicating them.

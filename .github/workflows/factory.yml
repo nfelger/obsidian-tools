@@ -14,12 +14,32 @@ permissions:
   issues: write
   pull-requests: write
   actions: write
-concurrency:
-  group: issue-factory-controller
-  cancel-in-progress: false
 jobs:
+  acknowledge:
+    if: github.event_name == 'issue_comment' && github.event.comment.user.login == github.repository_owner && !github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - run: node --experimental-strip-types controller.ts --acknowledge
+        working-directory: factory
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   reconcile:
+    needs: acknowledge
+    concurrency:
+      group: issue-factory-controller
+      cancel-in-progress: false
     if: >-
+      always() && !cancelled() &&
       (github.event_name != 'workflow_run' ||
         (github.event.workflow_run.event == 'workflow_dispatch' && github.event.workflow_run.head_repository.full_name == github.repository)) &&
       (github.event_name != 'issue_comment' ||

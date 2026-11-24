@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // Exercise the real entry point with only external processes and GitHub replaced.
-function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, failureExists = false, branchMoves = false) {
+function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, branchMoves = false) {
     const root = mkdtempSync(join(tmpdir(), 'controller-test-'));
     const trace = join(root, 'trace.json');
     const preload = join(root, 'external.mjs');
@@ -19,7 +19,7 @@ import cp from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
 import { writeFileSync, readFileSync } from 'node:fs';
 const work = { issue: 1, stage: ${JSON.stringify(stage)}, phase: ${JSON.stringify(phase)},
-    revision: 1, attempt: 1, failures: 0, agreement: '', result: 'Prior handoff', runUrl: '',
+    turn: '42', revision: 1, attempt: 1, failures: 0, agreement: '', result: 'Prior handoff', runUrl: '',
     head: 'candidate', branch: 'factory/issue-1' };
 let state = { version: 1, processed: [], work: { 1: work } };
 let storedContent = Buffer.from(JSON.stringify(state)).toString('base64');
@@ -49,7 +49,8 @@ globalThis.fetch = async (url, options = {}) => {
     else if (path === 'issues') value = [{ number: 1, state: 'open', body: '' }];
     else if (path === 'issues/1/comments' && options.method === 'POST') {
         comments.push(body.body); record(); value = {};
-    } else if (path === 'issues/1/comments') value = ${failureExists} ? [{ id: 99, user: { login: 'github-actions[bot]', type: 'Bot' }, body: '<!-- factory-failure:1:1:1 -->\\nExisting notification' }] : [];
+    } else if (path === 'issues/1/comments') value = comments.map((body, i) => ({ id: i+1, user: { login: 'github-actions[bot]', type: 'Bot' }, body }));
+    else if (path === 'issues/comments/1' && options.method === 'PATCH') { comments[0] = body.body; record(); value = {}; }
     else if (path === 'actions/workflows/ci.yml/runs') {
         value = { workflow_runs: [{ id: 7, head_branch: 'factory/issue-1', status: 'completed',
             conclusion: ${branchMoves ? "'success'" : "'failure'"}, html_url: 'https://example.test/ci' }] };
@@ -130,18 +131,15 @@ test('lost failure-save response still publishes the actual failure and exits re
     assert.doesNotMatch(result.comments.at(-1), /Interrupted run/);
 });
 
-test('blocked attempts get a new failure notification and replay does not duplicate it', () => {
-    const fresh = runController('blocked');
-    assert.equal(fresh.status, 0, fresh.stderr);
-    assert.equal(fresh.comments.filter((body: string) => body.startsWith('<!-- factory-failure:')).length, 1);
-    assert.match(fresh.comments[0], /Factory attempt 1 blocked/);
-    const replay = runController('blocked', 'planning', false, false, true);
-    assert.equal(replay.status, 0, replay.stderr);
-    assert.equal(replay.comments.filter((body: string) => body.startsWith('<!-- factory-failure:')).length, 0);
+test('the starting acknowledgement becomes the result for the same turn', () => {
+    const result = runController('queued', 'planning', true);
+    assert.equal(result.comments.length, 1);
+    assert.match(result.comments[0], /factory-turn:42/);
+    assert.match(result.comments[0], /New handoff/);
 });
 
 test('publication race recovers the completed change and verifies again without a second model call', () => {
-    const result = runController('queued', 'coding', true, false, false, true);
+    const result = runController('queued', 'coding', true, false, true);
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(result.passes, [
         { verifyOnly: false, candidateHead: 'live-head' },

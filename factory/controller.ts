@@ -34,16 +34,19 @@ async function pages(path: string) {
         if (batch.length < 100) return items;
     }
 }
+const acknowledgeOnly = process.argv.includes('--acknowledge');
 const statePath = 'contents/state.json?ref=factory-state';
 let stored: any;
 try { stored = await api(statePath); } catch (error) {
     if (!String(error).includes(': 404 ')) throw error;
-    const main = await api('git/ref/heads/main');
-    try {
-        await api('git/refs', 'POST', { ref: 'refs/heads/factory-state', sha: main.object.sha });
-    } catch (createError) {
-        // A state branch may already exist without its initial file.
-        if (!String(createError).includes(': 422 ')) throw createError;
+    if (!acknowledgeOnly) {
+        const main = await api('git/ref/heads/main');
+        try {
+            await api('git/refs', 'POST', { ref: 'refs/heads/factory-state', sha: main.object.sha });
+        } catch (createError) {
+            // A state branch may already exist without its initial file.
+            if (!String(createError).includes(': 422 ')) throw createError;
+        }
     }
 }
 const state: Ledger = stored
@@ -57,6 +60,18 @@ async function save() {
     writeFileSync(join(process.env.RUNNER_TEMP ?? '/tmp', 'factory-state-checkpoint.json'), content);
     stored = { sha: await saveState(api, stored?.sha, Buffer.from(content).toString('base64')) };
     saved = JSON.stringify(state);
+}
+// The owner-event job runs outside the coding queue so even a busy runner can acknowledge a turn.
+if (acknowledgeOnly) {
+    const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH!, 'utf8'));
+    if (event.issue.state === 'open') {
+        const comments = await pages(`issues/${event.issue.number}/comments`);
+        reconcileDiscussion(state, event.issue.number, event.issue.body ?? '',
+            comments.filter(item => item.id <= event.comment.id), owner);
+        const current = state.work[event.issue.number];
+        if (current?.turn === String(event.comment.id)) await updateTurn(current, true);
+    }
+    process.exit(0);
 }
 async function reconcile() {
     const issues = await pages('issues?state=all&sort=created&direction=asc');
@@ -81,6 +96,7 @@ for (const item of Object.values(state.work)) {
 const work = claim(state);
 if (work) work.runUrl = `${process.env.GITHUB_SERVER_URL}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 await save();
+if (work) await updateTurn(work);
 if (work && work.phase !== 'coding') {
     const attempt = work.attempt;
     const guidance = ['CLAUDE.md', 'WORKFLOW.md'].map(path =>
@@ -180,26 +196,30 @@ for (const current of Object.values(state.work)) {
     const preview = `https://codespaces.new/${repo}?ref=${encodeURIComponent(current.branch)}`;
     const report = `Candidate: **${name}**\nCommit: ${current.head}\n\n[Open Obsidian preview](${preview}) · [Checks](${run.html_url}) · [Draft PR](${current.pr})\n\n${current.result}\n\nTry the acceptance cases above in Obsidian, then reply here with feedback. Merge remains manual.`;
     current.result = report;
-    const marker = `<!-- factory-candidate:${name} -->`;
-    const comments = await pages(`issues/${current.issue}/comments`);
-    if (!comments.some(item => item.user.type === 'Bot' && item.body.startsWith(marker))) {
-        await api(`issues/${current.issue}/comments`, 'POST', { body: `${marker}\n${report}` });
-    }
 }
+// State precedes publication so replay can repair a lost comment or response.
 await save();
-// One stable status comment per issue; replay repairs publication after a crash.
-for (const current of Object.values(state.work)) {
-    const marker = '<!-- bullet-flow-factory-status -->';
-    const body = `${marker}\nFactory: **${current.stage}** · specification ${current.revision} · attempt ${current.attempt}\n\n${current.result}\n\n${current.runUrl}\n\nCommands: /factory pause, resume, stop, retry, implement (each as a separate comment).`;
+for (const current of Object.values(state.work)) await updateTurn(current);
+
+async function updateTurn(current: import('./state.ts').Work, acknowledgeOnly = false) {
+    const marker = current.turn ? `<!-- factory-turn:${current.turn} -->` : '<!-- bullet-flow-factory-status -->';
+    const starting = ['queued', 'running'].includes(current.stage);
+    const detail = starting ? (current.stage === 'queued' ? 'Queued to start.' : 'Starting work.') : current.result;
+    const body = `${marker}\nFactory: **${current.stage}** · attempt ${current.attempt}\n\n${detail}\n\n${current.stage === 'queued' ? '' : current.runUrl}`.trimEnd();
     const comments = await pages(`issues/${current.issue}/comments`);
-    if (current.stage === 'blocked') {
-        const failureMarker = `<!-- factory-failure:${current.issue}:${current.revision}:${current.attempt} -->`;
-        if (!comments.some(item => item.user.type === 'Bot' && item.body.startsWith(failureMarker))) {
-            await api(`issues/${current.issue}/comments`, 'POST', { body: `${failureMarker}\nFactory attempt ${current.attempt} blocked.\n\n${current.result.slice(0, 2000)}\n\n[Run and evidence](${current.runUrl})\n\nAfter the blocker is fixed, post /factory retry.` });
+    if (!acknowledgeOnly && current.turn) {
+        for (const item of comments) {
+            const prior = /^<!-- factory-turn:(\d+) -->\nFactory: \*\*(queued|running|verifying)\*\*/.exec(item.body);
+            if (item.user.type === 'Bot' && prior && Number(prior[1]) < Number(current.turn)) {
+                await api(`issues/comments/${item.id}`, 'PATCH', { body: `<!-- factory-turn:${prior[1]} -->\nSuperseded by a newer issue turn.` });
+            }
         }
     }
-    const previous = comments.find(item => item.user.type === 'Bot' && item.body.startsWith(marker));
-    if (previous?.body === body) continue;
+    const matches = comments.filter(item => item.user.type === 'Bot' && item.body.startsWith(marker));
+    const [previous, ...duplicates] = matches;
+    // A scheduled replay can overlap the fast acknowledgement. Keep the oldest reply.
+    if (!acknowledgeOnly) for (const duplicate of duplicates) await api(`issues/comments/${duplicate.id}`, 'DELETE');
+    if ((acknowledgeOnly && previous) || previous?.body === body) return;
     await api(previous ? `issues/comments/${previous.id}` : `issues/${current.issue}/comments`, previous ? 'PATCH' : 'POST', { body });
 }
 // Report failure only after durable state and the user-facing status are saved.

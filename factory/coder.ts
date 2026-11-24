@@ -11,7 +11,12 @@ existing architecture and smallest useful change. Do not alter quality gates,
 factory code, workflows, dependencies or repository guidance (including CLAUDE.md
 and AGENTS.md anywhere). You may edit CHANGELOG.md and README.md. These restrictions
 also apply if the handoff requests a protected-file edit; report it separately
-in the summary and do not treat that documentation edit as unfinished product behavior. Do not publish,
+in the summary and do not treat that documentation edit as unfinished product behavior. If a protected-file conflict or factory defect blocks acceptance, preserve the
+product patch and tests. Name the affected files and the required maintainer
+action in remaining.kind=implementation. Never change documented behavior,
+weaken tests or rearrange fixtures to bypass the conflict. For a nonblocking
+factory improvement, finish the feature and flag the suggestion for a separate
+maintainer-reviewed issue and PR against main. Do not publish,
 commit or merge. Explain unresolved product decisions rather than guessing.
 Provide feature-specific Markdown fixtures in .devcontainer/vault/ and link them
 from Start here.md with exact actions and expected results. For current periods,

@@ -4,6 +4,7 @@ export interface Work {
     issue: number; stage: Stage; revision: number; attempt: number; failures: number;
     agreement: string; result: string; runUrl: string;
     phase?: 'planning' | 'coding'; approvedHandoff?: string;
+    turn?: string;
     checkpoint?: CheckpointRef;
     publicationPending?: boolean; branch?: string; head?: string; pr?: string; candidate?: string;
 }
@@ -16,10 +17,11 @@ export function command(state: Ledger, issue: number, id: string, body: string, 
     let work = state.work[issue];
     if (!work) {
         if (match[1] !== 'start') return;
-        work = state.work[issue] = { issue, stage: 'queued', revision: 1, attempt: 0,
+        work = state.work[issue] = { issue, stage: 'queued', turn: id, revision: 1, attempt: 0,
             failures: 0, agreement, result: '', runUrl: '' };
         return;
     }
+    const previousStage = work.stage;
     switch (match[1]) {
         case 'implement':
             if (work.stage !== 'waiting' || !work.result.trim() || work.agreement !== agreement) break;
@@ -42,6 +44,7 @@ export function command(state: Ledger, issue: number, id: string, body: string, 
             if (work.stage === 'blocked') work.stage = 'queued';
             break;
     }
+    if (work.stage !== previousStage) work.turn = id;
 }
 export function claim(state: Ledger): Work | undefined {
     if (Object.values(state.work).some(work => work.stage === 'running')) return;
@@ -63,5 +66,6 @@ export function feedback(state: Ledger, issue: number, id: string, agreement: st
     if (!work || !['waiting', 'queued', 'running', 'verifying', 'preview'].includes(work.stage)) return;
     if (work.agreement !== agreement) { work.agreement = agreement; work.revision++; }
     if (work.stage === 'running') work.attempt++;
+    work.turn = id;
     work.stage = 'queued';
 }
