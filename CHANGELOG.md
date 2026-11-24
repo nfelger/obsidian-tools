@@ -5,6 +5,24 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Ticking a task in a weekly, monthly or yearly note files it down to
+  today's daily log.** The task travels one level at a time — a tick in a
+  yearly note passes through the month and the week — and lands completed in
+  today's log. Every note it passes through keeps it marked as scheduled, so
+  your weekly, monthly and yearly notes no longer collect finished work.
+  A task grouped under a project collector arrives with the project link as
+  its prefix, just as push task down files it.
+
+### Fixed
+
+- **A project task finished in a weekly, monthly or yearly note is logged once.**
+  When *Complete project task* files the completion and the cascade runs on the
+  same tick, the project note keeps a single log entry instead of two.
+
 ## [0.19.1] - 2026-08-10
 
 ### Fixed

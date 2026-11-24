@@ -168,15 +168,20 @@ The disposable Codespace starts on container start and retries on editor attach.
 Startup requests and desktop readiness failures appear in `.preview/session.log`.
 A session lock prevents duplicate Obsidian processes. Periodic Notes 0.0.17 is
 installed and enabled through obsidian-launcher, with daily, ISO-weekly, monthly,
-quarterly and yearly folders/formats configured. Missing configuration is seeded
-for existing vaults; reset restores the full fixture vault. Existing user edits
-are retained until reset. Rebuild older Codespaces to pick up lifecycle changes.
+quarterly and yearly folders/formats configured. Each launch applies the README’s periodic paths and disables core Daily Notes. Reset restores the fixture vault.
 
-Feature implementations must supply Markdown fixtures in `.devcontainer/vault/`,
-linked from `Start here.md`, with actions and expected results. Date tokens
-`{{today}}`, `{{week}}`, `{{month}}`, `{{year}}` in note paths and content expand
-when a vault is first seeded or reset. Configuration and executable preview files
-remain protected. Use a fresh Codespace on the candidate branch to test new fixtures.
+Add feature-specific Markdown notes under `.devcontainer/vault/`. Link them from
+`Start here.md` with the action to take and the expected result for each scenario.
+For current periods, use `{{dailyPath}}`, `{{weeklyPath}}`, `{{monthlyPath}}`,
+or `{{yearlyPath}}`. These expand to the complete path configured in Periodic
+Notes, including its folders. For example, put `{{weeklyPath}}.md` at the fixture
+root and link to it as `[[{{weeklyPath}}]]`. A fresh seed or reset on 17 November
+2026 expands that link to `[[+Diary/2026/11/2026-11-W47]]`.
+
+Expansion applies to filenames and Markdown contents. Use `{{today}}`, `{{week}}`,
+`{{month}}` and `{{year}}` for short labels. Use literal dates for historical
+cases. Keep feature fixtures in Markdown and leave preview configuration and
+launch scripts to the factory.
 
 `WORKFLOW.md` is exclusively the owner's domain-level Obsidian workflow.
 Factory implementation/operation documentation belongs here, or in `docs/specs/`.

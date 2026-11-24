@@ -51,15 +51,18 @@ for (let attempt = 0; attempt < 60; attempt++) {
 }
 if (!desktopReady) throw new Error(`Desktop ${process.env.DISPLAY} unavailable after 60 seconds. Check desktop-lite services and reconnect to retry.`);
 const periodicConfig = resolve(vault, '.obsidian/plugins/periodic-notes/data.json');
-if (!existsSync(periodicConfig)) {
-    mkdirSync(resolve(vault, '.obsidian/plugins/periodic-notes'), { recursive: true });
-    cpSync('.devcontainer/vault/.obsidian/plugins/periodic-notes/data.json', periodicConfig);
-}
+mkdirSync(resolve(vault, '.obsidian/plugins/periodic-notes'), { recursive: true });
+cpSync('.devcontainer/vault/.obsidian/plugins/periodic-notes/data.json', periodicConfig);
+const coreFile = resolve(vault, '.obsidian/core-plugins.json');
+const core = JSON.parse(readFileSync(coreFile, 'utf8'));
+if (Array.isArray(core)) writeFileSync(coreFile, JSON.stringify(core.filter(id => id !== 'daily-notes')));
+else writeFileSync(coreFile, JSON.stringify({ ...core, 'daily-notes': false }));
 console.log(`Launching Obsidian with Bullet Flow and Periodic Notes on ${process.env.DISPLAY}`);
 const env = Object.fromEntries(['HOME', 'PATH', 'DISPLAY', 'USER', 'LANG', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS'].filter(key => process.env[key]).map(key => [key, process.env[key]]));
 const launcher = new ObsidianLauncher();
 const { proc } = await launcher.launch({
     appVersion: 'latest', vault, plugins: [candidateDir, { repo: 'liamcain/obsidian-periodic-notes', version: '0.0.17', enabled: true }],
+    themes: [{ repo: 'kepano/obsidian-minimal', version: '9.1.4', enabled: true }],
     args: ['--disable-dev-shm-usage'],
     spawnOptions: { env, stdio: 'inherit' },
 });

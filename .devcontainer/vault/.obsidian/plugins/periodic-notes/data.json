@@ -1,32 +1,32 @@
 {
   "daily": {
     "enabled": true,
-    "folder": "Daily",
-    "format": "YYYY-MM-DD",
+    "folder": "+Diary",
+    "format": "YYYY/MM/YYYY-MM-DD ddd",
     "template": ""
   },
   "weekly": {
     "enabled": true,
-    "folder": "Weekly",
-    "format": "GGGG-[W]WW",
+    "folder": "+Diary",
+    "format": "GGGG/MM/GGGG-MM-[W]WW",
     "template": ""
   },
   "monthly": {
     "enabled": true,
-    "folder": "Monthly",
-    "format": "YYYY-MM",
+    "folder": "+Diary",
+    "format": "YYYY/YYYY-MM MMM",
     "template": ""
   },
   "quarterly": {
     "enabled": true,
-    "folder": "Quarterly",
-    "format": "YYYY-[Q]Q",
+    "folder": "+Diary",
+    "format": "YYYY/YYYY-[Q]Q",
     "template": ""
   },
   "yearly": {
     "enabled": true,
-    "folder": "Yearly",
-    "format": "YYYY",
+    "folder": "+Diary",
+    "format": "YYYY/YYYY",
     "template": ""
   },
   "showGettingStartedBanner": false,

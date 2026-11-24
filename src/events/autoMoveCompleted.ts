@@ -14,16 +14,39 @@
  * That applies in both sections: a task ticked in Todo is filed to its project
  * and moved under Log, and one ticked where it already sits in Log is filed
  * without moving.
+ *
+ * A weekly, monthly or yearly note never holds a completed task: ticking one
+ * there cascades it down one level at a time until it reaches today's daily
+ * note, where it lands completed under the daily log heading. Every note it
+ * passes through keeps it as [<], so the trail stays readable, and a note that
+ * already holds the task merges with it the way push down does.
  */
 
 import { EditorView, ViewUpdate } from '@codemirror/view';
 import { Annotation, Extension } from '@codemirror/state';
 import type { ChangeSet, Text } from '@codemirror/state';
-import { editorInfoField, TFile } from 'obsidian';
+import { editorInfoField, Notice, TFile } from 'obsidian';
 import type BulletFlowPlugin from '../main';
+import type { NoteInfo } from '../types';
 import { PeriodicNoteService } from '../utils/periodicNotes';
 import { getPeriodicConfig } from '../adapters/periodicNoteCreator';
 import { TaskMarker, TaskState } from '../utils/tasks';
+import {
+	computeSourceSchedule,
+	extractCascadePayload,
+	findAncestorLines,
+	insertCompletedIntoLog,
+	withCollectorPrefix,
+	scheduleIntoNote,
+	type CascadePayload,
+	type CascadeProject
+} from '../utils/cascade';
+import { getOrCreateFile } from '../adapters/commandSetup';
+import { detectProjectContext, findProjectLinkInAncestors, parseProjectKeywords } from '../utils/projects';
+import type { ProjectTaskContext } from '../utils/projects';
+import { ObsidianLinkResolver } from '../utils/wikilinks';
+import { buildCompletionEntry, completionSubHeading, isCompletionLogged, writeProjectCompletions } from '../adapters/projectCompletion';
+import { NOTICE_TIMEOUT_ERROR } from '../config';
 import {
 	computeAutoMove,
 	computeLineRangeRemoval,
@@ -166,7 +189,14 @@ export async function runAutoMove(
 ): Promise<void> {
 	const noteService = new PeriodicNoteService(getPeriodicConfig());
 	const noteInfo = noteService.parseNoteType(file.basename);
-	if (!noteInfo || noteInfo.type !== 'daily') return;
+	if (!noteInfo) return;
+
+	// A weekly, monthly or yearly note doesn't hold completed tasks: the
+	// tick cascades down to today's daily note instead.
+	if (noteInfo.type !== 'daily') {
+		await runPeriodicCascade(plugin, file, doc, { noteService, noteInfo }, completedLine);
+		return;
+	}
 
 	const todoHeading = plugin.settings.periodicNoteTaskTargetHeading;
 	const logHeading = plugin.settings.dailyNoteLogHeading;
@@ -179,6 +209,260 @@ export async function runAutoMove(
 	if (completedLine !== null && completedLine !== movedFromTodo) {
 		await completeLogTrigger(plugin, file, doc, logHeading, completedLine);
 	}
+}
+
+/** Everything the cascade needs to plan its hops. */
+interface CascadeContext {
+	plugin: BulletFlowPlugin;
+	noteService: PeriodicNoteService;
+	noteInfo: NoteInfo;
+	today: Date;
+	/** Basename of the note the task was ticked in */
+	sourceBasename: string;
+	/** The task travelling down, with the children that travel with it */
+	payload: CascadePayload;
+}
+
+/**
+ * Cascade a task ticked in a weekly, monthly or yearly note down to today's
+ * daily note, one level at a time.
+ *
+ * The task travels as `[<]` through every note it passes through and lands
+ * completed in the daily note's log. A note that already holds the task
+ * merges with it the way push down does.
+ */
+async function runPeriodicCascade(
+	plugin: BulletFlowPlugin,
+	file: TFile,
+	doc: AutoMoveDoc,
+	source: { noteService: PeriodicNoteService; noteInfo: NoteInfo },
+	completedLine: string | null
+): Promise<void> {
+	// Only a completed task cascades; a started one stays put.
+	if (completedLine === null) return;
+
+	const { noteService, noteInfo } = source;
+	const today = plugin.getToday ? plugin.getToday() : new Date();
+	if (!noteService.dateIsInPeriod(today, noteInfo)) {
+		new Notice('Auto-move: Today is not in this period — the task stays completed here.');
+		return;
+	}
+
+	const docText = doc.getText();
+	const taskLine = findTickedLine(docText, completedLine);
+	if (taskLine === null) return;
+
+	const extracted = extractCascadePayload(docText, taskLine);
+	if (!extracted) return;
+	const payload = carryCollectorPrefix(plugin, file, findAncestorLines(docText, taskLine), extracted);
+
+	const sourceLine = docText.split('\n')[taskLine];
+	const context: CascadeContext = {
+		plugin,
+		noteService,
+		noteInfo,
+		today,
+		sourceBasename: file.basename,
+		payload
+	};
+
+	try {
+		await cascadeDown(context);
+	} catch (e: any) {
+		new Notice(`Auto-move error: ${e.message}`, NOTICE_TIMEOUT_ERROR);
+		console.error('periodicCascade error:', e);
+		return;
+	}
+
+	// The source is edited last, and only when the ticked line is still there.
+	const freshText = doc.getText();
+	if (freshText.split('\n')[taskLine] !== sourceLine) return;
+	const change = computeSourceSchedule(freshText, taskLine);
+	if (change) doc.dispatch([change]);
+}
+
+/**
+ * A task grouped under a project (a collector or any project-linked parent)
+ * leaves it the way push down moves it: carrying the project's link as its
+ * own prefix.
+ */
+function carryCollectorPrefix(
+	plugin: BulletFlowPlugin,
+	file: TFile,
+	ancestorLines: string[],
+	payload: CascadePayload
+): CascadePayload {
+	if (projectContext(plugin, file, payload)?.hasOwnPrefix) return payload;
+	const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
+	for (const line of ancestorLines) {
+		const ancestor = findProjectLinkInAncestors({ getLine: () => line }, [], 0, file.path, resolver, plugin.settings);
+		if (ancestor) return withCollectorPrefix(payload, ancestor.link.matchText);
+	}
+	return payload;
+}
+
+/**
+ * Find the line the user just ticked: the one line in the note that carries
+ * the ticked text. Several identical lines make it unknowable which one was
+ * ticked, so nothing moves.
+ */
+function findTickedLine(docText: string, completedLine: string): number | null {
+	const lines = docText.split('\n');
+	const candidates: number[] = [];
+	lines.forEach((line, index) => {
+		if (line !== completedLine) return;
+		if (TaskMarker.fromLine(line)?.state !== TaskState.Completed) return;
+		candidates.push(index);
+	});
+	return candidates.length === 1 ? candidates[0] : null;
+}
+
+/**
+ * The notes below the source, down to today's daily note.
+ */
+function periodicChain(
+	noteService: PeriodicNoteService,
+	noteInfo: NoteInfo,
+	today: Date
+): string[] {
+	const chain: string[] = [];
+	let current = noteInfo;
+
+	while (true) {
+		let lower: string | null = null;
+		try {
+			lower = noteService.getLowerNotePath(current, today);
+		} catch {
+			lower = null;
+		}
+		if (!lower) break;
+		chain.push(lower);
+		const nextInfo = noteService.parseNoteType(lower.split('/').pop() ?? '');
+		if (!nextInfo || nextInfo.type === 'daily') break;
+		current = nextInfo;
+	}
+
+	return chain;
+}
+
+/**
+ * Write the task into every note of the chain, bottom-up: the daily note and
+ * the project note first, then the notes in between. A failure leaves the
+ * source untouched.
+ */
+async function cascadeDown(ctx: CascadeContext): Promise<void> {
+	const { plugin, noteService, today } = ctx;
+	const chain = periodicChain(noteService, ctx.noteInfo, today);
+	if (chain.length === 0) return;
+
+	const dailyPath = `${chain[chain.length - 1]}.md`;
+	const intermediatePaths = chain.slice(0, -1).map((path) => `${path}.md`);
+	const todoHeading = plugin.settings.periodicNoteTaskTargetHeading;
+	const logHeading = plugin.settings.dailyNoteLogHeading;
+
+	const dailyFile = await getOrCreateFile(plugin, dailyPath);
+	if (!dailyFile) throw new Error(`Could not create ${dailyPath}`);
+
+	// Work out what every note in the chain holds, before writing anything.
+	const intermediates: Array<{ file: TFile; payload: CascadePayload }> = [];
+	let travelling = ctx.payload;
+	for (const path of intermediatePaths) {
+		const target = await getOrCreateFile(plugin, path);
+		if (!target) throw new Error(`Could not create ${path}`);
+		intermediates.push({ file: target, payload: travelling });
+		const content = await plugin.app.vault.read(target);
+		travelling = scheduleIntoNote(content, travelling, todoHeading, cascadeOptions(plugin, target, travelling)).payload;
+	}
+
+	// A project task's children belong in the project note; the daily log
+	// gets the task line alone.
+	const project = projectContext(plugin, dailyFile, travelling);
+
+	await plugin.app.vault.process(dailyFile, (data: string) =>
+		insertCompletedIntoLog(data, travelling, logHeading, { withChildren: !project })
+	);
+
+	if (project) {
+		const projectFile = plugin.app.vault.getAbstractFileByPath(project.path) as TFile;
+		if (projectFile && !(await completionAlreadyLogged(ctx, projectFile, dailyFile, project))) {
+			const { entry } = buildCompletionEntry(travelling.taskLine, travelling.children, project.strippedText);
+			await writeProjectCompletions(
+				plugin,
+				dailyFile.basename,
+				new Map([[project.path, { file: projectFile, entries: [entry] }]])
+			);
+		}
+	}
+
+	// The notes in between, nearest the daily note first.
+	for (const item of [...intermediates].reverse()) {
+		await plugin.app.vault.process(item.file, (data: string) =>
+			scheduleIntoNote(data, item.payload, todoHeading, cascadeOptions(plugin, item.file, item.payload)).content
+		);
+	}
+}
+
+/**
+ * Whether the project note's log already holds this completion.
+ *
+ * Two paths can file the same completion, and the second one must not add a
+ * second entry: the `Complete project task` command files it under the note
+ * it ran in, and the cascade files it under the daily note. Whichever ran
+ * first, the project note holds one entry.
+ */
+async function completionAlreadyLogged(
+	ctx: CascadeContext,
+	projectFile: TFile,
+	dailyFile: TFile,
+	project: ProjectTaskContext
+): Promise<boolean> {
+	const logHeading = ctx.plugin.settings.logExtractionTargetHeading;
+	const content = await ctx.plugin.app.vault.read(projectFile);
+	return [ctx.sourceBasename, dailyFile.basename].some(basename =>
+		isCompletionLogged(content, project.strippedText, logHeading, completionSubHeading(logHeading, basename))
+	);
+}
+
+/**
+ * How a note in between matches the travelling task: a project task matches
+ * a copy with an alias or under its collector, as push down does.
+ */
+function cascadeOptions(
+	plugin: BulletFlowPlugin,
+	file: TFile,
+	travelling: CascadePayload
+): { project?: CascadeProject } {
+	const project = projectContext(plugin, file, travelling);
+	if (!project) return {};
+	return {
+		project: {
+			projectName: project.projectName,
+			strippedText: project.strippedText,
+			keywords: parseProjectKeywords(plugin.settings.projectKeywords)
+		}
+	};
+}
+
+/**
+ * The project a travelling task belongs to, when it carries its own
+ * `[[Project]]` prefix.
+ */
+function projectContext(
+	plugin: BulletFlowPlugin,
+	file: TFile,
+	travelling: CascadePayload
+): ProjectTaskContext | null {
+	const resolver = new ObsidianLinkResolver(plugin.app.metadataCache, plugin.app.vault);
+	const ctx = detectProjectContext(
+		{ getLine: () => travelling.taskLine },
+		[],
+		0,
+		file.path,
+		resolver,
+		plugin.settings
+	);
+	if (!ctx || !ctx.hasOwnPrefix) return null;
+	return ctx;
 }
 
 /**

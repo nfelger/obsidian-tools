@@ -1,1 +1,28 @@
-{"main": {"id": "main", "type": "split", "children": [{"id": "tabs", "type": "tabs", "children": [{"id": "start", "type": "leaf", "state": {"type": "markdown", "state": {"file": "Start here.md", "mode": "preview"}}}]}], "direction": "vertical"}, "active": "start"}
+{
+  "main": {
+    "id": "main",
+    "type": "split",
+    "children": [
+      {
+        "id": "tabs",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "start",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Start here.md",
+                "mode": "source",
+                "source": false
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "active": "start"
+}

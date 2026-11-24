@@ -9,7 +9,7 @@ An Obsidian plugin for BuJo-inspired knowledge management: extract logs from dai
 **Key Features:**
 - **Extract Log** — Move nested content from daily notes to project/area notes via wikilinks
 - **Migrate Task** — BuJo-style task migration between periodic notes (daily/weekly/monthly/yearly)
-- **Auto-Move Completed** — Completed tasks in daily notes automatically move from Todo to Log, and project tasks are completed in their project note on the way
+- **Auto-Move Completed** — Completed tasks in daily notes automatically move from Todo to Log, and project tasks are completed in their project note on the way. Ticking a task in a weekly, monthly or yearly note files it down to today's daily log, one level at a time
 - **Custom Checkboxes** — Visual task markers (e.g., `[o]` for meetings) injected automatically
 
 ## Installation
