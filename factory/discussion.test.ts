@@ -42,14 +42,14 @@ test('only owner human replies can resume work', () => {
 });
 
 test('owner replies preserve pause, stop and failure states', () => {
-    for (const command of ['pause', 'stop', 'blocked']) {
+    for (const command of ['pause', 'stop', 'failed']) {
         const { state, comments } = waiting();
-        if (command === 'blocked') state.work[1].stage = 'blocked';
+        if (command === 'failed') state.work[1].stage = 'failed';
         else comments.push(comment(2, `/factory ${command}`));
         comments.push(comment(3, 'New answer'));
         reconcileDiscussion(state, 1, 'Show the destination', comments, 'owner');
         assert.equal(claim(state), undefined);
-        assert.equal(state.work[1].stage, command === 'pause' ? 'paused' : command === 'stop' ? 'stopped' : 'blocked');
+        assert.equal(state.work[1].stage, command === 'pause' ? 'paused' : command === 'stop' ? 'stopped' : 'failed');
         if (command === 'pause') {
             comments.push(comment(4, '/factory resume'));
             reconcileDiscussion(state, 1, 'Show the destination', comments, 'owner');
@@ -82,4 +82,20 @@ test('existing command-only state does not replay old replies as new work', () =
     comments.push(comment(4, 'New answer'));
     reconcileDiscussion(state, 1, 'Show the destination', comments, 'owner');
     assert.equal(claim(state)?.stage, 'running');
+});
+
+test('a blocking decision needs an owner reply before implementation', () => {
+    const state = empty();
+    const comments = [comment(1, '/factory start')];
+    reconcileDiscussion(state, 1, 'Move notes', comments, 'owner');
+    const work = claim(state)!;
+    settle(work, work.attempt, 'Blocking decision\nMay existing notes be overwritten?', false);
+    assert.equal(work.stage, 'blocked');
+    comments.push(comment(2, '/factory implement'));
+    reconcileDiscussion(state, 1, 'Move notes', comments, 'owner');
+    assert.equal(claim(state), undefined);
+    comments.push(comment(3, 'Keep both notes.'));
+    reconcileDiscussion(state, 1, 'Move notes', comments, 'owner');
+    assert.equal(claim(state), work);
+    assert.notEqual(work.phase, 'coding');
 });

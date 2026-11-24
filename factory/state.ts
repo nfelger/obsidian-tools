@@ -1,5 +1,5 @@
 import type { CheckpointRef } from './checkpoint.ts';
-export type Stage = 'queued' | 'running' | 'waiting' | 'paused' | 'verifying' | 'preview' | 'blocked' | 'stopped';
+export type Stage = 'queued' | 'running' | 'waiting' | 'paused' | 'verifying' | 'preview' | 'failed' | 'blocked' | 'stopped';
 export interface Work {
     issue: number; stage: Stage; revision: number; attempt: number; failures: number;
     agreement: string; result: string; runUrl: string;
@@ -41,7 +41,7 @@ export function command(state: Ledger, issue: number, id: string, body: string, 
             work.stage = 'queued'; break;
         case 'retry':
             // A fresh owner command authorizes one bounded attempt; keep failure history.
-            if (work.stage === 'blocked') work.stage = 'queued';
+            if (work.stage === 'failed' || work.stage === 'blocked') work.stage = 'queued';
             break;
     }
     if (work.stage !== previousStage) work.turn = id;
@@ -55,15 +55,20 @@ export function claim(state: Ledger): Work | undefined {
 export function settle(work: Work, attempt: number, result: string, failed: boolean) {
     if (work.stage !== 'running' || work.attempt !== attempt) return;
     work.result = result;
-    work.stage = failed ? 'blocked' : 'waiting';
+    work.stage = failed ? 'failed' : 'waiting';
+    if (!failed && work.phase !== 'coding' && needsOwnerDecision(result)) work.stage = 'blocked';
     if (failed) work.failures++;
+}
+
+export function needsOwnerDecision(handoff: string) {
+    return handoff.trimStart().split('\n', 1)[0].trimEnd() === 'Blocking decision';
 }
 
 export function feedback(state: Ledger, issue: number, id: string, agreement: string) {
     if (state.processed.includes(id)) return;
     state.processed.push(id);
     const work = state.work[issue];
-    if (!work || !['waiting', 'queued', 'running', 'verifying', 'preview'].includes(work.stage)) return;
+    if (!work || !['waiting', 'blocked', 'queued', 'running', 'verifying', 'preview'].includes(work.stage)) return;
     if (work.agreement !== agreement) { work.agreement = agreement; work.revision++; }
     if (work.stage === 'running') work.attempt++;
     work.turn = id;
