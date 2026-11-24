@@ -1,0 +1,58 @@
+name: Factory review
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+permissions: {}
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      manual: ${{ steps.diff.outputs.manual }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Classify exceptional changes with base-branch policy
+        id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          git fetch --no-tags origin "refs/pull/$PR/head"
+          manual=$(node factory/review-exceptions.mjs "$BASE" "$HEAD")
+          echo "manual=$manual" >> "$GITHUB_OUTPUT"
+  approval:
+    needs: classify
+    if: needs.classify.outputs.manual == 'true'
+    environment: factory-review
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Owner approved this revision.'
+  record:
+    needs: [classify, approval]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - uses: actions/github-script@v7
+        env:
+          PASSED: ${{ needs.classify.result == 'success' && ((needs.classify.outputs.manual == 'false' && needs.approval.result == 'skipped') || (needs.classify.outputs.manual == 'true' && needs.approval.result == 'success')) }}
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha: context.payload.pull_request.head.sha,
+              context: 'factory-review-policy',
+              state: process.env.PASSED === 'true' ? 'success' : 'failure',
+              target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });
