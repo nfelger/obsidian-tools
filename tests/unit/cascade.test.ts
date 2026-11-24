@@ -163,7 +163,6 @@ describe('cascade', () => {
 				'## Todo'
 			);
 
-			expect(result.merged).toBe(false);
 			expect(result.content).toContain('- [<] Call Sam');
 			expect(result.lineNumber).toBe(result.content.split('\n').findIndex((l) => l.includes('Call Sam')));
 		});
@@ -181,7 +180,6 @@ describe('cascade', () => {
 				'## Todo'
 			);
 
-			expect(result.merged).toBe(true);
 			expect(result.content.match(/Call Sam/g)?.length).toBe(1);
 			expect(result.content).toContain('Confirm the time');
 			expect(result.content).toContain('Ask about pricing');

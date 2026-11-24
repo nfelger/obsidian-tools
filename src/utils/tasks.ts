@@ -639,8 +639,6 @@ export function insertMultipleTasksWithDeduplication(
 /** Where a task landed in a note. */
 export interface TaskInsertResult {
 	content: string;
-	/** True when the note already held the task and the two were merged */
-	merged: boolean;
 	/** Line the task sits on in the returned content, -1 when unknown */
 	lineNumber: number;
 }
@@ -668,7 +666,6 @@ export function insertTaskWithDedup(
 
 	return {
 		content: result.content,
-		merged: result.mergedCount > 0,
 		lineNumber: landed ? landed.lineNumber : -1
 	};
 }

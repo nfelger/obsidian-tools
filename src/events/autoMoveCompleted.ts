@@ -194,7 +194,7 @@ export async function runAutoMove(
 	// A weekly, monthly or yearly note doesn't hold completed tasks: the
 	// tick cascades down to today's daily note instead.
 	if (noteInfo.type !== 'daily') {
-		await runPeriodicCascade(plugin, file, doc, noteInfo, completedLine);
+		await runPeriodicCascade(plugin, file, doc, { noteService, noteInfo }, completedLine);
 		return;
 	}
 
@@ -214,16 +214,11 @@ export async function runAutoMove(
 /** Everything the cascade needs to plan its hops. */
 interface CascadeContext {
 	plugin: BulletFlowPlugin;
-	doc: AutoMoveDoc;
 	noteService: PeriodicNoteService;
 	noteInfo: NoteInfo;
 	today: Date;
 	/** Basename of the note the task was ticked in */
 	sourceBasename: string;
-	/** Line of the ticked task in the source note */
-	taskLine: number;
-	/** The ticked line as it was when the cascade started */
-	sourceLine: string;
 	/** The task travelling down, with the children that travel with it */
 	payload: CascadePayload;
 }
@@ -240,13 +235,13 @@ async function runPeriodicCascade(
 	plugin: BulletFlowPlugin,
 	file: TFile,
 	doc: AutoMoveDoc,
-	noteInfo: NoteInfo,
+	source: { noteService: PeriodicNoteService; noteInfo: NoteInfo },
 	completedLine: string | null
 ): Promise<void> {
 	// Only a completed task cascades; a started one stays put.
 	if (completedLine === null) return;
 
-	const noteService = new PeriodicNoteService(getPeriodicConfig());
+	const { noteService, noteInfo } = source;
 	const today = plugin.getToday ? plugin.getToday() : new Date();
 	if (!noteService.dateIsInPeriod(today, noteInfo)) {
 		new Notice('Auto-move: Today is not in this period — the task stays completed here.');
@@ -261,15 +256,13 @@ async function runPeriodicCascade(
 	if (!extracted) return;
 	const payload = carryCollectorPrefix(plugin, file, findAncestorLines(docText, taskLine), extracted);
 
+	const sourceLine = docText.split('\n')[taskLine];
 	const context: CascadeContext = {
 		plugin,
-		doc,
 		noteService,
 		noteInfo,
 		today,
 		sourceBasename: file.basename,
-		taskLine,
-		sourceLine: docText.split('\n')[taskLine],
 		payload
 	};
 
@@ -283,7 +276,7 @@ async function runPeriodicCascade(
 
 	// The source is edited last, and only when the ticked line is still there.
 	const freshText = doc.getText();
-	if (freshText.split('\n')[taskLine] !== context.sourceLine) return;
+	if (freshText.split('\n')[taskLine] !== sourceLine) return;
 	const change = computeSourceSchedule(freshText, taskLine);
 	if (change) doc.dispatch([change]);
 }
