@@ -1,8 +1,10 @@
+import type { CheckpointRef } from './checkpoint.ts';
 export type Stage = 'queued' | 'running' | 'waiting' | 'paused' | 'verifying' | 'preview' | 'blocked' | 'stopped';
 export interface Work {
     issue: number; stage: Stage; revision: number; attempt: number; failures: number;
     agreement: string; result: string; runUrl: string;
     phase?: 'planning' | 'coding'; approvedHandoff?: string;
+    checkpoint?: CheckpointRef;
     publicationPending?: boolean; branch?: string; head?: string; pr?: string; candidate?: string;
 }
 export interface Ledger { version: 1; processed: string[]; work: Record<string, Work> }

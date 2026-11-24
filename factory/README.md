@@ -27,7 +27,7 @@ post a new comment to continue.
 Use `/factory pause`, `/factory resume`, `/factory stop`, or `/factory retry` as
 standalone comments. Pause holds work even when you add replies; resume explicitly
 releases that hold. Stopped work cannot be resumed. Failed work requires retry,
-with at most three failed attempts; another issue is the explicit fresh budget.
+with each fresh owner retry authorizing one bounded attempt.
 Replies arriving during a call invalidate its result and queue the revised context.
 
 A versioned `state.json` on `factory-state` is authoritative. The workflow creates
@@ -105,7 +105,7 @@ updated planner handoff before approving. Implementation remains opt-in.
 MiniMax runs in a Docker container with Flue's standard coding tools, two repair
 cycles and one Opus escalation. The container has the OpenRouter key but no GitHub
 token or Docker socket. Trusted runtime code and the candidate workspace are separate.
-The controller accepts only text changes under `src/`, `tests/`, or `styles.css`,
+The controller accepts only text changes under `src/`, `tests/`, `styles.css`, `CHANGELOG.md`, `README.md`, or Markdown preview fixtures,
 with a bounded output size. Workflow, dependency, guidance and gate changes need
 separate human-reviewed work. CI independently verifies the published commit.
 
@@ -131,7 +131,44 @@ exit unsuccessfully after saving state and publishing issue status. An idle run
 does not fail merely because an issue was already blocked. Retry blocked work with
 the owner command `/factory retry` after the underlying problem is fixed.
 
-## Preview fixtures
+## Factory failure recovery
+
+A new owner `/factory retry` comment authorizes one more attempt on a blocked
+issue, including after three failures. Failure history and the approved handoff
+are retained; replaying the same comment cannot authorize another attempt.
+Scheduled reconciliation does not automatically retry blocked work. Each coding
+attempt still has at most three implementer passes and one escalation pass.
+
+Coding starts from the live issue branch, or main for a new branch. The controller
+records validated edits with their original base in the run's coding-evidence
+artifact (retained for 14 days). A retry of the same revision restores the patch
+by cherry-picking it into a fresh checkout. This also recovers completed artifacts
+from older runs blocked because their issue branch advanced.
+
+If the branch advances before publication, the controller repeats that integration
+within the same 45-minute budget. A clean, completed patch goes straight to
+verification. Conflicts, incomplete work and failed checks go to the coding agent
+for repair. Publication uses a non-forced update. New issue instructions supersede
+the old revision and its checkpoint.
+
+The coder reports acceptance-case evidence and remaining requirements in JSON.
+Unfinished work, malformed reports, prohibited edits and failed checks feed the
+next pass. A completed report must also pass fresh checks after its final edits.
+This is agent-reported coverage, not independent proof of requirement correctness;
+human preview remains required. Product docs CHANGELOG.md and README.md are
+publishable; agent guidance remains protected even when a handoff requests edits.
+
+State writes retry transient failures with read-back confirmation; a conflicting
+writer is never overwritten. Run artifacts include the latest local state checkpoint
+if saving fails permanently. Status reports show the current attempt's failure.
+
+## Preview fixtures and startup
+
+The disposable Codespace starts on container start and retries on editor attach.
+Startup requests and desktop readiness failures appear in `.preview/session.log`.
+A session lock prevents duplicate Obsidian processes. Periodic Notes 0.0.17 is
+installed and enabled through obsidian-launcher, with daily, ISO-weekly, monthly,
+quarterly and yearly folders/formats configured. Each launch applies the README’s periodic paths and disables core Daily Notes. Reset restores the fixture vault.
 
 Add feature-specific Markdown notes under `.devcontainer/vault/`. Link them from
 `Start here.md` with the action to take and the expected result for each scenario.
@@ -145,3 +182,22 @@ Expansion applies to filenames and Markdown contents. Use `{{today}}`, `{{week}}
 `{{month}}` and `{{year}}` for short labels. Use literal dates for historical
 cases. Keep feature fixtures in Markdown and leave preview configuration and
 launch scripts to the factory.
+
+`WORKFLOW.md` is exclusively the owner's domain-level Obsidian workflow.
+Factory implementation/operation documentation belongs here, or in `docs/specs/`.
+
+## Completion reports and failure notifications
+
+The controller parses a complete handoff (up to 1 MiB) before applying display
+limits. It accepts bare JSON or one fenced JSON object with surrounding prose;
+malformed or ambiguous reports remain incomplete. Acceptance cases marked
+incomplete always block publication. Legacy remaining-work strings also block.
+New remaining-work entries carry an explicit kind: `implementation` blocks,
+while `publication`, `accepted-assumption` and `protected-documentation` are notes.
+The latter describe controller-owned steps, defaults already approved in the
+handoff and edits forbidden by policy; they cannot excuse an incomplete case.
+
+The latest blocker is summarized when the pass budget is exhausted. Full raw
+handoff evidence remains in the coding artifact. Each blocked attempt gets one
+new concise issue notification with a run link, in addition to the stable status
+comment. Reconciliation repairs missing notifications without duplicating them.

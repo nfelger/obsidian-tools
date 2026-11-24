@@ -14,3 +14,8 @@ test('product docs are allowed but nested agent guidance remains protected with 
     for (const path of ['CLAUDE.md', 'tests/CLAUDE.md', 'src/AGENTS.md'])
         assert.throws(() => validateChanges([{ path, content: 'instructions' }]), error => String(error).includes(path));
 });
+test('preview fixture Markdown is publishable but hidden config and scripts are protected', () => {
+    validateChanges([{ path: '.devcontainer/vault/Weekly/{{week}}.md', content: 'sample' }]);
+    for (const path of ['.devcontainer/start.sh', '.devcontainer/vault/.obsidian/data.md', '.devcontainer/vault/a/.hidden.md', '.devcontainer/vault/script.js', '.devcontainer/vault/CLAUDE.md'])
+        assert.throws(() => validateChanges([{ path, content: 'bad' }]));
+});

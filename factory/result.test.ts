@@ -26,3 +26,11 @@ test('timeouts, signals and malformed output cannot masquerade as a successful r
     assert.match(agentResult({ stdout: '', status: null, error: new Error('spawn ETIMEDOUT') }).message, /ETIMEDOUT/);
     assert.match(agentResult({ stdout: '', status: null, signal: 'SIGTERM' }).message, /SIGTERM/);
 });
+
+test('structured coding reports are not truncated before completion parsing', () => {
+    const message = JSON.stringify({ summary: 'done', acceptanceCases: [{ id: '1', status: 'complete', evidence: 'x'.repeat(15000) }], remaining: [] });
+    const result = agentResult({ status: 0, stdout: JSON.stringify({ outcome: 'completed', message }) });
+    assert.equal(result.failed, false);
+    assert.equal(result.message, message);
+    assert.equal(agentResult({ status: 0, stdout: JSON.stringify({ outcome: 'completed', message: 'x'.repeat(1024 * 1024 + 1) }) }).failed, true);
+});
