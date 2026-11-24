@@ -28,7 +28,7 @@ export async function runCoding(repo: string, base: string, work: Work, beforePa
         let repair = recovery ? applyCheckpoint(workspace, recovery.base, recovery.patch) : '';
         const verifyRecovered = recovery?.patch.complete === true && !repair;
         if (recovery && !verifyRecovered) repair += '\nContinue the recovered implementation: ' + recovery.patch.message;
-        writeFileSync(join(input, 'agreement.json'), JSON.stringify({ agreement: work.agreement, approvedHandoff: work.approvedHandoff, priorResult: work.result, candidateHead: base }));
+        writeFileSync(join(input, 'agreement.json'), JSON.stringify({ agreement: work.agreement, approvedHandoff: work.approvedHandoff, approvedRevision: work.approvedRevision ?? 1, repair: work.repair, priorResult: work.result, candidateHead: base }));
         const deadline = options.deadline ?? Date.now() + 45 * 60 * 1000;
         const budget = options.budget ?? { modelPasses: 0 };
         const pass = async (feedback: string, verifyOnly = false) => {

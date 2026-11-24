@@ -122,8 +122,29 @@ separate human-reviewed work. CI independently verifies the published commit.
 The controller opens a draft PR on `factory/issue-<number>` and explicitly dispatches
 the factory controller checks for factory-only changes. The issue links to the checked commit and draft PR for owner review. Product changes run product CI. On success it posts the exact candidate, CI evidence, and a browser Codespaces
 preview link. Open the new Codespace on that issue branch; an existing Codespace
-remains pinned to its prior build. Owner feedback automatically requests another
-coding attempt on the same branch. Superseded coding and CI results cannot become
+remains pinned to its prior build.
+
+Planning keeps one bot comment marked `<!-- factory-agreement -->` as the issue's
+current agreement. Its header reads `Revision N · awaiting your approval` or
+`Revision N · approved, being built`; a planner "Changed since revision N" list
+follows, with the previous revision folded in `<details>`. A new revision appears
+only when the agreement text changes, so replaying the same replies is idempotent.
+Turn status comments link to the agreement instead of repeating it.
+`/factory implement` approves the revision awaiting approval. If a newer reply
+arrived first, the status names the revision the command covered and the one being drafted.
+
+Each result names the revision it builds: `Candidate K · builds revision N` for
+product previews and `Factory checks passed · builds revision N` for factory-only work.
+Older result comments keep their labels. An owner reply after approval stops any
+running build or pending CI and first gets a planner triage pass:
+
+- `Repair against revision N`: a defect against an approved example, or obvious
+  unlisted breakage (listed under "Also fixed"), is repaired on the same branch with no new approval.
+- `Proposed revision N+1`: a changed expectation, or a reply mixing a defect and a change,
+  becomes a new agreement revision. Nothing is built until `/factory implement`; coding then resumes on the same branch.
+- `Question`: when the reply could mean either and that changes what gets built, the
+  factory asks one question and triages the answer.
+- `No change`: thanks or questions get an answer without rebuilding. Superseded coding and CI results cannot become
 the current preview. Pause, stop and bounded retry controls remain available.
 
 Enable Actions permission to create pull requests in repository settings if GitHub

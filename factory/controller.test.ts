@@ -142,9 +142,12 @@ test('lost failure-save response still publishes the actual failure and exits re
 
 test('the starting acknowledgement becomes the result for the same turn', () => {
     const result = runController('queued', 'planning', true);
-    assert.equal(result.comments.length, 1);
+    assert.equal(result.comments.length, 2);
     assert.match(result.comments[0], /factory-turn:42/);
-    assert.match(result.comments[0], /New handoff/);
+    assert.match(result.comments[0], /Revision 1 is ready in the current agreement and awaits your approval/);
+    assert.doesNotMatch(result.comments[0], /New handoff/);
+    assert.match(result.comments[1], /^<!-- factory-agreement -->\n\*\*Current agreement · Revision 1 · awaiting your approval\*\*/);
+    assert.match(result.comments[1], /New handoff/);
 });
 
 test('publication race recovers the completed change and verifies again without a second model call', () => {
@@ -164,10 +167,10 @@ test('planning retries a timeout once in the same turn, with five minutes per pa
         const run = runController('queued', 'planning', true, false, false, timeouts);
         assert.deepEqual(run.passes.map((pass: { timeout: number }) => pass.timeout), [300000, 300000]);
         assert.match(run.passes[1].comment, /Retrying once automatically/);
-        assert.equal(run.comments.length, 1);
+        assert.equal(run.comments.length, timeouts === 1 ? 2 : 1);
         assert.equal(run.status, timeouts === 1 ? 0 : 1);
         assert.equal(run.state.work[1].stage, timeouts === 1 ? 'waiting' : 'failed');
-        assert.match(run.comments[0], timeouts === 1 ? /New handoff/ : /timed out twice.*factory retry/);
+        assert.match(run.comments.at(-1), timeouts === 1 ? /New handoff/ : /timed out twice.*factory retry/);
     }
 });
 
@@ -175,6 +178,7 @@ test('factory-only retries publish without release metadata and report controlle
     const run = runController('queued', 'coding', true, false, true, 0, true);
     assert.equal(run.status, 0, run.stderr);
     assert.equal(run.state.work[1].stage, 'preview');
+    assert.match(run.comments.at(-1), /Factory checks passed · builds revision 1/);
     assert.match(run.comments.at(-1), /Factory checks passed for combined/);
     assert.doesNotMatch(run.comments.at(-1), /Obsidian/);
 });

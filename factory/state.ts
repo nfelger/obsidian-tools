@@ -7,6 +7,52 @@ export interface Work {
     turn?: string;
     checkpoint?: CheckpointRef;
     factoryOnly?: boolean; publicationPending?: boolean; branch?: string; head?: string; pr?: string; candidate?: string;
+    agreementRevision?: number; approvedRevision?: number; agreementText?: string; previousAgreement?: string;
+    triage?: boolean; resumeStage?: Stage; repair?: string; notice?: string; candidates?: number; agreementComment?: number;
+}
+export const agreementMarker = '<!-- factory-agreement -->';
+/** Record a planner handoff as the current agreement; only changed text makes a new revision. */
+export function reviseAgreement(work: Work, handoff: string) {
+    if (work.agreementText === handoff) return false;
+    if (work.agreementText !== undefined) work.previousAgreement = work.agreementText;
+    work.agreementText = handoff;
+    work.agreementRevision = (work.agreementRevision ?? 0) + 1;
+    return true;
+}
+export function agreementBody(work: Work) {
+    const revision = work.agreementRevision ?? 1;
+    const status = work.approvedRevision === revision ? 'approved, being built' : 'awaiting your approval';
+    const previous = work.previousAgreement === undefined ? ''
+        : `\n\n<details>\n<summary>Revision ${revision - 1}</summary>\n\n${work.previousAgreement}\n\n</details>`;
+    return `${agreementMarker}\n**Current agreement · Revision ${revision} · ${status}**\n\n${work.agreementText ?? ''}${previous}`;
+}
+export type Verdict = 'repair' | 'proposed' | 'question' | 'none';
+export function triageVerdict(text: string): Verdict | undefined {
+    const first = text.trimStart().split('\n', 1)[0].trim();
+    if (/^Repair against revision \d+$/.test(first)) return 'repair';
+    if (/^Proposed revision \d+$/.test(first)) return 'proposed';
+    if (first === 'Question') return 'question';
+    if (first === 'No change') return 'none';
+}
+/** Apply a planner triage of an owner reply received during coding. Returns true when coding should run. */
+export function applyTriage(work: Work, text: string) {
+    const verdict = triageVerdict(text);
+    const body = text.trimStart().split('\n').slice(1).join('\n').trim();
+    work.triage = false;
+    if (verdict === 'repair') {
+        work.repair = body; work.notice = undefined;
+        return true;
+    }
+    if (verdict === 'proposed') {
+        reviseAgreement(work, body);
+        work.phase = 'planning'; work.result = body; work.stage = 'waiting'; work.notice = undefined;
+        return false;
+    }
+    if (verdict === 'question') { work.notice = body; work.stage = 'waiting'; return false; }
+    work.notice = verdict === 'none' ? body : `Could not classify the reply. ${text}`.trim();
+    work.stage = verdict === 'none' ? work.resumeStage ?? 'preview' : 'failed';
+    if (!verdict) work.failures++;
+    return false;
 }
 export interface Ledger { version: 1; processed: string[]; work: Record<string, Work> }
 export const empty = (): Ledger => ({ version: 1, processed: [], work: {} });
@@ -24,8 +70,15 @@ export function command(state: Ledger, issue: number, id: string, body: string, 
     const previousStage = work.stage;
     switch (match[1]) {
         case 'implement':
-            if (work.stage !== 'waiting' || !work.result.trim() || work.agreement !== agreement) break;
+            if (work.phase === 'coding') break;
+            if ((work.stage === 'waiting' && work.agreement !== agreement) || ((work.stage === 'queued' || work.stage === 'running') && work.result.trim())) {
+                const approved = work.agreementRevision ?? 1;
+                work.notice = `Your /factory implement covered revision ${approved}, but a newer reply arrived first. Revision ${approved + 1} is being drafted and will be the one awaiting your approval.`;
+                break;
+            }
+            if (work.stage !== 'waiting' || !work.result.trim()) break;
             work.phase = 'coding'; work.approvedHandoff = work.result; work.stage = 'queued';
+            work.approvedRevision = work.agreementRevision ?? 1; work.repair = undefined; work.notice = undefined;
             break;
         case 'stop':
             if (work.stage !== 'stopped') { work.stage = 'stopped'; work.attempt++; }
@@ -54,7 +107,7 @@ export function claim(state: Ledger): Work | undefined {
 }
 export function settle(work: Work, attempt: number, result: string, failed: boolean) {
     if (work.stage !== 'running' || work.attempt !== attempt) return;
-    work.result = result;
+    work.result = result; work.notice = undefined;
     work.stage = failed ? 'failed' : 'waiting';
     if (!failed && work.phase !== 'coding' && needsOwnerDecision(result)) work.stage = 'blocked';
     if (failed) work.failures++;
@@ -70,7 +123,12 @@ export function feedback(state: Ledger, issue: number, id: string, agreement: st
     const work = state.work[issue];
     if (!work || !['waiting', 'blocked', 'queued', 'running', 'verifying', 'preview'].includes(work.stage)) return;
     if (work.agreement !== agreement) { work.agreement = agreement; work.revision++; }
-    if (work.stage === 'running') work.attempt++;
+    if (work.stage === 'running' || work.stage === 'verifying') work.attempt++;
     work.turn = id;
+    if (work.phase === 'coding') {
+        // A reply against approved work may be a defect or a new expectation; the planner triages it first.
+        if (!work.triage && work.stage !== 'waiting') work.resumeStage = work.stage;
+        work.triage = true;
+    }
     work.stage = 'queued';
 }
