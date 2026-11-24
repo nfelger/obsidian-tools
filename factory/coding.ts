@@ -17,13 +17,19 @@ export async function runCoding(repo: string, base: string, work: Work, beforePa
     try {
         execFileSync('git', ['clone', '--no-checkout', `https://github.com/${repo}.git`, workspace]);
         execFileSync('git', ['-C', workspace, 'checkout', '--detach', base]);
+        const priorPaths: string[] = execFileSync('git', ['-C', workspace, 'diff', '--name-only', '--no-renames', '-z', 'origin/main...HEAD'],
+            { encoding: 'utf8' }).split('\0').filter(Boolean);
+        let changes: ReturnType<typeof validateChanges> = [];
+        const factoryOnly = () => {
+            const paths = [...priorPaths, ...changes.map(file => file.path)];
+            return paths.length > 0 && paths.every(path => path.startsWith('factory/'));
+        };
         const recovery = options.recovery;
         let repair = recovery ? applyCheckpoint(workspace, recovery.base, recovery.patch) : '';
         const verifyRecovered = recovery?.patch.complete === true && !repair;
         if (recovery && !verifyRecovered) repair += '\nContinue the recovered implementation: ' + recovery.patch.message;
         writeFileSync(join(input, 'agreement.json'), JSON.stringify({ agreement: work.agreement, approvedHandoff: work.approvedHandoff, priorResult: work.result, candidateHead: base }));
         const deadline = options.deadline ?? Date.now() + 45 * 60 * 1000;
-        let changes: ReturnType<typeof validateChanges> = [];
         const budget = options.budget ?? { modelPasses: 0 };
         const pass = async (feedback: string, verifyOnly = false) => {
             if (!verifyOnly && ++budget.modelPasses > 4) throw new Error('Repair budget exhausted. Retry to continue from the saved checkpoint.');
@@ -67,12 +73,12 @@ export async function runCoding(repo: string, base: string, work: Work, beforePa
         if (verifyRecovered) {
             await guard();
             const result = await pass('', true);
-            if (result.complete) return { message: result.message.slice(0, 12000), changes };
+            if (result.complete) return { message: result.message.slice(0, 12000), changes, factoryOnly: factoryOnly() };
             repair = result.message;
         }
         const outcome = await codingLoop((_role, feedback) => pass(feedback),
             async () => ({ failed: false, message: 'Verified in the container after final edits.' }), guard);
         if (outcome.failed) throw new Error(outcome.message);
-        return { message: outcome.message.slice(0, 12000), changes };
+        return { message: outcome.message.slice(0, 12000), changes, factoryOnly: factoryOnly() };
     } finally { rmSync(workspace, { recursive: true, force: true }); }
 }

@@ -6,7 +6,7 @@ export interface Work {
     phase?: 'planning' | 'coding'; approvedHandoff?: string;
     turn?: string;
     checkpoint?: CheckpointRef;
-    publicationPending?: boolean; branch?: string; head?: string; pr?: string; candidate?: string;
+    factoryOnly?: boolean; publicationPending?: boolean; branch?: string; head?: string; pr?: string; candidate?: string;
 }
 export interface Ledger { version: 1; processed: string[]; work: Record<string, Work> }
 export const empty = (): Ledger => ({ version: 1, processed: [], work: {} });

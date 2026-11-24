@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // Exercise the real entry point with only external processes and GitHub replaced.
-function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, branchMoves = false, plannerTimeouts = 0) {
+function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, branchMoves = false, plannerTimeouts = 0, factoryChange = false) {
     const root = mkdtempSync(join(tmpdir(), 'controller-test-'));
     const trace = join(root, 'trace.json');
     const preload = join(root, 'external.mjs');
@@ -47,6 +47,7 @@ globalThis.fetch = async (url, options = {}) => {
     else if (path === 'git/refs/heads/factory/issue-1' && body.sha === 'combined' && body.force === false) value = {};
     else if (path === 'pulls') value = [{ html_url: 'example/pr' }];
     else if (path.startsWith('contents/')) {
+        if (${factoryChange}) throw new Error('Unexpected release metadata read');
         const files = { 'CHANGELOG.md': '## [0.1.1] - 2026-11-24\\n\\n- Fixed example.', 'manifest.json': '{"version":"0.1.0","minAppVersion":"1"}',
             'package.json': '{}', 'package-lock.json': '{"packages":{"":{}}}', 'versions.json': '{}' };
         value = { content: Buffer.from(files[path.slice(9)]).toString('base64') };
@@ -56,7 +57,7 @@ globalThis.fetch = async (url, options = {}) => {
         comments.push(body.body); record(); value = {};
     } else if (path === 'issues/1/comments') value = comments.map((body, i) => ({ id: i+1, user: { login: 'github-actions[bot]', type: 'Bot' }, body }));
     else if (path === 'issues/comments/1' && options.method === 'PATCH') { comments[0] = body.body; record(); value = {}; }
-    else if (path === 'actions/workflows/ci.yml/runs') {
+    else if (path === ${JSON.stringify(factoryChange ? 'actions/workflows/factory-check.yml/runs' : 'actions/workflows/ci.yml/runs')}) {
         value = { workflow_runs: [{ id: 7, head_branch: 'factory/issue-1', status: 'completed',
             conclusion: ${branchMoves ? "'success'" : "'failure'"}, html_url: 'https://example.test/ci' }] };
     } else if (path === 'actions/runs/7/artifacts') value = { artifacts: [] };
@@ -75,7 +76,7 @@ cp.spawnSync = (command, args, options) => {
             const { candidateHead } = JSON.parse(readFileSync(input + '/agreement.json'));
             passes.push({ verifyOnly, candidateHead });
             writeFileSync(output + '/result.json', JSON.stringify({ complete: true, message: 'done',
-                changes: [{ path: 'src/update.ts', content: 'combined' }] }));
+                changes: [{ path: ${JSON.stringify(factoryChange ? 'factory/state.ts' : 'src/update.ts')}, content: 'combined' }] }));
             return { status: 0, stdout: '', stderr: '' };
         }
         return { status: 1, stdout: '', stderr: 'npm error EACCES /workspace/node_modules' };
@@ -168,4 +169,12 @@ test('planning retries a timeout once in the same turn, with five minutes per pa
         assert.equal(run.state.work[1].stage, timeouts === 1 ? 'waiting' : 'failed');
         assert.match(run.comments[0], timeouts === 1 ? /New handoff/ : /timed out twice.*factory retry/);
     }
+});
+
+test('factory-only retries publish without release metadata and report controller checks on the final commit', () => {
+    const run = runController('queued', 'coding', true, false, true, 0, true);
+    assert.equal(run.status, 0, run.stderr);
+    assert.equal(run.state.work[1].stage, 'preview');
+    assert.match(run.comments.at(-1), /Factory checks passed for combined/);
+    assert.doesNotMatch(run.comments.at(-1), /Obsidian/);
 });

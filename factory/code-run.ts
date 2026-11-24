@@ -29,14 +29,6 @@ if (!input.verifyOnly) {
     }
     handoff = outcome.message;
 }
-if (!result.failed && result.complete) {
-    const check = spawnSync('npm', ['run', 'check'], {
-        cwd: '/workspace', encoding: 'utf8', timeout: Math.min(5 * 60 * 1000, remaining()), maxBuffer: 4 * 1024 * 1024,
-        env: { PATH: process.env.PATH, HOME: '/tmp' },
-    });
-    if (check.status !== 0) result = { failed: false, complete: false,
-        message: `${result.message}\nChecks failed:\n${(check.stdout + check.stderr + (check.error?.message ?? '')).slice(-24000)}` };
-}
 let changes: { path: string; content: string | null }[] = [];
 {
     const git = (args: string[]) => execFileSync('git', ['-C', '/workspace', ...args], { encoding: 'utf8' });
@@ -63,6 +55,19 @@ if (!result.failed && !(input.verifyOnly && result.complete && changes.length ==
     try { validateChanges(changes); } catch (error) {
         result = { failed: false, complete: false, message: `${result.message}\n${String(error)} Revert protected-file edits before continuing.` };
     }
+}
+if (!result.failed && result.complete) {
+    const hasFactoryChanges = changes.some(file => file.path.startsWith('factory/'))
+        || execFileSync('git', ['-C', '/workspace', 'diff', '--name-only', 'origin/main...HEAD', '--', 'factory/'], { encoding: 'utf8' }).length > 0;
+    const checks = hasFactoryChanges
+        ? "npm run check && cd factory && npm ci --ignore-scripts && npm run check"
+        : "npm run check";
+    const check = spawnSync('sh', ['-ec', checks], {
+        cwd: '/workspace', encoding: 'utf8', timeout: Math.min(5 * 60 * 1000, remaining()), maxBuffer: 4 * 1024 * 1024,
+        env: { PATH: process.env.PATH, HOME: '/tmp' },
+    });
+    if (check.status !== 0) result = { failed: false, complete: false,
+        message: `${result.message}\nChecks failed:\n${(check.stdout + check.stderr + (check.error?.message ?? '')).slice(-24000)}` };
 }
 writeFileSync('/output/result.json', JSON.stringify({ ...result, changes, handoff }));
 process.exitCode = result.failed ? 1 : 0;
