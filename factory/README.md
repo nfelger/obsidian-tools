@@ -115,12 +115,12 @@ updated planner handoff before approving. Implementation remains opt-in.
 MiniMax runs in a Docker container with Flue's standard coding tools, two repair
 cycles and one Opus escalation. The container has the OpenRouter key but no GitHub
 token or Docker socket. Trusted runtime code and the candidate workspace are separate.
-The controller accepts only text changes under `src/`, `tests/`, `styles.css`, `CHANGELOG.md`, `README.md`, or Markdown preview fixtures,
-with a bounded output size. Workflow, dependency, guidance and gate changes need
+The controller accepts only text changes under `src/`, `tests/`, `styles.css`, `CHANGELOG.md`, `README.md`, and Markdown preview fixtures,
+plus top-level factory TypeScript source/tests and factory/README.md for owner-reviewed factory work, with a bounded output size. Workflow, dependency, guidance and gate changes need
 separate human-reviewed work. CI independently verifies the published commit.
 
 The controller opens a draft PR on `factory/issue-<number>` and explicitly dispatches
-CI. On success it posts the exact candidate, CI evidence, and a browser Codespaces
+the factory controller checks for factory-only changes. The issue links to the checked commit and draft PR for owner review. Product changes run product CI. On success it posts the exact candidate, CI evidence, and a browser Codespaces
 preview link. Open the new Codespace on that issue branch; an existing Codespace
 remains pinned to its prior build. Owner feedback automatically requests another
 coding attempt on the same branch. Superseded coding and CI results cannot become

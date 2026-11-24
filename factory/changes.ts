@@ -1,15 +1,15 @@
 export interface Change { path: string; content: string | null }
 export function validateChanges(value: unknown): Change[] {
-    if (!Array.isArray(value) || !value.length || value.length > 100) throw new Error('Expected 1–100 changed product files.');
+    if (!Array.isArray(value) || !value.length || value.length > 100) throw new Error('Expected 1–100 changed files.');
     let bytes = 0;
     const seen = new Set<string>();
     for (const file of value) {
-        if (!file || typeof file.path !== 'string' || !(/^(src\/|tests\/|styles\.css$|CHANGELOG\.md$|README\.md$)/.test(file.path) || /^\.devcontainer\/vault\/(?:[^./][^/]*\/)*[^./][^/]*\.md$/.test(file.path))
+        if (!file || typeof file.path !== 'string' || !(/^(src\/|tests\/|styles\.css$|CHANGELOG\.md$|README\.md$)/.test(file.path) || /^factory\/(?:[a-zA-Z0-9_-]+(?:\.test)?\.ts|README\.md)$/.test(file.path) || /^\.devcontainer\/vault\/(?:[^./][^/]*\/)*[^./][^/]*\.md$/.test(file.path))
             || file.path.includes('\\')
             || /(^|\/)(AGENTS|CLAUDE|WORKFLOW)\.md$/i.test(file.path)
             || file.path.split('/').some((part: string) => !part || part === '.' || part === '..')
             || seen.has(file.path) || (file.content !== null && typeof file.content !== 'string')) {
-            throw new Error(`Coding output rejected: ${String(file?.path ?? '(missing path)')}. Allowed: product source/tests, styles.css, CHANGELOG.md README.md and Markdown preview fixtures; agent guidance is protected.`);
+            throw new Error(`Coding output rejected: ${String(file?.path ?? '(missing path)')}. Allowed: factory TypeScript source/tests and factory/README.md, product source/tests, styles.css, CHANGELOG.md README.md and Markdown preview fixtures; agent guidance is protected.`);
         }
         seen.add(file.path);
         bytes += Buffer.byteLength(file.content ?? '');

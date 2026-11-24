@@ -176,8 +176,9 @@ if (work?.phase === 'coding') {
                         const blob = await api(`contents/${path}?ref=${ref}`);
                         return Buffer.from(blob.content, 'base64').toString('utf8');
                     };
-                    const version = JSON.parse(await readAt('manifest.json', 'main')).version;
-                    const changes = await releaseChanges(version, output.changes, path => readAt(path, base));
+                    const changes = output.factoryOnly ? output.changes : await releaseChanges(
+                        JSON.parse(await readAt('manifest.json', 'main')).version, output.changes, path => readAt(path, base));
+                    work.factoryOnly = output.factoryOnly;
                     await publish(api, repo, work, base, changes, output.message);
                 } catch (error) {
                     if (work.publicationPending || await live() === base) throw error;
@@ -200,16 +201,22 @@ if (work?.phase === 'coding') {
 }
 for (const current of Object.values(state.work)) {
     if (current.stage !== 'verifying' || !current.head || !current.branch) continue;
-    const runs = await api(`actions/workflows/ci.yml/runs?head_sha=${current.head}&event=workflow_dispatch&per_page=100`);
+    const workflow = current.factoryOnly ? 'factory-check.yml' : 'ci.yml';
+    const runs = await api(`actions/workflows/${workflow}/runs?head_sha=${current.head}&event=workflow_dispatch&per_page=100`);
     const run = runs.workflow_runs.find((item: any) => item.head_branch === current.branch);
     if (!run) {
-        await api('actions/workflows/ci.yml/dispatches', 'POST', { ref: current.branch });
+        await api(`actions/workflows/${workflow}/dispatches`, 'POST', { ref: current.branch });
         continue;
     }
     if (run.status !== 'completed') continue;
     if (run.conclusion !== 'success') {
         current.stage = 'failed'; current.failures++;
         current.result = `Candidate CI failed: ${run.html_url}\n\n${current.result}`;
+        continue;
+    }
+    if (current.factoryOnly) {
+        current.stage = 'preview';
+        current.result = `Factory checks passed for ${current.head}. Review the [draft PR](${current.pr}) and [checks](${run.html_url}).\n\n${current.result}`;
         continue;
     }
     const name = `bullet-flow-${current.head.slice(0, 12)}-${run.id}-${run.run_attempt}`;
