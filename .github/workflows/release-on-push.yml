@@ -9,7 +9,7 @@ permissions:
 
 # Serialize stable publication; candidate builds run independently.
 concurrency:
-  group: stable-release
+  group: stable-release-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -53,6 +53,9 @@ jobs:
           # Distinguish a missing tag from authentication/network failures.
           status=$(gh api -i "repos/$GH_REPO/git/ref/tags/$RELEASE_VERSION" > response.txt 2>&1 && echo found || echo failed)
           if [ "$status" = found ]; then
+            actual=$(gh api "repos/$GH_REPO/commits/$RELEASE_VERSION" --jq .sha)
+            test "$actual" = "$GITHUB_SHA" || { echo "Version $RELEASE_VERSION belongs to $actual"; exit 1; }
+            gh release view "$RELEASE_VERSION" --repo "$GH_REPO" >/dev/null
             echo 'exists=true' >> "$GITHUB_OUTPUT"
           elif grep -q 'HTTP.* 404' response.txt; then
             echo 'exists=false' >> "$GITHUB_OUTPUT"
@@ -78,5 +81,5 @@ jobs:
 
             See CHANGELOG.md for changes and docs/AUTO-DEPLOY.md for installation.
           prerelease: false
-          makeLatest: true
+          makeLatest: legacy
           token: ${{ secrets.GITHUB_TOKEN }}

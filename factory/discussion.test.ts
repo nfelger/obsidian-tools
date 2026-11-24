@@ -18,6 +18,7 @@ function waiting() {
 test('owner answers resume automatically once across fresh runners; replay stays idle', () => {
     let { state, comments } = waiting();
     state = JSON.parse(JSON.stringify(state));
+    assert.equal(state.work[1].turn, '1');
     comments.push(comment(2, 'Use the full note path.'), comment(3, 'Include the heading too.'));
     reconcileDiscussion(state, 1, 'Show the destination', comments, 'owner');
     const work = claim(state)!;
@@ -28,6 +29,7 @@ test('owner answers resume automatically once across fresh runners; replay stays
     const revision = work.revision;
     reconcileDiscussion(state, 1, 'Show the destination', comments, 'owner');
     assert.equal(work.revision, revision);
+    assert.equal(work.turn, '3');
     assert.equal(claim(state), undefined);
 });
 

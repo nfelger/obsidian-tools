@@ -23,6 +23,9 @@ jobs:
           node-version: '22.x'
           cache: npm
       - run: npm ci
+      - name: Set stable build version
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: node stable-version.mjs
       - name: Check and build
         run: npm run check
         env:

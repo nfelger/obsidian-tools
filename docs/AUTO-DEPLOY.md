@@ -97,8 +97,9 @@ is an optional path for device-specific checks.
   available to those jobs.
 - `release-on-push.yml` handles only `main`, calls the same CI workflow, then uses
   a separate write-enabled job to publish the checked assets for a new stable tag.
-  Existing tags are left unchanged. Version bumps and changelog conventions are
-  unchanged; use the existing release procedure.
+  The source manifest starts a release series. Each subsequent first-parent
+  commit on main increments the built patch version before verification. To
+  start a new series, bump the source version above the latest release.
 - Artifact names include the run attempt. Use **Re-run all jobs** when retrying a
   failed run, so every job shares an artifact from that attempt.
 
