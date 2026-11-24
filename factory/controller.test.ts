@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // Exercise the real entry point with only external processes and GitHub replaced.
-function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, branchMoves = false) {
+function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, branchMoves = false, plannerTimeouts = 0) {
     const root = mkdtempSync(join(tmpdir(), 'controller-test-'));
     const trace = join(root, 'trace.json');
     const preload = join(root, 'external.mjs');
@@ -34,7 +34,7 @@ globalThis.fetch = async (url, options = {}) => {
     let value;
     if (path === 'contents/state.json' && options.method === 'PUT') {
         storedContent = body.content; state = JSON.parse(Buffer.from(body.content, 'base64')); record();
-        if (${loseSaveResponse} && state.work[1].stage === 'blocked' && !lostResponse) {
+        if (${loseSaveResponse} && state.work[1].stage === 'failed' && !lostResponse) {
             lostResponse = true; throw new TypeError('fetch failed', { cause: new Error('write EPIPE') });
         }
         value = { content: { sha: 'saved' } };
@@ -64,7 +64,7 @@ globalThis.fetch = async (url, options = {}) => {
     return new Response(JSON.stringify(value), { status: 200 });
 };
 cp.execFileSync = () => '';
-cp.spawnSync = (command, args) => {
+cp.spawnSync = (command, args, options) => {
     if (command === 'docker') {
         if (args[args.indexOf('--user') + 1] !== process.getuid() + ':' + process.getgid())
             throw new Error('Coding container must use the runner identity');
@@ -80,6 +80,9 @@ cp.spawnSync = (command, args) => {
         }
         return { status: 1, stdout: '', stderr: 'npm error EACCES /workspace/node_modules' };
     }
+    passes.push({ timeout: options.timeout, comment: comments.at(-1) });
+    if (passes.length <= ${plannerTimeouts}) return { status: null, stdout: '', stderr: 'planner trace',
+        error: Object.assign(new Error('spawn ETIMEDOUT'), { code: 'ETIMEDOUT' }) };
     return { status: ${succeeds ? 0 : 1}, stdout: JSON.stringify(${succeeds ? "{ outcome: 'completed', message: 'New handoff' }" : "{ outcome: 'failed', error: { message: 'Provider unavailable' } }"}), stderr: '' };
 };
 syncBuiltinESMExports();
@@ -93,12 +96,12 @@ record();
     } finally { rmSync(root, { recursive: true, force: true }); }
 }
 
-test('coding setup failure saves blocked state and status before exiting unsuccessfully', () => {
+test('coding setup failure saves failed state and status before exiting unsuccessfully', () => {
     const result = runController('queued', 'coding');
     assert.equal(result.status, 1);
-    assert.equal(result.state.work[1].stage, 'blocked');
+    assert.equal(result.state.work[1].stage, 'failed');
     assert.equal(result.state.work[1].failures, 1);
-    assert.match(result.comments.at(-1), /blocked/);
+    assert.match(result.comments.at(-1), /failed/);
     assert.match(result.comments.at(-1), /EACCES/);
 });
 
@@ -106,16 +109,16 @@ test('planner failure and candidate CI failure make the controller fail', () => 
     for (const stage of ['queued', 'verifying']) {
         const result = runController(stage);
         assert.equal(result.status, 1);
-        assert.equal(result.state.work[1].stage, 'blocked');
+        assert.equal(result.state.work[1].stage, 'failed');
         assert.match(result.comments.at(-1), /Provider unavailable|Candidate CI failed/);
     }
 });
 
-test('successful planning and idle reconciliation of an old blocked issue stay green', () => {
+test('successful planning and idle reconciliation of an old failed issue stay green', () => {
     const success = runController('queued', 'planning', true);
     assert.equal(success.status, 0, success.stderr);
     assert.equal(success.state.work[1].stage, 'waiting');
-    const idle = runController('blocked');
+    const idle = runController('failed');
     assert.equal(idle.status, 0, idle.stderr);
     assert.equal(idle.state.work[1].failures, 0);
 });
@@ -123,14 +126,14 @@ test('successful planning and idle reconciliation of an old blocked issue stay g
 test('recovering an interrupted attempt reports a failed run after publishing status', () => {
     const result = runController('running');
     assert.equal(result.status, 1);
-    assert.equal(result.state.work[1].stage, 'blocked');
+    assert.equal(result.state.work[1].stage, 'failed');
     assert.match(result.comments.at(-1), /Interrupted run/);
 });
 
 test('lost failure-save response still publishes the actual failure and exits red', () => {
     const result = runController('queued', 'coding', false, true);
     assert.equal(result.status, 1);
-    assert.equal(result.state.work[1].stage, 'blocked');
+    assert.equal(result.state.work[1].stage, 'failed');
     assert.equal(result.state.work[1].failures, 1);
     assert.match(result.comments.at(-1), /EACCES/);
     assert.doesNotMatch(result.comments.at(-1), /Interrupted run/);
@@ -153,4 +156,16 @@ test('publication race recovers the completed change and verifies again without 
     assert.equal(result.state.work[1].head, 'combined');
     assert.equal(result.state.work[1].stage, 'verifying');
     assert.equal(result.state.work[1].checkpoint, undefined);
+});
+
+test('planning retries a timeout once in the same turn, with five minutes per pass', () => {
+    for (const timeouts of [1, 2]) {
+        const run = runController('queued', 'planning', true, false, false, timeouts);
+        assert.deepEqual(run.passes.map((pass: { timeout: number }) => pass.timeout), [300000, 300000]);
+        assert.match(run.passes[1].comment, /Retrying once automatically/);
+        assert.equal(run.comments.length, 1);
+        assert.equal(run.status, timeouts === 1 ? 0 : 1);
+        assert.equal(run.state.work[1].stage, timeouts === 1 ? 'waiting' : 'failed');
+        assert.match(run.comments[0], timeouts === 1 ? /New handoff/ : /timed out twice.*factory retry/);
+    }
 });

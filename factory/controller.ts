@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { reconcileDiscussion } from './discussion.ts';
 import { agentResult } from './result.ts';
 import { modelFor } from './models.ts';
-import { claim, empty, settle, type Ledger } from './state.ts';
+import { claim, empty, needsOwnerDecision, settle, type Ledger } from './state.ts';
 
 const repo = process.env.GITHUB_REPOSITORY!;
 const owner = repo.split('/')[0];
@@ -54,6 +54,10 @@ const state: Ledger = stored
     ? JSON.parse(Buffer.from(stored.content, 'base64').toString()) : empty();
 if (state.version !== 1) throw new Error('Unsupported controller state version');
 let saved = JSON.stringify(state);
+// Older ledgers used "blocked" for process and CI failures.
+for (const work of Object.values(state.work)) {
+    if (work.stage === 'blocked' && !needsOwnerDecision(work.result)) work.stage = 'failed';
+}
 async function save() {
     if (stored && JSON.stringify(state) === saved) return;
     const content = JSON.stringify(state, null, 2) + '\n';
@@ -102,17 +106,29 @@ if (work && work.phase !== 'coding') {
     const attempt = work.attempt;
     const guidance = ['CLAUDE.md', 'WORKFLOW.md'].map(path =>
         `# ${path}\n${readFileSync(`../${path}`, 'utf8')}`).join('\n\n');
-    const result = spawnSync('node_modules/.bin/flue', ['run', 'agent.ts', '--json', '--message',
-        JSON.stringify({ agreement: work.agreement, revision: work.revision, priorHandoff: work.result, guidance })], {
-        encoding: 'utf8', timeout: 120000, maxBuffer: 1024 * 1024,
-        env: { PATH: process.env.PATH, HOME: process.env.RUNNER_TEMP,
-            OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
-            PLANNER_MODEL: modelFor('planner') },
-    });
-    await reconcile();
-    const outcome = agentResult(result);
-    if (outcome.failed && result.stderr) process.stderr.write(result.stderr);
-    settle(work, attempt, outcome.message, outcome.failed);
+    for (let pass = 1; pass <= 2; pass++) {
+        const result = spawnSync('node_modules/.bin/flue', ['run', 'agent.ts', '--json', '--message',
+            JSON.stringify({ agreement: work.agreement, revision: work.revision, priorHandoff: work.result, guidance })], {
+            encoding: 'utf8', timeout: 5 * 60 * 1000, maxBuffer: 1024 * 1024,
+            env: { PATH: process.env.PATH, HOME: process.env.RUNNER_TEMP,
+                OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+                PLANNER_MODEL: modelFor('planner') },
+        });
+        await reconcile();
+        if (work.stage !== 'running' || work.attempt !== attempt) break;
+        const timedOut = (result.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT';
+        const outcome = agentResult(result);
+        if (outcome.failed && result.stderr) process.stderr.write(result.stderr);
+        if (timedOut && pass === 1) {
+            await updateTurn(work, false, 'Planning reached its five-minute limit. Retrying once automatically.');
+            continue;
+        }
+        const message = timedOut
+            ? "Planning timed out twice before a plan was ready. Coding hasn’t started. Use `/factory retry` to try again."
+            : outcome.message;
+        settle(work, attempt, message, outcome.failed);
+        break;
+    }
     await save();
 }
 if (work?.phase === 'coding') {
@@ -192,7 +208,7 @@ for (const current of Object.values(state.work)) {
     }
     if (run.status !== 'completed') continue;
     if (run.conclusion !== 'success') {
-        current.stage = 'blocked'; current.failures++;
+        current.stage = 'failed'; current.failures++;
         current.result = `Candidate CI failed: ${run.html_url}\n\n${current.result}`;
         continue;
     }
@@ -208,10 +224,10 @@ for (const current of Object.values(state.work)) {
 await save();
 for (const current of Object.values(state.work)) await updateTurn(current);
 
-async function updateTurn(current: import('./state.ts').Work, acknowledgeOnly = false) {
+async function updateTurn(current: import('./state.ts').Work, acknowledgeOnly = false, progress?: string) {
     const marker = current.turn ? `<!-- factory-turn:${current.turn} -->` : '<!-- bullet-flow-factory-status -->';
     const starting = ['queued', 'running'].includes(current.stage);
-    const detail = starting ? (current.stage === 'queued' ? 'Queued to start.' : 'Starting work.') : current.result;
+    const detail = progress ?? (starting ? (current.stage === 'queued' ? 'Queued to start.' : 'Starting work.') : current.result);
     const body = `${marker}\nFactory: **${current.stage}** · attempt ${current.attempt}\n\n${detail}\n\n${current.stage === 'queued' ? '' : current.runUrl}`.trimEnd();
     const comments = await pages(`issues/${current.issue}/comments`);
     if (!acknowledgeOnly && current.turn) {

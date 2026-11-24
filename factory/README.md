@@ -50,7 +50,7 @@ queued until another event, manual dispatch, or the ten-minute reconciliation.
 GitHub may delay scheduled runs. Pending Actions events can be replaced; replay
 of durable issue comments repairs this without losing commands.
 
-Interrupted attempts become blocked on the next reconciliation. Status publication
+Interrupted attempts become failed on the next reconciliation. Status publication
 is repeatable; the controller repairs a missing status after a crash. API failures
 fail the workflow instead of overwriting unreadable state. State writes use the
 GitHub content SHA to reject concurrent changes.
@@ -75,7 +75,7 @@ CLI startup is included in the checks so dependency drift cannot silently pass.
 The ten-minute schedule reconciles commands and repairs status deterministically.
 With no queued work it makes no model calls. It may run one queued item authorized
 by an owner command or new discussion reply. Waiting work needs a new owner
-reply; paused, blocked and stopped items do not restart from discussion comments.
+reply; paused, failed and stopped items do not restart from discussion comments.
 The scheduled job still starts an Actions runner and installs dependencies.
 
 Cost reporting is planned in segment 7: per-turn issue comments are the sole cost
@@ -101,7 +101,10 @@ steps make paid model calls and require the workflow on main.
 
 The controller consumes `flue run --json`: only a completed envelope with a
 nonempty handoff and successful process exit becomes a successful result. Failure,
-abort, setup errors, timeouts and malformed output produce a blocked status.
+abort, setup errors, timeouts and malformed output produce a failed status. Each planning pass has five minutes. After a timeout the
+controller retries once in the same turn, provided the turn is still current.
+A second timeout ends the turn. Post `/factory retry` to start again.
+A blocked planning handoff needs an owner decision. Reply to resume planning.
 
 ## Implementation and previews
 
@@ -135,15 +138,15 @@ remain writable with all Linux capabilities dropped. Container setup failures
 include the available process diagnostics even when no result file was produced.
 New planning, coding, interrupted-run, or candidate-CI failures make reconciliation
 exit unsuccessfully after saving state and publishing issue status. An idle run
-does not fail merely because an issue was already blocked. Retry blocked work with
+does not fail merely because an issue was already failed. Retry failed work with
 the owner command `/factory retry` after the underlying problem is fixed.
 
 ## Factory failure recovery
 
-A new owner `/factory retry` comment authorizes one more attempt on a blocked
+A new owner `/factory retry` comment authorizes one more attempt on a failed
 issue, including after three failures. Failure history and the approved handoff
 are retained; replaying the same comment cannot authorize another attempt.
-Scheduled reconciliation does not automatically retry blocked work. Each coding
+Scheduled reconciliation does not automatically retry failed work. Each coding
 attempt still has at most three implementer passes and one escalation pass.
 
 Coding starts from the live issue branch, or main for a new branch. The controller

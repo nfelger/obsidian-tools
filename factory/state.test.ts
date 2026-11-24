@@ -45,13 +45,13 @@ test('each fresh owner retry permits exactly one attempt without erasing failure
     assert.equal(state.work[1].failures, 10);
     assert.equal(state.work[1].result, 'retry failed');
 });
-test('idle reconciliation never claims waiting, blocked or stopped work', () => {
+test('idle reconciliation never claims waiting, failed or stopped work', () => {
     const state = empty();
     assert.equal(claim(state), undefined);
     command(state, 1, 'start', '/factory start', 'first');
     const work = claim(state)!;
     settle(work, work.attempt, 'handoff', false);
-    for (const stage of ['waiting', 'paused', 'blocked', 'stopped'] as const) {
+    for (const stage of ['waiting', 'paused', 'failed', 'stopped'] as const) {
         work.stage = stage;
         command(state, 1, 'start', '/factory start', 'first');
         assert.equal(claim(JSON.parse(JSON.stringify(state))), undefined);
@@ -65,7 +65,7 @@ test('pause cannot revive stopped work or bypass an exhausted retry budget', () 
     work.failures = 3;
     command(state, 1, 'pause', '/factory pause', 'first');
     command(state, 1, 'resume', '/factory resume', 'first');
-    assert.equal(work.stage, 'blocked');
+    assert.equal(work.stage, 'failed');
     assert.equal(claim(state), undefined);
     command(state, 1, 'stop', '/factory stop', 'first');
     command(state, 1, 'pause-again', '/factory pause', 'first');
