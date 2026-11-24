@@ -225,7 +225,6 @@ All periodic notes live under `+Diary/` with a nested folder structure:
 **Recommended Obsidian Plugins:**
 - **Periodic Notes** — Auto-generates daily/weekly/monthly/yearly notes
 - **Calendar** — Navigation for periodic notes
-- **Dataview** — Queries and summaries
 - **Minimal Theme** — Enhanced visual markers (optional)
 
 **Development:**
