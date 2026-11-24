@@ -78,7 +78,7 @@ by an owner command or new discussion reply. Waiting work needs a new owner
 reply; paused, failed and stopped items do not restart from discussion comments.
 The scheduled job still starts an Actions runner and installs dependencies.
 
-Cost reporting is planned in segment 7: per-turn issue comments are the sole cost
+Cost reporting is tracked in [#77](https://github.com/nfelger/obsidian-tools/issues/77): per-turn issue comments are the sole cost
 record, and the merge summary sums them. No separate cost ledger or usage artifacts.
 
 Both agent entry points register the OpenRouter provider in `openrouter.ts`.
@@ -194,7 +194,7 @@ cases. Keep feature fixtures in Markdown and leave preview configuration and
 launch scripts to the factory.
 
 `WORKFLOW.md` is exclusively the owner's domain-level Obsidian workflow.
-Factory implementation/operation documentation belongs here, or in `docs/specs/`.
+Document factory operations here and track planned factory work in GitHub issues.
 
 ## Completion reports and failure notifications
 
