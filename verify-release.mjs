@@ -7,6 +7,8 @@ const changed = execFileSync('git', ['diff', '--no-renames', '--name-only', '-z'
     { encoding: 'utf8' }).split('\0').filter(Boolean);
 const tooling = new Set([
     'verify-release.mjs',
+    '.github/CODEOWNERS',
+    '.github/workflows/factory-review.yml',
     '.github/workflows/factory.yml',
     '.github/workflows/factory-check.yml',
     '.github/workflows/ci.yml',
