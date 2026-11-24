@@ -1,0 +1,21 @@
+# New repository paths require owner review by default.
+* @nfelger
+
+# Ordinary product files and preview fixture notes.
+/src/
+/tests/
+/styles.css
+/CHANGELOG.md
+/README.md
+/.devcontainer/vault/**/*.md
+
+# The trusted review check covers nonstandard casing, hidden preview paths,
+# and changes beyond the controller-generated release metadata below.
+/manifest.json
+/package.json
+/package-lock.json
+/versions.json
+
+AGENTS.md @nfelger
+CLAUDE.md @nfelger
+WORKFLOW.md @nfelger
