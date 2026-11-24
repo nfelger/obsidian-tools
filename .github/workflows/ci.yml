@@ -7,12 +7,17 @@ on:
     branches: [main]
   workflow_dispatch:
   workflow_call:
+    outputs:
+      release_required:
+        value: ${{ jobs.test.outputs.release_required }}
 
 permissions:
   contents: read
 
 jobs:
   test:
+    outputs:
+      release_required: ${{ steps.release.outputs.release_required }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +28,7 @@ jobs:
           node-version: '22.x'
           cache: npm
       - name: Verify release metadata
+        id: release
         if: (github.event_name == 'pull_request' && !github.event.pull_request.draft) || (github.ref == 'refs/heads/main' && github.event_name == 'push')
         env:
           PREVIOUS_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}

@@ -18,6 +18,7 @@ jobs:
 
   release:
     needs: checks
+    if: needs.checks.outputs.release_required == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
