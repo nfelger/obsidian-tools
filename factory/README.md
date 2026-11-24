@@ -144,7 +144,8 @@ running build or pending CI and first gets a planner triage pass:
   becomes a new agreement revision. Nothing is built until `/factory implement`; coding then resumes on the same branch.
 - `Question`: when the reply could mean either and that changes what gets built, the
   factory asks one question and triages the answer.
-- `No change`: thanks or questions get an answer without rebuilding. Superseded coding and CI results cannot become
+- `No change`: thanks or questions get an answer without rebuilding. If the reply
+  interrupted a running build, that build is paused rather than restarted; `/factory resume` continues it. Superseded coding and CI results cannot become
 the current preview. Pause, stop and bounded retry controls remain available.
 
 Enable Actions permission to create pull requests in repository settings if GitHub

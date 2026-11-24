@@ -49,9 +49,17 @@ export function applyTriage(work: Work, text: string) {
         return false;
     }
     if (verdict === 'question') { work.notice = body; work.stage = 'waiting'; return false; }
-    work.notice = verdict === 'none' ? body : `Could not classify the reply. ${text}`.trim();
-    work.stage = verdict === 'none' ? work.resumeStage ?? 'preview' : 'failed';
-    if (!verdict) work.failures++;
+    if (!verdict) {
+        work.notice = `Could not classify the reply. ${text}`.trim(); work.stage = 'failed'; work.failures++;
+        return false;
+    }
+    const resume = work.resumeStage ?? 'preview';
+    // A reply that changes nothing must not start another coding pass; the interrupted build waits for /factory resume.
+    const interrupted = resume === 'running' || resume === 'queued';
+    work.stage = interrupted ? 'paused' : resume;
+    work.notice = interrupted
+        ? `${body}\n\nThe build of revision ${work.approvedRevision ?? 1} was interrupted to read your reply and is paused. Post /factory resume to continue it.`.trim()
+        : body;
     return false;
 }
 export interface Ledger { version: 1; processed: string[]; work: Record<string, Work> }

@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // Exercise the real entry point with only external processes and GitHub replaced.
-function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, branchMoves = false, plannerTimeouts = 0, factoryChange = false) {
+function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, branchMoves = false, plannerTimeouts = 0, factoryChange = false, options: { work?: object; plannerMessage?: string } = {}) {
     const root = mkdtempSync(join(tmpdir(), 'controller-test-'));
     const trace = join(root, 'trace.json');
     const preload = join(root, 'external.mjs');
@@ -20,7 +20,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import { writeFileSync, readFileSync } from 'node:fs';
 const work = { issue: 1, stage: ${JSON.stringify(stage)}, phase: ${JSON.stringify(phase)},
     turn: '42', revision: 1, attempt: 1, failures: 0, agreement: '', result: 'Prior handoff', runUrl: '',
-    head: 'candidate', branch: 'factory/issue-1' };
+    head: 'candidate', branch: 'factory/issue-1', ...${JSON.stringify(options.work ?? {})} };
 let state = { version: 1, processed: [], work: { 1: work } };
 let storedContent = Buffer.from(JSON.stringify(state)).toString('base64');
 const comments = [];
@@ -84,7 +84,7 @@ cp.spawnSync = (command, args, options) => {
     passes.push({ timeout: options.timeout, comment: comments.at(-1) });
     if (passes.length <= ${plannerTimeouts}) return { status: null, stdout: '', stderr: 'planner trace',
         error: Object.assign(new Error('spawn ETIMEDOUT'), { code: 'ETIMEDOUT' }) };
-    return { status: ${succeeds ? 0 : 1}, stdout: JSON.stringify(${succeeds ? "{ outcome: 'completed', message: 'New handoff' }" : "{ outcome: 'failed', error: { message: 'Provider unavailable' } }"}), stderr: '' };
+    return { status: ${succeeds ? 0 : 1}, stdout: JSON.stringify(${succeeds ? "{ outcome: 'completed', message: " + JSON.stringify(options.plannerMessage ?? 'New handoff') + " }" : "{ outcome: 'failed', error: { message: 'Provider unavailable' } }"}), stderr: '' };
 };
 syncBuiltinESMExports();
 record();
@@ -181,4 +181,17 @@ test('factory-only retries publish without release metadata and report controlle
     assert.match(run.comments.at(-1), /Factory checks passed · builds revision 1/);
     assert.match(run.comments.at(-1), /Factory checks passed for combined/);
     assert.doesNotMatch(run.comments.at(-1), /Obsidian/);
+});
+
+test('a "Looks good" reply that interrupted a running build is triaged without invoking the coder', () => {
+    const run = runController('queued', 'coding', true, false, true, 0, false, {
+        work: { triage: true, resumeStage: 'running', approvedRevision: 2, agreementRevision: 2, approvedHandoff: 'Approved' },
+        plannerMessage: 'No change\nThanks.',
+    });
+    assert.equal(run.status, 0, run.stderr);
+    assert.equal(run.passes.length, 1);
+    assert.equal(run.passes.some((pass: { verifyOnly?: boolean }) => 'verifyOnly' in pass), false);
+    assert.equal(run.state.work[1].stage, 'paused');
+    assert.equal(run.state.work[1].approvedRevision, 2);
+    assert.match(run.comments.at(-1), /Thanks\.[\s\S]*revision 2 was interrupted[\s\S]*\/factory resume/);
 });

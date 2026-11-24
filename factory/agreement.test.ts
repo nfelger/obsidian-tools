@@ -152,6 +152,19 @@ test('"Looks good" answers without coding', () => {
     assert.equal(claim(state), undefined);
 });
 
+test('"Looks good" during a running build pauses it instead of coding again', () => {
+    const { state, comments, work } = approvedRevision2();
+    work.stage = 'queued';
+    claim(state);
+    comments.push(comment(4, 'Looks good'));
+    reconcileDiscussion(state, 1, request, comments, 'owner');
+    claim(state);
+    assert.equal(applyTriage(work, 'No change\nThanks.'), false);
+    assert.equal(work.stage, 'paused');
+    assert.match(work.notice ?? '', /revision 2 was interrupted.*\/factory resume/);
+    assert.equal(claim(state), undefined);
+});
+
 test('a change during a running build stops that attempt and drafts', () => {
     const { state, comments, work } = approvedRevision2();
     work.stage = 'queued';
