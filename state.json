@@ -54,7 +54,14 @@
       "head": "3707cca1644967a7feb730602149ec938ea1a691",
       "publicationPending": false,
       "pr": "https://github.com/nfelger/obsidian-tools/pull/53",
-      "candidate": "bullet-flow-3707cca16449-45223981626-1"
+      "candidate": "bullet-flow-3707cca16449-45223981626-1",
+      "checkpoint": {
+        "base": "3707cca1644967a7feb730602149ec938ea1a691",
+        "revision": 9,
+        "attempt": 23,
+        "run": "45357071165",
+        "artifact": "coding-evidence-45357071165-1"
+      }
     }
   }
 }
