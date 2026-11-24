@@ -97,9 +97,10 @@ is an optional path for device-specific checks.
   available to those jobs.
 - `release-on-push.yml` handles only `main`, calls the same CI workflow, then uses
   a separate write-enabled job to publish the checked assets for a new stable tag.
-  The source manifest starts a release series. Each subsequent first-parent
-  commit on main increments the built patch version before verification. To
-  start a new series, bump the source version above the latest release.
+  For factory PRs the coding agent proposes a semantic bump and dated notes
+  for the complete change. The controller synchronizes version files before
+  candidate CI. Other PRs use the repository’s cut-release procedure to prepare
+  the same files before merge. Ready PRs and main builds check the metadata.
 - Artifact names include the run attempt. Use **Re-run all jobs** when retrying a
   failed run, so every job shares an artifact from that attempt.
 

@@ -50,6 +50,15 @@ happy paths and edge cases without requiring the reviewer to invent test data.
 Treat missing preview fixtures as unfinished work. Never edit vault configuration
 or scripts. WORKFLOW.md is exclusively the user's Obsidian domain workflow;
 factory documentation belongs in factory/README.md (protected during product coding).
+Prepare every product PR for release using the cut-release rubric in
+.claude/skills/cut-release/SKILL.md. Read origin/main:manifest.json for the base
+version and review the entire PR, including previously accepted edits and pending
+changelog notes. Choose patch for fixes or maintenance, minor for a feature,
+major for a breaking change. Promote Unreleased (or revise the current PR entry)
+to one dated ## [X.Y.Z] - YYYY-MM-DD section in CHANGELOG.md with concise
+user-facing bullets. Preserve previous releases. Revisions of the same PR use
+the same base on main. The controller synchronizes the version files at
+publication. Leave those files to the controller.
 Passing tests alone does not establish completion. Never omit unfinished cases. If repairing, use the check
 output and failed approaches supplied with this message.`;
 }

@@ -15,6 +15,15 @@ BRAT will pick up the new stable version within minutes.
 
 **Announce at start:** "I'm using the cut-release skill."
 
+## Automated PR preparation
+
+The factory applies the bump rubric below during each coding turn.
+Its release agent drafts changelog notes and chooses patch, minor or major
+from the complete change. The controller commits the dated entry and matching
+manifest, package, lockfile and compatibility versions to the PR. Reviewing
+and merging that diff is the owner confirmation. Main CI tests the committed
+assets and publishes them. For other PRs, use the same rubric and prepare these files on the PR branch before merge. The steps below describe a manual cut on main.
+
 ## The Process
 
 ### Step 1: Verify preconditions
