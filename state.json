@@ -101,7 +101,14 @@
       "branch": "factory/issue-74",
       "head": "a59130084b75241073b0bd4c882d07efa7f1ca05",
       "publicationPending": false,
-      "pr": "https://github.com/nfelger/obsidian-tools/pull/86"
+      "pr": "https://github.com/nfelger/obsidian-tools/pull/86",
+      "checkpoint": {
+        "base": "a59130084b75241073b0bd4c882d07efa7f1ca05",
+        "revision": 2,
+        "attempt": 4,
+        "run": "45480563104",
+        "artifact": "coding-evidence-45480563104-1"
+      }
     }
   }
 }
