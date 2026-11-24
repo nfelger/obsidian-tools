@@ -27,7 +27,8 @@
     "7107951900",
     "7108081460",
     "7126268314",
-    "7126551080"
+    "7126551080",
+    "7127241193"
   ],
   "work": {
     "44": {
@@ -56,6 +57,16 @@
       "publicationPending": false,
       "pr": "https://github.com/nfelger/obsidian-tools/pull/53",
       "candidate": "bullet-flow-1f31ce57d660-45360016067-1"
+    },
+    "61": {
+      "issue": 61,
+      "stage": "running",
+      "revision": 1,
+      "attempt": 1,
+      "failures": 0,
+      "agreement": "{\"request\":\"First-cycle review • highest priority • product fix\\n\\nIn `src/events/autoMoveCompleted.ts`, runPeriodicCascade snapshots a subtree, awaits destination writes, compares only the parent line, then calls computeSourceSchedule on fresh text. A child edited during the await can be deleted even though only its old text travelled. A second window exists after the daily append but before project/intermediate writes finish. The daily insertion in `src/utils/cascade.ts` appends again on retry.\\n\\nAt main 0517b73, exercising the real helpers with a stable parent and a child changed from “Old child” to “Edited child” left only the scheduled parent in the source and “Old child” in the daily log. Replaying the insertion appended a second copy. This was a helper-level check, not a report of loss in a live vault.\\n\\n**Done when**\\n\\n- Drive the normal cascade through an editor change during a destination write. Preserve added/edited child text and make any partial result recoverable.\\n- Inject a failure after the daily write, then retry from the persisted notes. Assert the final source, daily, intermediate and project Markdown, including unrelated text.\\n- Handle distinct tasks with identical visible text. Broad text-only deduplication could silently discard a legitimate second completion.\\n- Keep the normal happy-path vault format and one-click interaction. Reuse the existing memory vault and cascade tests.\",\"replies\":[]}",
+      "result": "",
+      "runUrl": "https://github.com/nfelger/obsidian-tools/actions/runs/45364004055"
     }
   }
 }
