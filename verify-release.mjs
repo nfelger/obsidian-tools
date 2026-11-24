@@ -1,9 +1,28 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
+
+const base = process.argv[2];
+const changed = execFileSync('git', ['diff', '--no-renames', '--name-only', '-z', base, 'HEAD', '--'],
+    { encoding: 'utf8' }).split('\0').filter(Boolean);
+const tooling = new Set([
+    'verify-release.mjs',
+    '.github/workflows/factory.yml',
+    '.github/workflows/factory-check.yml',
+    '.github/workflows/ci.yml',
+    '.github/workflows/release-on-push.yml',
+]);
+const releaseRequired = changed.some(path => !path.startsWith('factory/') && !tooling.has(path));
+if (process.env.GITHUB_OUTPUT) {
+    appendFileSync(process.env.GITHUB_OUTPUT, `release_required=${releaseRequired}\n`);
+}
+if (!releaseRequired) {
+    console.log('No plugin release required for factory and CI tooling changes.');
+    process.exit(0);
+}
 
 const json = name => JSON.parse(readFileSync(name, 'utf8'));
-const previous = JSON.parse(execFileSync('git', ['show', process.argv[2] + ':manifest.json'], { encoding: 'utf8' })).version;
+const previous = JSON.parse(execFileSync('git', ['show', base + ':manifest.json'], { encoding: 'utf8' })).version;
 const [major, minor, patch] = previous.split('.').map(Number);
 const { version, minAppVersion } = json('manifest.json');
 assert.ok([`${major}.${minor}.${patch+1}`, `${major}.${minor+1}.0`, `${major+1}.0.0`].includes(version),
