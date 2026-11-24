@@ -48,7 +48,7 @@ describe('preview fixture scenarios', () => {
 	it('scenario 3: a project task logs in the project, its child stays out of the daily log', async () => {
 		const ticked = '- [ ] [[Preview project]] Draft the rollout plan';
 		const result = await testCascade({
-			source: tick(fixture('{{weeklyPath}}.md'), ticked),
+			source: tick(fixture('Weekly/{{week}}.md'), ticked),
 			sourcePath: CASCADE_NOTE_PATHS.weekly,
 			tickedLine: ticked.replace('[ ]', '[x]'),
 			projectNotes: projectNotes()
@@ -69,7 +69,7 @@ describe('preview fixture scenarios', () => {
 	it('scenario 3b: a task under the collector keeps the project prefix and logs in the project', async () => {
 		const ticked = '\t- [ ] Book the kickoff room';
 		const result = await testCascade({
-			source: tick(fixture('{{weeklyPath}}.md'), ticked),
+			source: tick(fixture('Weekly/{{week}}.md'), ticked),
 			sourcePath: CASCADE_NOTE_PATHS.weekly,
 			tickedLine: ticked.replace('[ ]', '[x]'),
 			projectNotes: projectNotes()
@@ -89,10 +89,10 @@ describe('preview fixture scenarios', () => {
 	it('scenario 4b: the week\'s aliased copy is merged, not duplicated', async () => {
 		const ticked = '- [ ] [[Preview project]] Order the badges';
 		const result = await testCascade({
-			source: tick(fixture('{{monthlyPath}}.md'), ticked),
+			source: tick(fixture('Monthly/{{month}}.md'), ticked),
 			sourcePath: CASCADE_NOTE_PATHS.monthly,
 			tickedLine: ticked.replace('[ ]', '[x]'),
-			notes: { [CASCADE_NOTE_PATHS.weekly]: fixture('{{weeklyPath}}.md') },
+			notes: { [CASCADE_NOTE_PATHS.weekly]: fixture('Weekly/{{week}}.md') },
 			projectNotes: projectNotes()
 		});
 
