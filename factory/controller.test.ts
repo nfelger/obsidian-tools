@@ -46,6 +46,11 @@ globalThis.fetch = async (url, options = {}) => {
     else if (path === 'git/commits' && body.parents[0] === 'advanced') value = { sha: 'combined' };
     else if (path === 'git/refs/heads/factory/issue-1' && body.sha === 'combined' && body.force === false) value = {};
     else if (path === 'pulls') value = [{ html_url: 'example/pr' }];
+    else if (path.startsWith('contents/')) {
+        const files = { 'CHANGELOG.md': '## [0.1.1] - 2026-11-24\\n\\n- Fixed example.', 'manifest.json': '{"version":"0.1.0","minAppVersion":"1"}',
+            'package.json': '{}', 'package-lock.json': '{"packages":{"":{}}}', 'versions.json': '{}' };
+        value = { content: Buffer.from(files[path.slice(9)]).toString('base64') };
+    }
     else if (path === 'issues') value = [{ number: 1, state: 'open', body: '' }];
     else if (path === 'issues/1/comments' && options.method === 'POST') {
         comments.push(body.body); record(); value = {};

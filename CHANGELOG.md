@@ -5,9 +5,9 @@ All notable changes to Bullet Flow are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.20.0] - 2026-11-24
 
-### Changed
+### Added
 
 - **Ticking a task in a weekly, monthly or yearly note files it down to
   today's daily log.** The task travels one level at a time — a tick in a
@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A project task finished in a weekly, monthly or yearly note is logged once.**
   When *Complete project task* files the completion and the cascade runs on the
   same tick, the project note keeps a single log entry instead of two.
+
+### Changed
+
+- Factory issue turns now get individual status replies. The factory flags
+  conflicts that need maintainer changes and prepares releases for PR review.
 
 ## [0.19.1] - 2026-08-10
 

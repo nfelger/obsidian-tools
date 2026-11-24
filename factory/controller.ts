@@ -1,4 +1,5 @@
 import { loadCheckpoint, legacyCheckpoint, type Patch } from './checkpoint.ts';
+import { releaseChanges } from './release.ts';
 import { runCoding } from './coding.ts';
 import { publish, ensurePull } from './publication.ts';
 import { githubRead } from './github-read.ts';
@@ -155,7 +156,13 @@ if (work?.phase === 'coding') {
                 const output = await runCoding(repo, base, work, guard, { deadline, recovery, checkpoint, budget });
                 await guard();
                 try {
-                    await publish(api, repo, work, base, output.changes, output.message);
+                    const readAt = async (path: string, ref: string) => {
+                        const blob = await api(`contents/${path}?ref=${ref}`);
+                        return Buffer.from(blob.content, 'base64').toString('utf8');
+                    };
+                    const version = JSON.parse(await readAt('manifest.json', 'main')).version;
+                    const changes = await releaseChanges(version, output.changes, path => readAt(path, base));
+                    await publish(api, repo, work, base, changes, output.message);
                 } catch (error) {
                     if (work.publicationPending || await live() === base) throw error;
                     // Another writer advanced the branch. Reapply our delta, then verify again.
