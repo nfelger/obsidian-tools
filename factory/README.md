@@ -1,6 +1,15 @@
 # Issue controller
 
-After this workflow is merged, add the `OPENROUTER_API_KEY` repository secret.
+## Design guardrails
+
+- Describe a change to vault behavior with a small synthetic vault, one user action and the expected Markdown in each affected note. Include surrounding text that must survive. For multi-note writes, cover an interrupted write, a retry and an edit made while the operation is in flight.
+- Keep owner-approved examples available to an independent check. A coder’s completion report points to evidence. Verify the resulting files and reserve the Obsidian preview for judgments only the owner can make, such as whether capture still feels effortless.
+- Identify the candidate by its commit and CI artifact when requesting acceptance. After a change to vault writes or editor integration, obtain fresh evidence and preview the revised candidate.
+- Keep factory changes in separate owner-reviewed PRs. A product issue can surface a limitation without granting permission to change the controller, its checks or its publishing credentials. Improve the factory when a real cycle exposes lost work, a missed regression or avoidable owner intervention.
+
+## Running the controller
+
+Configure the `OPENROUTER_API_KEY` repository secret.
 All model calls go through OpenRouter. Role defaults live in `models.ts`:
 
 | Role | Default model | Actions variable |
@@ -10,12 +19,11 @@ All model calls go through OpenRouter. Role defaults live in `models.ts`:
 | Escalation and architecture review | `anthropic/claude-opus-5.5` | `ESCALATION_MODEL` |
 | Bounded clerical tasks | `openai/gpt-6-luna` | `UTILITY_MODEL` |
 
-Only the planner runs in this segment, and only `PLANNER_MODEL` is wired into the
-workflow. Empty values use the default. Other roles will be wired into their
-respective segments when activated.
+Planning, implementation and escalation use the corresponding variables above.
+Empty values use the defaults. The utility role is reserved for future work.
 Comment `/factory start` on an issue as the repository owner. The issue body and
-your preceding discussion comments form the requirements snapshot. The first agent returns a concise handoff and acceptance cases;
-product-code changes and preview creation are segment 3.
+your preceding discussion comments form the requirements snapshot. The planner
+returns a handoff and acceptance cases for your approval.
 
 Answer planner questions in ordinary issue comments. A new comment from the
 repository owner automatically queues the next planner turn with the issue body,
@@ -57,7 +65,6 @@ not an isolation scheme for future code-executing agents.
 
 Run `npm ci && npm run check` in this directory. Dependencies and lockfile are
 separate from the Obsidian build so the agent runtime is not bundled into the plugin.
-Activation and a model-backed issue trial require the merged workflow and secret.
 
 Flue 2.3.0 currently requires pi-ai/pi-agent-core 1.1.0; explicit overrides
 prevent a newer compatible-range release from removing a required runtime export.
@@ -84,7 +91,7 @@ Its cost rates are list-price estimates; actual cost reporting still prefers
 OpenRouter usage. The checks resolve every role default and exercise `flue run`
 with a mocked OpenRouter response, without paid model calls.
 
-## Live trial after merge
+## Checking a new installation
 
 Configure the API key, create a small issue, and post `/factory start`. Confirm a
 requirements handoff and acceptance cases arrive, then answer its questions in a comment and
@@ -121,7 +128,7 @@ rejects PR creation. The workflow requires contents, issues, pull-requests and
 actions write permissions; publishing tokens remain outside the coding container.
 Merge stays manual. Candidate history lives in issue comments.
 
-The container/model and issue-to-preview loop need a hosted trial after merge.
+The first completed issue-to-preview cycle is recorded in [issue #48](https://github.com/nfelger/obsidian-tools/issues/48) and [PR #53](https://github.com/nfelger/obsidian-tools/pull/53).
 
 The coding container uses the runner's UID/GID so its workspace and output mounts
 remain writable with all Linux capabilities dropped. Container setup failures
