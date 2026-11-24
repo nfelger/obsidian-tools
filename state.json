@@ -71,13 +71,13 @@
     },
     "67": {
       "issue": 67,
-      "stage": "running",
+      "stage": "blocked",
       "turn": "7128278805",
       "revision": 1,
       "attempt": 1,
-      "failures": 0,
+      "failures": 1,
       "agreement": "{\"request\":\"In src/events/autoMoveCompleted.ts, runPeriodicCascade snapshots a subtree, awaits destination writes, compares only the parent line, then calls computeSourceSchedule on fresh text. A child edited during the await can be deleted even though only its old text travelled. A second window exists after the daily append but before project/intermediate writes finish. The daily insertion in src/utils/cascade.ts appends again on retry.\\n\\nAt main https://github.com/nfelger/obsidian-tools/commit/0517b73a3b0cb783388ed6ca55a9874741b873c2, exercising the real helpers with a stable parent and a child changed from “Old child” to “Edited child” left only the scheduled parent in the source and “Old child” in the daily log. Replaying the insertion appended a second copy. This was a helper-level check, not a report of loss in a live vault.\\n\\nDone when\\n\\n- Drive the normal cascade through an editor change during a destination write. Preserve added/edited child text and make any partial result recoverable.\\n- Inject a failure after the daily write, then retry from the persisted notes. Assert the final source, daily, intermediate and project Markdown, including unrelated text.\\n- Handle distinct tasks with identical visible text. Broad text-only deduplication could silently discard a legitimate second completion.\\n- Keep the normal happy-path vault format and one-click interaction. Reuse the existing memory vault and cascade tests.\",\"replies\":[]}",
-      "result": "",
+      "result": "Agent process failed: spawnSync node_modules/.bin/flue ETIMEDOUT",
       "runUrl": "https://github.com/nfelger/obsidian-tools/actions/runs/45371238707"
     }
   }
