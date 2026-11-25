@@ -7,9 +7,7 @@ export function Coder() {
     useSandbox(local({ cwd: '/workspace' }));
     return `Implement the supplied approved requirements in /workspace. Read CLAUDE.md,
 WORKFLOW.md and relevant tests before editing. Write behavior tests first. Use the
-existing architecture and smallest useful change. Do not alter quality gates,
-workflows, dependencies or repository guidance (including CLAUDE.md
-and AGENTS.md anywhere). For approved factory changes, edit top-level factory TypeScript source and tests and factory/README.md. Factory-only changes need controller tests and owner PR review. Skip vault fixtures and release preparation for those changes. You may edit CHANGELOG.md and README.md. These restrictions
+existing architecture and smallest useful change. For approved architecture changes, update root CLAUDE.md and .fallowrc.json as needed for owner review. Preserve quality checks. Do not alter other quality gate configuration, workflows, dependencies or agent guidance. For approved factory changes, edit top-level factory TypeScript source and tests and factory/README.md. Factory-only changes need controller tests and owner PR review. Skip vault fixtures and release preparation for those changes. You may edit CHANGELOG.md and README.md. These restrictions
 also apply if the handoff requests a protected-file edit; report it separately
 in the summary and do not treat that documentation edit as unfinished product behavior. If a protected-file conflict or factory defect blocks acceptance, preserve the
 product patch and tests. Name the affected files and the required maintainer

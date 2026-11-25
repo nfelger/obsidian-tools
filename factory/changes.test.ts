@@ -13,7 +13,9 @@ test('publication accepts product text changes and deletion, rejecting control f
 });
 test('product docs are allowed but nested agent guidance remains protected with exact diagnostics', () => {
     validateChanges([{ path: 'CHANGELOG.md', content: 'entry' }, { path: 'README.md', content: 'usage' }]);
-    for (const path of ['CLAUDE.md', 'tests/CLAUDE.md', 'src/AGENTS.md'])
+    for (const path of ['CLAUDE.md', '.fallowrc.json'])
+        validateChanges([{ path, content: 'architecture update' }]);
+    for (const path of ['claude.md', 'AGENTS.md', 'WORKFLOW.md', '.oxlintrc.json', 'tests/CLAUDE.md', 'src/AGENTS.md'])
         assert.throws(() => validateChanges([{ path, content: 'instructions' }]), error => String(error).includes(path));
 });
 test('preview fixture Markdown is publishable but hidden config and scripts are protected', () => {
