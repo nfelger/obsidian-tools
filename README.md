@@ -177,6 +177,27 @@ Running it again from inside the group restores the first shape.
 within the selection — reaching a task through any of its children. With no
 selection, only the task at the cursor is grouped.
 
+### New Project
+
+**Command:** `Bullet Flow: New project` (key `n` in the Bullet Flow command menu)
+
+Asks for a project's full name and a short alias, creates `<full name>.md`
+directly in the configured Projects folder without opening it, and inserts a
+link such as `[[Migration Initiative|migration]]` where your cursor was (or in
+place of the selected text), so you keep typing in the same note.
+
+**Behavior:**
+- If Templater has a folder template for the Projects folder (or a folder
+  above it), the new note gets it, applied once. Otherwise the note starts empty.
+- The alias is added to the note's `aliases` frontmatter list, keeping anything
+  the template put there. A blank alias gives a plain `[[Full name]]` link.
+- An existing project note is left untouched; the link is inserted and a notice
+  says it already existed.
+- Escape cancels. An empty name keeps the form open; a name with
+  `/ \ : * ? " < > |` shows a notice and creates nothing.
+- With no note open, the project is still created and a notice says no link
+  was inserted. Undo removes the link but not the note.
+
 ## Workflow Overview
 
 The system is built on these principles: frictionless capture, continuous reflection, resilience under stress, and findability without maintenance. Everything starts in the daily note as a rapid log; reflection passes transform messy logs into durable knowledge through extraction and migration.
