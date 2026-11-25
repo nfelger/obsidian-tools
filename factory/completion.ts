@@ -26,7 +26,11 @@ export function completion(message: string): CodingStep {
         }
         return { failed: false, complete: blockers.length === 0,
             message: blockers.length ? `Required work remains:\n${blockers.join('\n')}` : report.summary };
-    } catch {
+    } catch (error) {
+        if (error instanceof SyntaxError) {
+            return { failed: false, complete: false,
+                message: 'Invalid JSON in completion report. Put one valid JSON object in a single json code fence so any progress text stays outside the report.' };
+        }
         return { failed: false, complete: false,
             message: 'Invalid completion report. Return one JSON object with summary, acceptanceCases and remaining; use the required schema. Do not repeat the full prior transcript.' };
     }
