@@ -193,8 +193,11 @@ place of the selected text), so you keep typing in the same note.
   the template put there. A blank alias gives a plain `[[Full name]]` link.
 - An existing project note is left untouched; the link is inserted and a notice
   says it already existed.
-- Escape cancels. An empty name keeps the form open; a name with
-  `/ \ : * ? " < > |` shows a notice and creates nothing.
+- The form stacks a labelled **Full name** field (focused) above an optional
+  **Alias** field. Click **Create project** or press Enter in either field to
+  submit; **Cancel** or Escape closes it without creating anything.
+- An empty name, or one with `/ \ : * ? " < > |`, shows a message under the
+  name field and keeps the form open; the message clears as you edit.
 - With no note open, the project is still created and a notice says no link
   was inserted. Undo removes the link but not the note.
 

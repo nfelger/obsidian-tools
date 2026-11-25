@@ -254,17 +254,27 @@ export class Scope {
   }
 }
 
-// Helper to create mock HTML elements
-function createMockElement() {
+// Helper to create mock HTML elements. Created children are recorded with
+// their tag, class, text and attributes so tests can inspect rendered forms.
+function createMockElement(tagName = 'div', info = {}) {
   const listeners = {};
+  const attrs = { ...info.attr };
+  if (info.type) attrs.type = info.type;
   const element = {
+    tagName,
+    cls: info.cls,
+    attrs,
     addClass: vi.fn(() => element),
     removeClass: vi.fn(() => element),
-    createDiv: vi.fn(() => createMockElement()),
-    createSpan: vi.fn(() => createMockElement()),
-    createEl: vi.fn(() => createMockElement()),
-    empty: vi.fn(() => element),
-    setText: vi.fn(() => element),
+    createDiv: vi.fn((o) => addChild('div', o)),
+    createSpan: vi.fn((o) => addChild('span', o)),
+    createEl: vi.fn((tag, o) => addChild(tag, o)),
+    empty: vi.fn(() => { element.children.length = 0; return element; }),
+    setText: vi.fn((text) => { element.textContent = text; return element; }),
+    setAttr: vi.fn((name, value) => { attrs[name] = String(value); }),
+    setAttribute: vi.fn((name, value) => { attrs[name] = String(value); }),
+    removeAttribute: vi.fn((name) => { delete attrs[name]; }),
+    getAttribute: vi.fn((name) => (name in attrs ? attrs[name] : null)),
     addEventListener: vi.fn((event, handler) => {
       if (!listeners[event]) listeners[event] = [];
       listeners[event].push(handler);
@@ -275,9 +285,14 @@ function createMockElement() {
     }),
     focus: vi.fn(),
     value: '',
-    textContent: '',
+    textContent: info.text || '',
     children: []
   };
+  function addChild(tag, o) {
+    const child = createMockElement(tag, o || {});
+    element.children.push(child);
+    return child;
+  }
   return element;
 }
 
@@ -287,6 +302,7 @@ export class Modal {
     this.app = app;
     this.contentEl = createMockElement();
     this.modalEl = createMockElement();
+    this.titleEl = createMockElement();
     this.scope = new Scope();
     this.isOpen = false;
   }
@@ -299,6 +315,11 @@ export class Modal {
   close() {
     this.isOpen = false;
     this.onClose();
+  }
+
+  setTitle(title) {
+    this.titleEl.setText(title);
+    return this;
   }
 
   onOpen() {}

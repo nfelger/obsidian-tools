@@ -41,7 +41,9 @@ function renderFrontmatter(data: Record<string, unknown>, body: string): string 
 
 interface Setup {
 	files?: Record<string, string>;
-	input: NewProjectInput | null;
+	input?: NewProjectInput | null;
+	/** Drives the form instead of answering with `input` directly. */
+	prompt?: () => Promise<NewProjectInput | null>;
 	activeNote?: { path: string; content: string; cursor: { line: number; ch: number }; selectionEnd?: { line: number; ch: number } } | null;
 	templater?: { templateFor?: (folder: string) => string | null; broken?: boolean; triggerOnCreate?: boolean };
 }
@@ -116,7 +118,7 @@ async function run(setup: Setup) {
 	}
 
 	const plugin: any = { app, settings: { ...DEFAULT_SETTINGS } };
-	await newProject(plugin, async () => setup.input);
+	await newProject(plugin, setup.prompt ?? (async () => setup.input ?? null));
 	return { contents, lines, notices: [...notices], templateRuns, app, folders };
 }
 
@@ -243,32 +245,180 @@ aliases:
 	});
 });
 
+/** Every element rendered under `el`, depth first. */
+function descendants(el: any): any[] {
+	return el.children.flatMap((child: any) => [child, ...descendants(child)]);
+}
+
+function openForm() {
+	const modal = new NewProjectModal({} as any);
+	const answer = modal.ask();
+	const all = descendants(modal.contentEl);
+	const button = (text: string) => all.find(e => e.tagName === 'button' && e.textContent === text);
+	const error = all.find(e => e.cls === 'new-project-error');
+	return { modal, answer, all, button, error, name: modal.nameInput as any, alias: modal.aliasInput as any };
+}
+
+const enter = () => ({ type: 'keydown', key: 'Enter', isComposing: false, preventDefault: vi.fn() });
+const typeInto = (input: any, value: string) => {
+	input.value = value;
+	input.dispatchEvent({ type: 'input' });
+};
+
 describe('New project form', () => {
 	it('I: opens with an empty, focused full-name field', () => {
-		const modal = new NewProjectModal({} as any);
-		void modal.ask();
-		expect(modal.nameInput!.value).toBe('');
-		expect(modal.nameInput!.focus).toHaveBeenCalled();
+		const { name } = openForm();
+		expect(name.value).toBe('');
+		expect(name.focus).toHaveBeenCalled();
 	});
 
-	it('keeps the form open on a blank name and submits trimmed later', async () => {
-		const modal = new NewProjectModal({} as any);
-		const answer = modal.ask();
-		modal.nameInput!.value = '   ';
-		modal.submit();
-		expect((modal as any).isOpen).toBe(true);
+	it('K: shows a title, stacked labelled fields, alias help and both buttons', () => {
+		const { modal, all, button, name, alias } = openForm();
+		expect(modal.titleEl.setText).toHaveBeenCalledWith('New project');
 
-		modal.nameInput!.value = 'Website Relaunch';
-		modal.aliasInput!.value = 'relaunch';
-		const enter = modal.scope.keys.find((k: any) => k.key === 'Enter');
-		enter.callback({ preventDefault: vi.fn() });
+		const labels = all.filter(e => e.tagName === 'label');
+		const inputs = all.filter(e => e.tagName === 'input');
+		expect(labels.map(l => l.textContent)).toEqual(['Full name', 'Alias']);
+		expect(inputs).toEqual([name, alias]);
+		expect(labels[0].attrs.for).toBe(name.attrs.id);
+		expect(labels[1].attrs.for).toBe(alias.attrs.id);
+		expect(name.attrs.id).not.toBe(alias.attrs.id);
+		expect(inputs.every(i => i.attrs.type === 'text')).toBe(true);
+		expect(name.attrs.placeholder).toBe('Migration Initiative');
+		expect(alias.attrs.placeholder).toBe('migration');
+
+		// Each field is its own block, so label, input and help stack vertically
+		const fields = modal.contentEl.children.filter((e: any) => e.cls === 'new-project-field');
+		expect(fields).toHaveLength(2);
+		expect(fields[0].children).toContain(name);
+		expect(fields[1].children).toContain(alias);
+		const help = fields[1].children.find((e: any) => e.cls === 'new-project-description');
+		expect(help.textContent).toBe('Shown in the link. Optional.');
+
+		const buttons = all.filter(e => e.tagName === 'button');
+		expect(buttons.map(b => b.textContent)).toEqual(['Cancel', 'Create project']);
+		expect(button('Create project').cls).toBe('mod-cta');
+		const footer = modal.contentEl.children.at(-1);
+		expect(footer.cls).toBe('modal-button-container');
+		expect(footer.children).toEqual(buttons);
+		expect(name.focus).toHaveBeenCalled();
+	});
+
+	it('L: clicking Create project submits the trimmed fields', async () => {
+		const { answer, button, name, alias } = openForm();
+		name.value = ' Website Relaunch ';
+		alias.value = ' relaunch ';
+		button('Create project').dispatchEvent({ type: 'click' });
 		expect(await answer).toEqual({ name: 'Website Relaunch', alias: 'relaunch' });
 	});
 
-	it('resolves null when dismissed', async () => {
-		const modal = new NewProjectModal({} as any);
-		const answer = modal.ask();
+	it('L: a clicked submission creates and links the project like case A', async () => {
+		const r = await run({
+			activeNote: DAILY,
+			prompt: () => {
+				const { answer, button, name, alias } = openForm();
+				name.value = 'Website Relaunch';
+				alias.value = 'relaunch';
+				button('Create project').dispatchEvent({ type: 'click' });
+				return answer;
+			},
+		});
+		expect(r.contents.has('1 Projekte/Website Relaunch.md')).toBe(true);
+		expect(r.lines[1]).toBe('- Kickoff with design about [[Website Relaunch|relaunch]]');
+	});
+
+	it('M: Enter in the alias field submits', async () => {
+		const { answer, name, alias } = openForm();
+		name.value = 'Website Relaunch';
+		alias.value = 'relaunch';
+		const evt = enter();
+		alias.dispatchEvent(evt);
+		expect(evt.preventDefault).toHaveBeenCalled();
+		expect(await answer).toEqual({ name: 'Website Relaunch', alias: 'relaunch' });
+	});
+
+	it('M: Enter in the name field submits with an empty alias, giving case B', async () => {
+		const r = await run({
+			activeNote: DAILY,
+			prompt: () => {
+				const { answer, name } = openForm();
+				name.value = 'Website Relaunch';
+				name.dispatchEvent(enter());
+				return answer;
+			},
+		});
+		expect(r.contents.get('1 Projekte/Website Relaunch.md')).toBe('');
+		expect(r.lines[1]).toBe('- Kickoff with design about [[Website Relaunch]]');
+	});
+
+	it('M: other keys and IME composition do not submit', () => {
+		const { modal, name } = openForm();
+		name.value = 'Website Relaunch';
+		name.dispatchEvent({ type: 'keydown', key: 'a', preventDefault: vi.fn() });
+		name.dispatchEvent({ ...enter(), isComposing: true });
+		expect((modal as any).isOpen).toBe(true);
+	});
+
+	it('N: clicking Cancel resolves null', async () => {
+		const { modal, answer, button, name } = openForm();
+		name.value = 'Website Relaunch';
+		button('Cancel').dispatchEvent({ type: 'click' });
+		expect(await answer).toBeNull();
+		expect((modal as any).isOpen).toBe(false);
+	});
+
+	it('E: resolves null when dismissed', async () => {
+		const { modal, answer } = openForm();
 		modal.close();
 		expect(await answer).toBeNull();
+	});
+
+	it('O: an empty name shows an inline error, keeps the form open and refocuses; typing clears it', async () => {
+		const { modal, answer, button, error, name } = openForm();
+		expect(error.textContent).toBe('');
+		name.value = '   ';
+		button('Create project').dispatchEvent({ type: 'click' });
+
+		expect((modal as any).isOpen).toBe(true);
+		expect(error.textContent).toBe('Enter a project name.');
+		expect(name.attrs['aria-invalid']).toBe('true');
+		expect(name.attrs['aria-describedby']).toBe(error.attrs.id);
+		expect(name.focus).toHaveBeenCalledTimes(2);
+
+		typeInto(name, 'W');
+		expect(error.textContent).toBe('');
+		expect(name.attrs['aria-invalid']).toBeUndefined();
+
+		typeInto(name, 'Website Relaunch');
+		name.dispatchEvent(enter());
+		expect(await answer).toEqual({ name: 'Website Relaunch', alias: '' });
+	});
+
+	it('G: names the forbidden characters inline, each once', () => {
+		const { modal, error, name } = openForm();
+		name.value = 'a:b/c:d?';
+		name.dispatchEvent(enter());
+		expect((modal as any).isOpen).toBe(true);
+		expect(error.textContent).toBe("A project name can't contain: : / ?");
+	});
+
+	it('G: an invalid name keeps the form open with nothing created until it is corrected', async () => {
+		let seen: { open: boolean; error: string } | null = null;
+		const r = await run({
+			activeNote: DAILY,
+			prompt: () => {
+				const form = openForm();
+				form.name.value = 'A/B';
+				form.button('Create project').dispatchEvent({ type: 'click' });
+				seen = { open: (form.modal as any).isOpen, error: form.error.textContent };
+				typeInto(form.name, 'AB');
+				form.button('Create project').dispatchEvent({ type: 'click' });
+				return form.answer;
+			},
+		});
+		expect(seen!.open).toBe(true);
+		expect(seen!.error).toBe("A project name can't contain: /");
+		expect([...r.contents.keys()]).toEqual(['1 Projekte/AB.md']);
+		expect(r.lines[1]).toBe('- Kickoff with design about [[AB]]');
 	});
 });
