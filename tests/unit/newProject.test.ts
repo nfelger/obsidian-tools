@@ -3,9 +3,24 @@ import {
 	buildProjectLink,
 	effectiveAlias,
 	mergeAliasIntoFrontmatter,
+	projectNameProblem,
 	projectNotePath,
 	validateNewProjectInput
 } from '../../src/utils/newProject';
+
+describe('projectNameProblem', () => {
+	it('accepts a usable name', () => {
+		expect(projectNameProblem('  Website Relaunch ')).toBeNull();
+	});
+
+	it.each(['', '   '])('asks for a name when it is blank (%j)', name => {
+		expect(projectNameProblem(name)).toBe('Enter a project name.');
+	});
+
+	it('names each forbidden character once, in order of appearance', () => {
+		expect(projectNameProblem('a|b/c|d\\e:f*g?h"i<j>')).toBe(`A project name can't contain: | / \\ : * ? " < >`);
+	});
+});
 
 describe('validateNewProjectInput', () => {
 	it('trims both fields', () => {

@@ -132,3 +132,39 @@ li[data-task="o"] > p > input:checked {
 	width: auto;
 	min-width: 250px;
 }
+
+/* New project form: each label sits above its full-width input */
+.bullet-flow-new-project .new-project-field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+	margin-bottom: var(--size-4-4);
+}
+
+.bullet-flow-new-project .new-project-field label {
+	color: var(--text-normal);
+	font-size: var(--font-ui-medium);
+	font-weight: var(--font-semibold);
+}
+
+.bullet-flow-new-project .new-project-field input {
+	width: 100%;
+}
+
+.bullet-flow-new-project .new-project-description {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.bullet-flow-new-project .new-project-error {
+	color: var(--text-error);
+	font-size: var(--font-ui-small);
+}
+
+.bullet-flow-new-project .new-project-error:empty {
+	display: none;
+}
+
+.bullet-flow-new-project input[aria-invalid="true"] {
+	border-color: var(--text-error);
+}

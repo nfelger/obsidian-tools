@@ -83,8 +83,8 @@ The command menu opens with Ctrl+Shift+B (Cmd+Shift+B on macOS).
 ### 1. Create a project and link it where you are typing
 
 1. Open [[{{dailyPath}}]]. Put the cursor at the end of the `## Log` line `- Kickoff with design about ` (after the trailing space).
-2. Open the command menu and press `n`. Expect a form titled New project with an empty, focused full-name field (no stray `n` in it).
-3. Type `Website Relaunch`, move to the alias field, type `relaunch`, and press Enter.
+2. Open the command menu and press `n`. Expect a form titled New project with an empty, focused Full name field (no stray `n` in it).
+3. Type `Website Relaunch`, press Tab to the Alias field, type `relaunch`, and click Create project.
 4. Expect the line to read `- Kickoff with design about [[Website Relaunch|relaunch]]`, the daily note to stay open, and a notice `New project: created Website Relaunch.`
 5. Open `1 Projekte/Website Relaunch.md` (click the link). Expect it to hold only frontmatter with `aliases` listing `relaunch`.
 
@@ -101,8 +101,17 @@ The command menu opens with Ctrl+Shift+B (Cmd+Shift+B on macOS).
 ### 4. Dismissing or a bad name does nothing
 
 1. Press `n` in the command menu, then Escape. Expect no note and no link.
-2. Press `n`, press Enter with the full name empty. Expect the form to stay open; press Escape.
-3. Press `n`, type `A/B`, press Enter. Expect a notice about characters a filename can't hold, no new note and no link.
+2. Press `n`, type `Draft`, then click Cancel. Expect the form to close with no note and no link.
+3. Press `n` and click Create project with the full name empty. Expect "Enter a project name." under the Full name field, the field outlined as invalid and still focused, and the form to stay open.
+4. Type `Bad/Name`. Expect the message to disappear as you type. Click Create project (or press Enter). Expect "A project name can't contain: /" under the field, the form still open, no new note and no link.
+5. Change the name to `Bad Name` and click Create project. Expect `[[Bad Name]]` at the cursor and an empty `1 Projekte/Bad Name.md`.
+
+### 4b. How the form looks
+
+1. Press `n` in the command menu. Expect the title New project, then a **Full name** label above its own full-width field (grey example text `Migration Initiative`), then an **Alias** label above its field (example `migration`) with the muted line "Shown in the link. Optional." beneath it.
+2. Expect **Cancel** and an accent-coloured **Create project** button at the bottom right, Create project on the right.
+3. Press Tab repeatedly. Expect focus to move Full name → Alias → Cancel → Create project. Press Escape.
+4. Please judge labels, spacing, buttons and the error text's contrast, in both light and dark themes if you use both.
 
 ### 5. The new note is a project
 

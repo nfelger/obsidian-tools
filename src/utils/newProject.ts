@@ -9,6 +9,17 @@ import type { NewProjectInput } from '../types';
 const INVALID_NAME_CHARS = /[/\\:*?"<>|]/;
 
 /**
+ * What the form should say about a full name, or null when it can be used.
+ * Forbidden characters are listed once each, in the order they appear.
+ */
+export function projectNameProblem(name: string): string | null {
+	const trimmed = name.trim();
+	if (!trimmed) return 'Enter a project name.';
+	const forbidden = [...new Set([...trimmed].filter(ch => INVALID_NAME_CHARS.test(ch)))];
+	return forbidden.length ? `A project name can't contain: ${forbidden.join(' ')}` : null;
+}
+
+/**
  * Trim the form's fields and check the full name can be a filename.
  *
  * @returns The trimmed input, or an error message for a notice
