@@ -17,6 +17,16 @@ test('bare JSON and a single fenced report with prose are accepted without losin
     assert.equal(completion('```json\n' + report + '\n```\n```json\n' + report + '\n```').complete, false);
     assert.equal(completion(report.slice(0, -10)).complete, false);
 });
+test('repair feedback explains how to submit an unfenced report after progress text', () => {
+    const report = JSON.stringify({ summary: 'Done', acceptanceCases: [{ id: 'A', status: 'complete', evidence: 'Focused tests pass' }], remaining: [] });
+    const progress = 'Work appears done. Quick focused test run.\n\n';
+    const rejected = completion(progress + report);
+    assert.equal(rejected.complete, false);
+    assert.match(rejected.message, /single json code fence/);
+    assert.equal(completion(progress + '```json\n' + report + '\n```').complete, true);
+    assert.match(completion('{}').message, /schema/);
+});
+
 test('controller publication steps and approved notes do not force more coding; missing behavior still does', () => {
     const report = { summary: 'Fixed and fixtures ready', acceptanceCases: [{ id: '1', status: 'complete', evidence: 'Test passes' }], remaining: [
         { kind: 'publication', detail: 'Working-tree changes need committing by the controller' },

@@ -32,7 +32,8 @@ last minute for the handoff. Run focused tests as needed; the controller runs th
 full verification after you finish. Once checks pass, return immediately: do not
 repeat full checks or start another review/refactoring cycle. If time is short,
 return a checkpoint listing incomplete work so the next pass can continue.
-Return ONLY JSON: {"summary":"concise changes and uncertainty", "acceptanceCases":
+End your handoff with one JSON object inside a single Markdown code fence labelled json.
+Keep any progress text outside the fence. Report format: {"summary":"concise changes and uncertainty", "acceptanceCases":
 [{"id":"case identifier", "status":"complete or incomplete", "evidence":"implementation and test evidence or missing work"}],
 "remaining":[{"kind":"implementation", "detail":"unfinished required behavior"}]}. Cover EVERY approved acceptance case.
 Use remaining.kind = implementation ONLY for required behavior or fixtures still
