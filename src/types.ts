@@ -101,6 +101,14 @@ export const DEFAULT_PERIODIC_CONFIG: PeriodicConfig = {
 	yearly: { folder: '+Diary', format: 'YYYY/YYYY' }
 };
 
+// === New Project ===
+
+/** What the New project form collects: the full name and a short alias. */
+export interface NewProjectInput {
+	name: string;
+	alias: string;
+}
+
 // === Plugin Settings ===
 
 /**

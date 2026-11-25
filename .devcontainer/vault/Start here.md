@@ -76,6 +76,41 @@ Open the linked fixture notes below. Their paths resolve when the preview is see
 1. In [[{{dailyPath}}]], tick `- [ ] Water the plants` under `## Todo`.
 2. Expect it to move to `## Log` as `- [x] Water the plants`, exactly as before this change.
 
+## Try it: New project
+
+The command menu opens with Ctrl+Shift+B (Cmd+Shift+B on macOS).
+
+### 1. Create a project and link it where you are typing
+
+1. Open [[{{dailyPath}}]]. Put the cursor at the end of the `## Log` line `- Kickoff with design about ` (after the trailing space).
+2. Open the command menu and press `n`. Expect a form titled New project with an empty, focused full-name field (no stray `n` in it).
+3. Type `Website Relaunch`, move to the alias field, type `relaunch`, and press Enter.
+4. Expect the line to read `- Kickoff with design about [[Website Relaunch|relaunch]]`, the daily note to stay open, and a notice `New project: created Website Relaunch.`
+5. Open `1 Projekte/Website Relaunch.md` (click the link). Expect it to hold only frontmatter with `aliases` listing `relaunch`.
+
+### 2. A blank alias gives a plain link
+
+1. In [[{{dailyPath}}]], start a new `## Log` bullet, press `n` in the command menu, type `Office Move`, leave the alias empty and press Enter.
+2. Expect `[[Office Move]]` at the cursor and an empty `1 Projekte/Office Move.md` with no `aliases`.
+
+### 3. An existing project is linked, not changed
+
+1. On a new bullet in [[{{dailyPath}}]], press `n` in the command menu, type `Preview project` with alias `preview` and press Enter.
+2. Expect `[[Preview project|preview]]` at the cursor, a notice that Preview project already exists, and [[Preview project]] unchanged.
+
+### 4. Dismissing or a bad name does nothing
+
+1. Press `n` in the command menu, then Escape. Expect no note and no link.
+2. Press `n`, press Enter with the full name empty. Expect the form to stay open; press Escape.
+3. Press `n`, type `A/B`, press Enter. Expect a notice about characters a filename can't hold, no new note and no link.
+
+### 5. The new note is a project
+
+1. In [[{{dailyPath}}]], add `- [ ] [[Website Relaunch|relaunch]] Draft the brief` under `## Todo`, put the cursor on it and run Drop task to project (`p` in the command menu).
+2. Expect the task to leave the daily note and appear under `## Todo` in `1 Projekte/Website Relaunch.md`.
+
+The preview vault has no Templater, so folder templates are not applied here. Automated tests cover the template (applied once, then the alias merged in); please try it once in your own vault with your project template.
+
 ## Reset and finish
 
 Close Obsidian, then right-click the desktop and choose **Reset preview** to restore these sample notes and reopen the same candidate.

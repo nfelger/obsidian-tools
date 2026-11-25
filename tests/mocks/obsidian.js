@@ -273,6 +273,8 @@ function createMockElement() {
       const handlers = listeners[event.type] || [];
       handlers.forEach(h => h(event));
     }),
+    focus: vi.fn(),
+    value: '',
     textContent: '',
     children: []
   };
