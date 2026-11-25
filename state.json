@@ -34,7 +34,8 @@
     "7142816611",
     "7143159425",
     "7143235207",
-    "7143510823"
+    "7143510823",
+    "7156682550"
   ],
   "work": {
     "44": {
@@ -102,6 +103,17 @@
       "head": "1425f50a1d3bbc00dde5ddc1e0f87da826d884c6",
       "publicationPending": false,
       "pr": "https://github.com/nfelger/obsidian-tools/pull/86"
+    },
+    "88": {
+      "issue": 88,
+      "stage": "running",
+      "turn": "7156682550",
+      "revision": 1,
+      "attempt": 1,
+      "failures": 0,
+      "agreement": "{\"request\":\"Command for creating a new project. Should:\\n- prompt for Project full name and alias\\n- create note in the configured projects folder, using the folder template if configured (creation should happen in the background\\n- inject a link at the current cursor position in the active editor using the alias\\n- be triggerable with shortcut `n` in the bullet flow command modal\",\"replies\":[]}",
+      "result": "",
+      "runUrl": "https://github.com/nfelger/obsidian-tools/actions/runs/45573896591"
     }
   }
 }
