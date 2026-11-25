@@ -31,7 +31,7 @@ test('controller publication steps and approved notes do not force more coding; 
     const report = { summary: 'Fixed and fixtures ready', acceptanceCases: [{ id: '1', status: 'complete', evidence: 'Test passes' }], remaining: [
         { kind: 'publication', detail: 'Working-tree changes need committing by the controller' },
         { kind: 'accepted-assumption', detail: 'Use the handoff default allowing duplicates' },
-        { kind: 'protected-documentation', detail: 'CLAUDE.md edit forbidden' },
+        { kind: 'protected-documentation', detail: 'AGENTS.md edit forbidden' },
     ] };
     assert.equal(completion(JSON.stringify(report)).complete, true);
     report.remaining.push({ kind: 'implementation', detail: 'Weekly-date fix still missing' });

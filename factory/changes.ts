@@ -4,12 +4,13 @@ export function validateChanges(value: unknown): Change[] {
     let bytes = 0;
     const seen = new Set<string>();
     for (const file of value) {
-        if (!file || typeof file.path !== 'string' || !(/^(src\/|tests\/|styles\.css$|CHANGELOG\.md$|README\.md$)/.test(file.path) || /^factory\/(?:[a-zA-Z0-9_-]+(?:\.test)?\.ts|README\.md)$/.test(file.path) || /^\.devcontainer\/vault\/(?:[^./][^/]*\/)*[^./][^/]*\.md$/.test(file.path))
+        const architectureFile = file?.path === 'CLAUDE.md' || file?.path === '.fallowrc.json';
+        if (!file || typeof file.path !== 'string' || !(architectureFile || /^(src\/|tests\/|styles\.css$|CHANGELOG\.md$|README\.md$)/.test(file.path) || /^factory\/(?:[a-zA-Z0-9_-]+(?:\.test)?\.ts|README\.md)$/.test(file.path) || /^\.devcontainer\/vault\/(?:[^./][^/]*\/)*[^./][^/]*\.md$/.test(file.path))
             || file.path.includes('\\')
-            || /(^|\/)(AGENTS|CLAUDE|WORKFLOW)\.md$/i.test(file.path)
+            || (!architectureFile && /(^|\/)(AGENTS|CLAUDE|WORKFLOW)\.md$/i.test(file.path))
             || file.path.split('/').some((part: string) => !part || part === '.' || part === '..')
             || seen.has(file.path) || (file.content !== null && typeof file.content !== 'string')) {
-            throw new Error(`Coding output rejected: ${String(file?.path ?? '(missing path)')}. Allowed: factory TypeScript source/tests and factory/README.md, product source/tests, styles.css, CHANGELOG.md README.md and Markdown preview fixtures; agent guidance is protected.`);
+            throw new Error(`Coding output rejected: ${String(file?.path ?? '(missing path)')}. Allowed: factory TypeScript source/tests and factory/README.md, product source/tests, styles.css, CHANGELOG.md, README.md, root CLAUDE.md, root .fallowrc.json and Markdown preview fixtures.`);
         }
         seen.add(file.path);
         bytes += Buffer.byteLength(file.content ?? '');

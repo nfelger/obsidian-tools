@@ -116,7 +116,7 @@ MiniMax runs in a Docker container with Flue's standard coding tools, two repair
 cycles and one Opus escalation. The container has the OpenRouter key but no GitHub
 token or Docker socket. Trusted runtime code and the candidate workspace are separate.
 The controller accepts only text changes under `src/`, `tests/`, `styles.css`, `CHANGELOG.md`, `README.md`, and Markdown preview fixtures,
-plus top-level factory TypeScript source/tests and factory/README.md for owner-reviewed factory work, with a bounded output size. Workflow, dependency, guidance and gate changes need
+plus top-level factory TypeScript source/tests and factory/README.md for owner-reviewed factory work, with a bounded output size. Approved architecture changes can include root CLAUDE.md and .fallowrc.json in the same owner-reviewed PR. Other workflow, dependency, guidance and gate changes need
 separate human-reviewed work. CI independently verifies the published commit.
 
 The controller opens a draft PR on `factory/issue-<number>` and explicitly dispatches
@@ -188,7 +188,7 @@ Unfinished work, malformed reports, prohibited edits and failed checks feed the
 next pass. A completed report must also pass fresh checks after its final edits.
 This is agent-reported coverage, not independent proof of requirement correctness;
 human preview remains required. Product docs CHANGELOG.md and README.md are
-publishable; agent guidance remains protected even when a handoff requests edits.
+publishable; the factory can also publish approved architecture edits to root CLAUDE.md and .fallowrc.json.
 
 State writes retry transient failures with read-back confirmation; a conflicting
 writer is never overwritten. Run artifacts include the latest local state checkpoint
