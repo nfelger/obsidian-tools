@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // Exercise the real entry point with only external processes and GitHub replaced.
-function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, branchMoves = false, plannerTimeouts = 0, factoryChange = false, options: { work?: object; plannerMessage?: string } = {}) {
+function runController(stage: string, phase = 'planning', succeeds = false, loseSaveResponse = false, branchMoves = false, plannerTimeouts = 0, factoryChange = false, options: { work?: object; plannerMessage?: string; commentFailures?: number } = {}) {
     const root = mkdtempSync(join(tmpdir(), 'controller-test-'));
     const trace = join(root, 'trace.json');
     const preload = join(root, 'external.mjs');
@@ -24,6 +24,7 @@ const work = { issue: 1, stage: ${JSON.stringify(stage)}, phase: ${JSON.stringif
 let state = { version: 1, processed: [], work: { 1: work } };
 let storedContent = Buffer.from(JSON.stringify(state)).toString('base64');
 const comments = [];
+let commentFailures = ${options.commentFailures ?? 0};
 let lostResponse = false;
 let reads = 0;
 const passes = [];
@@ -54,6 +55,7 @@ globalThis.fetch = async (url, options = {}) => {
     }
     else if (path === 'issues') value = [{ number: 1, state: 'open', body: '' }];
     else if (path === 'issues/1/comments' && options.method === 'POST') {
+        if (commentFailures-- > 0) return new Response(null, { status: 500 });
         comments.push(body.body); record(); value = {};
     } else if (path === 'issues/1/comments') value = comments.map((body, i) => ({ id: i+1, user: { login: 'github-actions[bot]', type: 'Bot' }, body }));
     else if (path === 'issues/comments/1' && options.method === 'PATCH') { comments[0] = body.body; record(); value = {}; }
@@ -194,4 +196,25 @@ test('a "Looks good" reply that interrupted a running build is triaged without i
     assert.equal(run.state.work[1].stage, 'paused');
     assert.equal(run.state.work[1].approvedRevision, 2);
     assert.match(run.comments.at(-1), /Thanks\.[\s\S]*revision 2 was interrupted[\s\S]*\/factory resume/);
+});
+
+test('an HTTP 500 posting the starting reply still runs the planner and publishes its result', () => {
+    const run = runController('queued', 'planning', true, false, false, 0, false, { commentFailures: 1 });
+    assert.equal(run.status, 0, run.stderr);
+    assert.equal(run.passes.length, 1);
+    assert.equal(run.state.work[1].stage, 'waiting');
+    assert.match(run.stderr, /POST issues\/1\/comments: 500/);
+    assert.ok(run.comments.some((body: string) => body.includes('Factory: **waiting**')));
+});
+
+test('a comment outage preserves the agreement and an idle run delivers it without replanning', () => {
+    const run = runController('queued', 'planning', true, false, false, 0, false, { commentFailures: 20 });
+    assert.equal(run.status, 0, run.stderr);
+    assert.equal(run.state.work[1].stage, 'waiting');
+    assert.deepEqual(run.comments, []);
+    const replay = runController('waiting', 'planning', true, false, false, 0, false, { work: run.state.work[1] });
+    assert.equal(replay.status, 0, replay.stderr);
+    assert.equal(replay.passes.length, 0);
+    assert.ok(replay.comments.some((body: string) => body.includes('New handoff')));
+    assert.ok(replay.comments.some((body: string) => body.includes('Factory: **waiting**')));
 });

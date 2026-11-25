@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { reconcileDiscussion } from './discussion.ts';
 import { agentResult } from './result.ts';
 import { modelFor } from './models.ts';
-import { agreementBody, agreementMarker, applyTriage, claim, empty, needsOwnerDecision, reviseAgreement, settle, type Ledger } from './state.ts';
+import { agreementBody, agreementMarker, applyTriage, claim, empty, needsOwnerDecision, reviseAgreement, settle, type Ledger, type Work } from './state.ts';
 
 const repo = process.env.GITHUB_REPOSITORY!;
 const owner = repo.split('/')[0];
@@ -131,12 +131,10 @@ if (work && (work.phase !== 'coding' || triaging)) {
             : outcome.message;
         if (triaging && !outcome.failed && !timedOut) {
             if (applyTriage(work, message)) break;
-            await save();
-            if ((work.stage as string) === 'waiting' && work.phase === 'planning') await upsertAgreement(work);
             break;
         }
         settle(work, attempt, message, outcome.failed);
-        if ((work.stage as string) === 'waiting') { reviseAgreement(work, message); await save(); await upsertAgreement(work); }
+        if ((work.stage as string) === 'waiting') reviseAgreement(work, message);
         break;
     }
     await save();
@@ -240,19 +238,36 @@ for (const current of Object.values(state.work)) {
 }
 // State precedes publication so replay can repair a lost comment or response.
 await save();
-for (const current of Object.values(state.work)) await updateTurn(current);
+for (const current of Object.values(state.work)) {
+    await upsertAgreement(current);
+    await updateTurn(current);
+}
 
-async function upsertAgreement(current: import('./state.ts').Work) {
+// Comments can be published again from saved state on the next reconciliation.
+async function deliverComment<T>(issue: number, publish: () => Promise<T>): Promise<T | undefined> {
+    try {
+        return await publish();
+    } catch (error) {
+        console.warn(`Factory comment delivery deferred for #${issue}: ${error}`);
+    }
+}
+
+async function upsertAgreement(current: Work) {
     if (!current.agreementText) return;
-    const body = agreementBody(current);
-    const comments = await pages(`issues/${current.issue}/comments`);
-    const existing = comments.find(item => item.user.type === 'Bot' && item.body.startsWith(agreementMarker));
-    if (existing?.body === body) return;
-    const saved = await api(existing ? `issues/comments/${existing.id}` : `issues/${current.issue}/comments`, existing ? 'PATCH' : 'POST', { body });
-    const id = existing?.id ?? saved?.id;
+    const id = await deliverComment(current.issue, async () => {
+        const body = agreementBody(current);
+        const comments = await pages(`issues/${current.issue}/comments`);
+        const existing = comments.find(item => item.user.type === 'Bot' && item.body.startsWith(agreementMarker));
+        if (existing?.body === body) return existing.id;
+        const saved = await api(existing ? `issues/comments/${existing.id}` : `issues/${current.issue}/comments`, existing ? 'PATCH' : 'POST', { body });
+        return existing?.id ?? saved?.id;
+    });
     if (id && current.agreementComment !== id) { current.agreementComment = id; await save(); }
 }
-async function updateTurn(current: import('./state.ts').Work, acknowledgeOnly = false, progress?: string) {
+async function updateTurn(current: Work, acknowledgeOnly = false, progress?: string) {
+    await deliverComment(current.issue, () => publishTurn(current, acknowledgeOnly, progress));
+}
+async function publishTurn(current: Work, acknowledgeOnly: boolean, progress?: string) {
     const marker = current.turn ? `<!-- factory-turn:${current.turn} -->` : '<!-- bullet-flow-factory-status -->';
     const starting = ['queued', 'running'].includes(current.stage);
     const agreementLink = current.agreementComment ? `[current agreement](#issuecomment-${current.agreementComment})` : 'current agreement';
@@ -276,7 +291,7 @@ async function updateTurn(current: import('./state.ts').Work, acknowledgeOnly = 
     if ((acknowledgeOnly && previous) || previous?.body === body) return;
     await api(previous ? `issues/comments/${previous.id}` : `issues/${current.issue}/comments`, previous ? 'PATCH' : 'POST', { body });
 }
-// Report failure only after durable state and the user-facing status are saved.
+// Report failure only after saving state and attempting to publish status.
 const failed = Object.values(state.work).filter(work => work.failures > (failuresBefore.get(work.issue) ?? 0));
 if (failed.length) {
     console.error(`Factory work failed for issue(s): ${failed.map(work => `#${work.issue}`).join(', ')}. See issue status for details.`);
