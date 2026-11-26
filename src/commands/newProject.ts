@@ -38,7 +38,8 @@ function captureInsertionPoint(plugin: BulletFlowPlugin): InsertionPoint {
  */
 export async function newProject(
 	plugin: BulletFlowPlugin,
-	prompt: Prompt = p => promptForNewProject(p.app)
+	prompt: Prompt = p => promptForNewProject(p.app, name =>
+		!!p.app.vault.getAbstractFileByPath(projectNotePath(p.settings.projectsFolder, name)))
 ): Promise<void> {
 	try {
 		const point = captureInsertionPoint(plugin);
@@ -56,10 +57,14 @@ export async function newProject(
 		const folder = plugin.settings.projectsFolder;
 
 		const result = await createProjectNote(plugin.app, folder, projectNotePath(folder, name), alias);
+		if (result.existed) {
+			new Notice(`New project: ${name} already exists; nothing was created or linked.`, NOTICE_TIMEOUT_ERROR);
+			return;
+		}
 		const linkTarget = plugin.app.metadataCache.fileToLinktext(result.file, point.sourcePath, true);
 		const link = buildProjectLink(linkTarget, alias);
 
-		const messages = [result.existed ? `${name} already exists` : `created ${name}`];
+		const messages = [`created ${name}`];
 		if (result.templateUnavailable) messages.push("Templater's folder template could not be applied");
 		if (point.insert) {
 			point.insert(link);
