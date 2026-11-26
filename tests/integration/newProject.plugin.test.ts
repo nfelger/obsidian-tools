@@ -213,7 +213,7 @@ aliases:
 		expect(r.notices).toEqual([]);
 	});
 
-	it('F: an existing project note is left untouched and linked', async () => {
+	it('F: an existing project note is left untouched and nothing is linked', async () => {
 		const existing = '## Todo\n- [ ] Keep me\n';
 		const r = await run({
 			files: { '1 Projekte/Website Relaunch.md': existing },
@@ -221,8 +221,9 @@ aliases:
 			activeNote: DAILY,
 		});
 		expect(r.contents.get('1 Projekte/Website Relaunch.md')).toBe(existing);
-		expect(r.lines[1]).toBe('- Kickoff with design about [[Website Relaunch|relaunch]]');
+		expect(r.lines[1]).toBe('- Kickoff with design about ');
 		expect(r.notices[0]).toContain('Website Relaunch already exists');
+		expect(r.notices[0]).toContain('nothing was created or linked');
 	});
 
 	it('G: a name with filename-invalid characters creates and inserts nothing', async () => {
@@ -250,8 +251,8 @@ function descendants(el: any): any[] {
 	return el.children.flatMap((child: any) => [child, ...descendants(child)]);
 }
 
-function openForm() {
-	const modal = new NewProjectModal({} as any);
+function openForm(isTaken?: (name: string) => boolean) {
+	const modal = new NewProjectModal({} as any, isTaken);
 	const answer = modal.ask();
 	const all = descendants(modal.contentEl);
 	const button = (text: string) => all.find(e => e.tagName === 'button' && e.textContent === text);
@@ -278,7 +279,7 @@ describe('New project form', () => {
 
 		const labels = all.filter(e => e.tagName === 'label');
 		const inputs = all.filter(e => e.tagName === 'input');
-		expect(labels.map(l => l.textContent)).toEqual(['Full name', 'Alias']);
+		expect(labels.map(l => l.textContent)).toEqual(['Project name', 'Alias']);
 		expect(inputs).toEqual([name, alias]);
 		expect(labels[0].attrs.for).toBe(name.attrs.id);
 		expect(labels[1].attrs.for).toBe(alias.attrs.id);
@@ -296,8 +297,8 @@ describe('New project form', () => {
 		expect(help.textContent).toBe('Shown in the link. Optional.');
 
 		const buttons = all.filter(e => e.tagName === 'button');
-		expect(buttons.map(b => b.textContent)).toEqual(['Cancel', 'Create project']);
-		expect(button('Create project').cls).toBe('mod-cta');
+		expect(buttons.map(b => b.textContent)).toEqual(['Cancel', 'Create']);
+		expect(button('Create').cls).toBe('mod-cta');
 		const footer = modal.contentEl.children.at(-1);
 		expect(footer.cls).toBe('modal-button-container');
 		expect(footer.children).toEqual(buttons);
@@ -308,7 +309,7 @@ describe('New project form', () => {
 		const { answer, button, name, alias } = openForm();
 		name.value = ' Website Relaunch ';
 		alias.value = ' relaunch ';
-		button('Create project').dispatchEvent({ type: 'click' });
+		button('Create').dispatchEvent({ type: 'click' });
 		expect(await answer).toEqual({ name: 'Website Relaunch', alias: 'relaunch' });
 	});
 
@@ -319,7 +320,7 @@ describe('New project form', () => {
 				const { answer, button, name, alias } = openForm();
 				name.value = 'Website Relaunch';
 				alias.value = 'relaunch';
-				button('Create project').dispatchEvent({ type: 'click' });
+				button('Create').dispatchEvent({ type: 'click' });
 				return answer;
 			},
 		});
@@ -377,7 +378,7 @@ describe('New project form', () => {
 		const { modal, answer, button, error, name } = openForm();
 		expect(error.textContent).toBe('');
 		name.value = '   ';
-		button('Create project').dispatchEvent({ type: 'click' });
+		button('Create').dispatchEvent({ type: 'click' });
 
 		expect((modal as any).isOpen).toBe(true);
 		expect(error.textContent).toBe('Enter a project name.');
@@ -409,10 +410,10 @@ describe('New project form', () => {
 			prompt: () => {
 				const form = openForm();
 				form.name.value = 'A/B';
-				form.button('Create project').dispatchEvent({ type: 'click' });
+				form.button('Create').dispatchEvent({ type: 'click' });
 				seen = { open: (form.modal as any).isOpen, error: form.error.textContent };
 				typeInto(form.name, 'AB');
-				form.button('Create project').dispatchEvent({ type: 'click' });
+				form.button('Create').dispatchEvent({ type: 'click' });
 				return form.answer;
 			},
 		});
@@ -420,5 +421,18 @@ describe('New project form', () => {
 		expect(seen!.error).toBe("A project name can't contain: /");
 		expect([...r.contents.keys()]).toEqual(['1 Projekte/AB.md']);
 		expect(r.lines[1]).toBe('- Kickoff with design about [[AB]]');
+	});
+
+	it('F: a name already taken shows a notice and keeps the form open until it is changed', async () => {
+		notices.length = 0;
+		const form = openForm(name => name === 'Website Relaunch');
+		form.name.value = ' Website Relaunch ';
+		form.alias.value = 'relaunch';
+		form.alias.dispatchEvent(enter());
+		expect((form.modal as any).isOpen).toBe(true);
+		expect(notices[0]).toContain('Website Relaunch already exists');
+		typeInto(form.name, 'Website Relaunch 2');
+		form.button('Create').dispatchEvent({ type: 'click' });
+		await expect(form.answer).resolves.toEqual({ name: 'Website Relaunch 2', alias: 'relaunch' });
 	});
 });

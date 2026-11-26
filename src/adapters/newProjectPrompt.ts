@@ -1,4 +1,5 @@
-import { App, Modal } from 'obsidian';
+import { App, Modal, Notice } from 'obsidian';
+import { NOTICE_TIMEOUT_ERROR } from '../config';
 import type { NewProjectInput } from '../types';
 import { projectNameProblem } from '../utils/newProject';
 
@@ -8,13 +9,14 @@ const NAME_ERROR_ID = 'bullet-flow-new-project-name-error';
 
 /**
  * Asks for a new project's full name and alias in a stacked form: each field
- * has its label above it, and Cancel / Create project buttons close the form.
+ * has its label above it, and Cancel / Create buttons close the form.
  *
  * `ask()` resolves with the trimmed fields when the form is submitted (the
- * Create project button, or Enter in either field) with a usable full name,
+ * Create button, or Enter in either field) with a usable full name,
  * or null when it is dismissed (Cancel, Escape or clicking away). An empty
  * or filename-invalid name shows an error under the field and keeps the
- * form open.
+ * form open. A name `isTaken` reports (an existing project note) shows a
+ * notice and also keeps the form open, so the name can be changed.
  */
 export class NewProjectModal extends Modal {
 	private submitted: NewProjectInput | null = null;
@@ -22,6 +24,10 @@ export class NewProjectModal extends Modal {
 	nameInput: HTMLInputElement | null = null;
 	aliasInput: HTMLInputElement | null = null;
 	private nameError: HTMLElement | null = null;
+
+	constructor(app: App, private isTaken: (name: string) => boolean = () => false) {
+		super(app);
+	}
 
 	ask(): Promise<NewProjectInput | null> {
 		return new Promise(resolve => {
@@ -36,7 +42,7 @@ export class NewProjectModal extends Modal {
 		contentEl.addClass('bullet-flow-new-project');
 
 		const nameField = contentEl.createDiv({ cls: 'new-project-field' });
-		nameField.createEl('label', { text: 'Full name', attr: { for: NAME_ID } });
+		nameField.createEl('label', { text: 'Project name', attr: { for: NAME_ID } });
 		const nameInput = this.createInput(nameField, NAME_ID, 'Migration Initiative');
 		this.nameInput = nameInput;
 		nameInput.setAttribute('aria-describedby', NAME_ERROR_ID);
@@ -54,7 +60,7 @@ export class NewProjectModal extends Modal {
 		const buttons = contentEl.createDiv({ cls: 'modal-button-container' });
 		buttons.createEl('button', { text: 'Cancel' })
 			.addEventListener('click', () => this.close());
-		buttons.createEl('button', { cls: 'mod-cta', text: 'Create project' })
+		buttons.createEl('button', { cls: 'mod-cta', text: 'Create' })
 			.addEventListener('click', () => this.submit());
 
 		nameInput.focus();
@@ -86,6 +92,11 @@ export class NewProjectModal extends Modal {
 			this.nameInput?.focus();
 			return;
 		}
+		if (this.isTaken(name.trim())) {
+			new Notice(`New project: ${name.trim()} already exists. Choose another name.`, NOTICE_TIMEOUT_ERROR);
+			this.nameInput?.focus();
+			return;
+		}
 		this.submitted = { name: name.trim(), alias: (this.aliasInput?.value ?? '').trim() };
 		this.close();
 	}
@@ -99,6 +110,9 @@ export class NewProjectModal extends Modal {
 }
 
 /** Ask for a new project's name and alias; null when dismissed. */
-export function promptForNewProject(app: App): Promise<NewProjectInput | null> {
-	return new NewProjectModal(app).ask();
+export function promptForNewProject(
+	app: App,
+	isTaken: (name: string) => boolean
+): Promise<NewProjectInput | null> {
+	return new NewProjectModal(app, isTaken).ask();
 }

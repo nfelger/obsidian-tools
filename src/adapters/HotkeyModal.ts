@@ -1,16 +1,5 @@
 import { App, Modal } from 'obsidian';
-import type BulletFlowPlugin from '../main';
 import { HOTKEY_BINDINGS, type CommandId } from '../config';
-import { extractLog } from '../commands/extractLog';
-import { migrateTask } from '../commands/migrateTask';
-import { pushTaskDown } from '../commands/pushTaskDown';
-import { pullTaskUp } from '../commands/pullTaskUp';
-import { takeProjectTask } from '../commands/takeProjectTask';
-import { dropTaskToProject } from '../commands/dropTaskToProject';
-import { completeProjectTask } from '../commands/completeProjectTask';
-import { finishProject } from '../commands/finishProject';
-import { toggleCollectorTask } from '../commands/toggleCollectorTask';
-import { newProject } from '../commands/newProject';
 
 interface HotkeyBinding {
 	key: string;
@@ -18,32 +7,18 @@ interface HotkeyBinding {
 	command: () => void | Promise<void>;
 }
 
-type CommandFn = (plugin: BulletFlowPlugin) => void | Promise<void>;
-
-const COMMAND_REGISTRY: Record<CommandId, CommandFn> = {
-	'migrateTask': migrateTask,
-	'pushTaskDown': pushTaskDown,
-	'pullTaskUp': pullTaskUp,
-	'extractLog': extractLog,
-	'takeProjectTask': takeProjectTask,
-	'dropTaskToProject': dropTaskToProject,
-	'completeProjectTask': completeProjectTask,
-	'finishProject': finishProject,
-	'toggleCollectorTask': toggleCollectorTask,
-	'newProject': plugin => newProject(plugin),
-};
+/** What each command menu entry runs, resolved by the plugin entry point. */
+export type HotkeyCommands = Record<CommandId, () => void | Promise<void>>;
 
 export class HotkeyModal extends Modal {
-	private plugin: BulletFlowPlugin;
 	private bindings: HotkeyBinding[];
 
-	constructor(app: App, plugin: BulletFlowPlugin) {
+	constructor(app: App, commands: HotkeyCommands) {
 		super(app);
-		this.plugin = plugin;
 		this.bindings = HOTKEY_BINDINGS.map(({ key, label, commandId }) => ({
 			key,
 			label,
-			command: () => COMMAND_REGISTRY[commandId](this.plugin),
+			command: () => commands[commandId](),
 		}));
 	}
 

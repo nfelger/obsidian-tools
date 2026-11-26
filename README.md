@@ -181,7 +181,7 @@ selection, only the task at the cursor is grouped.
 
 **Command:** `Bullet Flow: New project` (key `n` in the Bullet Flow command menu)
 
-Asks for a project's full name and a short alias, creates `<full name>.md`
+Asks for a project's name and a short alias, creates `<full name>.md`
 directly in the configured Projects folder without opening it, and inserts a
 link such as `[[Migration Initiative|migration]]` where your cursor was (or in
 place of the selected text), so you keep typing in the same note.
@@ -191,10 +191,10 @@ place of the selected text), so you keep typing in the same note.
   above it), the new note gets it, applied once. Otherwise the note starts empty.
 - The alias is added to the note's `aliases` frontmatter list, keeping anything
   the template put there. A blank alias gives a plain `[[Full name]]` link.
-- An existing project note is left untouched; the link is inserted and a notice
-  says it already existed.
-- The form stacks a labelled **Full name** field (focused) above an optional
-  **Alias** field. Click **Create project** or press Enter in either field to
+- If a project note with that name already exists, a notice says so and the
+  form stays open so you can change the name; nothing is created or linked.
+- The form stacks a labelled **Project name** field (focused) above an optional
+  **Alias** field. Click **Create** or press Enter in either field to
   submit; **Cancel** or Escape closes it without creating anything.
 - An empty name, or one with `/ \ : * ? " < > |`, shows a message under the
   name field and keeps the form open; the message clears as you edit.

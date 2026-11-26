@@ -46,14 +46,12 @@
   "boundaries": {
     "zones": [
       { "name": "entry", "patterns": ["src/main.ts", "src/settings.ts", "src/vendor.ts"] },
-      { "name": "ui", "patterns": ["src/ui/**"] },
       { "name": "commands", "patterns": ["src/commands/**", "src/events/**"] },
       { "name": "adapters", "patterns": ["src/adapters/**"] },
       { "name": "domain", "patterns": ["src/utils/**", "src/types.ts", "src/config.ts"] }
     ],
     "rules": [
-      { "from": "entry", "allow": ["ui", "commands", "adapters", "domain"] },
-      { "from": "ui", "allow": ["commands", "domain", "entry"] },
+      { "from": "entry", "allow": ["commands", "adapters", "domain"] },
       { "from": "commands", "allow": ["adapters", "domain", "entry"] },
       { "from": "adapters", "allow": ["domain", "entry"] },
       { "from": "domain", "allow": ["domain", "entry"] }

@@ -9,11 +9,27 @@ import { completeProjectTask } from './commands/completeProjectTask';
 import { finishProject } from './commands/finishProject';
 import { toggleCollectorTask } from './commands/toggleCollectorTask';
 import { newProject } from './commands/newProject';
-import { HotkeyModal } from './ui/HotkeyModal';
+import { HotkeyModal, type HotkeyCommands } from './adapters/HotkeyModal';
 import { BulletFlowSettingTab } from './settings';
 import type { BulletFlowSettings } from './types';
 import { DEFAULT_SETTINGS, migrateSettings } from './types';
 import { createAutoMoveExtension } from './events/autoMoveCompleted';
+
+/** The command each command menu key runs, bound to the plugin. */
+export function hotkeyCommands(plugin: BulletFlowPlugin): HotkeyCommands {
+	return {
+		migrateTask: () => migrateTask(plugin),
+		pushTaskDown: () => pushTaskDown(plugin),
+		pullTaskUp: () => pullTaskUp(plugin),
+		extractLog: () => extractLog(plugin),
+		takeProjectTask: () => takeProjectTask(plugin),
+		dropTaskToProject: () => dropTaskToProject(plugin),
+		completeProjectTask: () => completeProjectTask(plugin),
+		finishProject: () => finishProject(plugin),
+		toggleCollectorTask: () => toggleCollectorTask(plugin),
+		newProject: () => newProject(plugin),
+	};
+}
 
 export default class BulletFlowPlugin extends Plugin {
 	settings: BulletFlowSettings;
@@ -112,7 +128,7 @@ export default class BulletFlowPlugin extends Plugin {
 			id: 'hotkey-modal',
 			name: 'Command menu',
 			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'b' }],
-			callback: () => new HotkeyModal(this.app, this).open()
+			callback: () => new HotkeyModal(this.app, hotkeyCommands(this)).open()
 		});
 	}
 

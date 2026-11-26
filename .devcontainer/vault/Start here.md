@@ -83,8 +83,8 @@ The command menu opens with Ctrl+Shift+B (Cmd+Shift+B on macOS).
 ### 1. Create a project and link it where you are typing
 
 1. Open [[{{dailyPath}}]]. Put the cursor at the end of the `## Log` line `- Kickoff with design about ` (after the trailing space).
-2. Open the command menu and press `n`. Expect a form titled New project with an empty, focused Full name field (no stray `n` in it).
-3. Type `Website Relaunch`, press Tab to the Alias field, type `relaunch`, and click Create project.
+2. Open the command menu and press `n`. Expect a form titled New project with an empty, focused Project name field (no stray `n` in it).
+3. Type `Website Relaunch`, press Tab to the Alias field, type `relaunch`, and click Create.
 4. Expect the line to read `- Kickoff with design about [[Website Relaunch|relaunch]]`, the daily note to stay open, and a notice `New project: created Website Relaunch.`
 5. Open `1 Projekte/Website Relaunch.md` (click the link). Expect it to hold only frontmatter with `aliases` listing `relaunch`.
 
@@ -93,24 +93,25 @@ The command menu opens with Ctrl+Shift+B (Cmd+Shift+B on macOS).
 1. In [[{{dailyPath}}]], start a new `## Log` bullet, press `n` in the command menu, type `Office Move`, leave the alias empty and press Enter.
 2. Expect `[[Office Move]]` at the cursor and an empty `1 Projekte/Office Move.md` with no `aliases`.
 
-### 3. An existing project is linked, not changed
+### 3. An existing project is not created or linked
 
 1. On a new bullet in [[{{dailyPath}}]], press `n` in the command menu, type `Preview project` with alias `preview` and press Enter.
-2. Expect `[[Preview project|preview]]` at the cursor, a notice that Preview project already exists, and [[Preview project]] unchanged.
+2. Expect a notice `New project: Preview project already exists. Choose another name.`, the form to stay open with the name still filled in, nothing inserted, and [[Preview project]] unchanged.
+3. Change the name to `Preview project 2` and press Enter. Expect `[[Preview project 2|preview]]` at the cursor and `1 Projekte/Preview project 2.md` created.
 
 ### 4. Dismissing or a bad name does nothing
 
 1. Press `n` in the command menu, then Escape. Expect no note and no link.
 2. Press `n`, type `Draft`, then click Cancel. Expect the form to close with no note and no link.
-3. Press `n` and click Create project with the full name empty. Expect "Enter a project name." under the Full name field, the field outlined as invalid and still focused, and the form to stay open.
-4. Type `Bad/Name`. Expect the message to disappear as you type. Click Create project (or press Enter). Expect "A project name can't contain: /" under the field, the form still open, no new note and no link.
-5. Change the name to `Bad Name` and click Create project. Expect `[[Bad Name]]` at the cursor and an empty `1 Projekte/Bad Name.md`.
+3. Press `n` and click Create with the full name empty. Expect "Enter a project name." under the Project name field, the field outlined as invalid and still focused, and the form to stay open.
+4. Type `Bad/Name`. Expect the message to disappear as you type. Click Create (or press Enter). Expect "A project name can't contain: /" under the field, the form still open, no new note and no link.
+5. Change the name to `Bad Name` and click Create. Expect `[[Bad Name]]` at the cursor and an empty `1 Projekte/Bad Name.md`.
 
 ### 4b. How the form looks
 
-1. Press `n` in the command menu. Expect the title New project, then a **Full name** label above its own full-width field (grey example text `Migration Initiative`), then an **Alias** label above its field (example `migration`) with the muted line "Shown in the link. Optional." beneath it.
-2. Expect **Cancel** and an accent-coloured **Create project** button at the bottom right, Create project on the right.
-3. Press Tab repeatedly. Expect focus to move Full name → Alias → Cancel → Create project. Press Escape.
+1. Press `n` in the command menu. Expect the title New project, then a **Project name** label above its own full-width field (grey example text `Migration Initiative`), then an **Alias** label above its field (example `migration`) with the muted line "Shown in the link. Optional." beneath it.
+2. Expect **Cancel** and an accent-coloured **Create** button at the bottom right, Create on the right.
+3. Press Tab repeatedly. Expect focus to move Project name → Alias → Cancel → Create. Press Escape.
 4. Please judge labels, spacing, buttons and the error text's contrast, in both light and dark themes if you use both.
 
 ### 5. The new note is a project

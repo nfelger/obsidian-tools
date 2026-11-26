@@ -24,16 +24,18 @@ obsidian-tools/
 │   │   ├── dropTaskToProject.ts
 │   │   ├── completeProjectTask.ts
 │   │   ├── finishProject.ts
-│   │   └── toggleCollectorTask.ts
+│   │   ├── toggleCollectorTask.ts
+│   │   └── newProject.ts
 │   ├── events/
 │   │   └── autoMoveCompleted.ts  # CM6 extension for auto-move (+ auto project completion)
-│   ├── ui/
-│   │   └── HotkeyModal.ts       # Leader-key hotkey modal
-│   ├── adapters/                 # Obsidian API lives here, and only here
+│   ├── adapters/                 # Obsidian API lives here, and only here (incl. UI/modals)
+│   │   ├── HotkeyModal.ts        # Leader-key command menu modal
 │   │   ├── commandSetup.ts       # Active view, editor, vault, notices
 │   │   ├── periodicNoteCreator.ts # Daily Notes / Periodic Notes plugin boundary
 │   │   ├── periodPicker.ts       # Modal asking which period a task goes to
-│   │   └── projectCompletion.ts  # Project-note side of completing a task
+│   │   ├── projectCompletion.ts  # Project-note side of completing a task
+│   │   ├── newProjectPrompt.ts   # New project form modal
+│   │   └── projectCreator.ts     # Creates project notes (folder template)
 │   └── utils/                    # Domain services & pure functions
 │       ├── taskMarker.ts         # TaskState enum + TaskMarker class
 │       ├── tasks.ts              # Task utilities; re-exports from taskMarker.ts
@@ -42,6 +44,7 @@ obsidian-tools/
 │       ├── listItems.ts          # List item operations
 │       ├── indent.ts             # Indentation utilities
 │       ├── projects.ts           # Project note detection
+│       ├── newProject.ts         # New project name, path and link text
 │       ├── collectorToggle.ts    # Grouped ↔ prefixed shape toggle
 │       ├── autoMove.ts           # Auto-move computation logic
 │       └── notices.ts            # Shared transfer-command notice text

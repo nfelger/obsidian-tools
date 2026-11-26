@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { HotkeyModal } from '../../src/ui/HotkeyModal';
+import { HotkeyModal } from '../../src/adapters/HotkeyModal';
+import { hotkeyCommands } from '../../src/main';
 import { createMockApp } from '../mocks/obsidian';
+
+// The registry lives in the plugin entry point; keep its settings tab out
+vi.mock('../../src/settings', () => ({ BulletFlowSettingTab: class {} }));
 
 // Mock the command modules
 vi.mock('../../src/commands/migrateTask', () => ({
@@ -49,7 +53,7 @@ describe('HotkeyModal', () => {
 			app: mockApp,
 			settings: {}
 		};
-		modal = new HotkeyModal(mockApp as any, mockPlugin);
+		modal = new HotkeyModal(mockApp as any, hotkeyCommands(mockPlugin));
 	});
 
 	describe('bindings', () => {
